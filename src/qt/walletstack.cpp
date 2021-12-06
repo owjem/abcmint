@@ -1,12 +1,12 @@
 /*
- * Qt4 abcmint GUI.
+ * Qt4 bitcoin GUI.
  *
  * W.J. van der Laan 2011-2012
  * The Bitcoin Developers 2011-2013
  */
 #include "walletstack.h"
 #include "walletview.h"
-#include "abcmintgui.h"
+#include "bitcoingui.h"
 
 #include <QMap>
 #include <QMessageBox>
@@ -30,7 +30,7 @@ bool WalletStack::addWallet(const QString& name, WalletModel *walletModel)
         return false;
 
     WalletView *walletView = new WalletView(this, gui);
-    walletView->setAbcmintGUI(gui);
+    walletView->setBitcoinGUI(gui);
     walletView->setClientModel(clientModel);
     walletView->setWalletModel(walletModel);
     walletView->showOutOfSyncWarning(bOutOfSync);

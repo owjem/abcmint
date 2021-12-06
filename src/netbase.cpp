@@ -1,7 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "netbase.h"
 #include "util.h"
@@ -26,9 +26,6 @@ int nConnectTimeout = 5000;
 bool fNameLookup = false;
 
 static const unsigned char pchIPv4[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff };
-static const unsigned char pchOnionCat[] = {0xFD,0x87,0xD8,0x7E,0xEB,0x43};
-// 0xFD + sha256("abcmint")[0:5]
-static const unsigned char g_internal_prefix[] = { 0xFD, 0x96, 0xA1, 0xB6, 0x77, 0x5E };
 
 enum Network ParseNetwork(std::string net) {
     boost::to_lower(net);
@@ -561,13 +558,16 @@ void CNetAddr::SetIP(const CNetAddr& ipIn)
     memcpy(ip, ipIn.ip, sizeof(ip));
 }
 
+static const unsigned char pchOnionCat[] = {0xFD,0x87,0xD8,0x7E,0xEB,0x43};
+// 0xFD + sha256("bitcoin")[0:5]
+static const unsigned char g_internal_prefix[] = {0xFD,0x96,0xA1,0xB6,0x77,0x5E};
 bool CNetAddr::SetInternal(const std::string &name)
 {
     if (name.empty()) {
         return false;
     }
     unsigned char hash[32] = {};
-	pqcSha256((const unsigned char*)name.data(), name.size(),hash);
+	SHA256((const unsigned char*)name.data(), name.size(),hash);
     memcpy(ip, g_internal_prefix, sizeof(g_internal_prefix));
     memcpy(ip + sizeof(g_internal_prefix), hash, sizeof(ip) - sizeof(g_internal_prefix));
     return true;

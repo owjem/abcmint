@@ -1,9 +1,9 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
+// Copyright (c) 2018 The Bitcoin developers
 
-#ifndef ABCMINT_MAIN_H
-#define ABCMINT_MAIN_H
+#ifndef BITCOIN_MAIN_H
+#define BITCOIN_MAIN_H
 
 #include "sync.h"
 #include "net.h"
@@ -143,7 +143,10 @@ bool VerifyDB();
 void PrintBlockTree();
 /** Find a block by height in the currently-connected chain */
 CBlockIndex* FindBlockByHeight(int nHeight);
-
+/** Process protocol messages received from a given node */
+bool ProcessMessages(CNode* pfrom);
+/** Send queued protocol messages to be sent to a give node */
+bool SendMessages(CNode* pto, bool fSendTrickle);
 /** Run an instance of the script checking thread */
 void ThreadScriptCheck();
 
@@ -162,6 +165,15 @@ bool ConnectBestBlock(CValidationState &state);
 CBlockIndex * InsertBlockIndex(uint256 hash);
 /** Abort with a message */
 bool AbortNode(const std::string &msg);
+
+
+
+
+
+
+
+
+
 
 bool GetWalletFile(CWallet* pwallet, std::string &strWalletFileOut);
 
@@ -217,6 +229,7 @@ struct CDiskTxPos : public CDiskBlockPos
         nTxOffset = 0;
     }
 };
+
 
 /** An inpoint - a combination of a transaction and an index n into its vin */
 class CInPoint
@@ -557,7 +570,7 @@ public:
      */
     unsigned int GetP2SHSigOpCount(CCoinsViewCache& mapInputs) const;
 
-    /** Amount of abcmints spent by this transaction.
+    /** Amount of bitcoins spent by this transaction.
         @return sum of all outputs (note: does not include fees)
      */
     int64 GetValueOut() const
@@ -572,7 +585,7 @@ public:
         return nValueOut;
     }
 
-    /** Amount of abcmints coming in to this transaction
+    /** Amount of bitcoins coming in to this transaction
         Note that lightweight clients may not know anything besides the hash of previous transactions,
         so may not be able to calculate this.
 

@@ -1,10 +1,11 @@
-// Copyright (c) 2018 The Abcmint developers
+// Copyright (c) 2018 The Bitcoin developers
 
 
 #include "init.h"
 #include "miner.h"
 #include "wallet.h"
 
+#include <openssl/sha.h>
 
 using namespace std;
 using namespace boost;
@@ -1322,14 +1323,14 @@ const int64 blockValue[45] = {250000000,5,10,20,40,40,40,40,40,40,40,160,160,160
 
 int64 GetBlockValue(int nHeight, int64 nFees) {
     int64 nSubsidy = 0;
-	
+
 	/** the first year **/
-	
+
 	//the first 30 days
 	if (0 < nHeight && nHeight <= 30*144) {
         nSubsidy = (blockValue[0]);
 		return nSubsidy + nFees ;
-	} 
+	}
 
 	// next 31 days
 	if (30*144 < nHeight && nHeight <= 61*144) {
@@ -1557,7 +1558,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
             return pindexLast->nBits;
         }
 	}
-	
+
     // Go back by what we want to be 14 days worth of blocks
     const CBlockIndex* pindexFirst = pindexLast;
 	if (pindexLast->nHeight < 22176) {
@@ -1644,11 +1645,11 @@ static void  NewGenCoeffMatrix(uint256 hash, unsigned int nBits, std::vector<uin
     unsigned int count = 0, i, j ,k;
     uint8_t g[nTerms];
     std::bitset<256> bits;
-    pqcSha256(hash.begin(),32,in);
+    SHA256(hash.begin(),32,in);
 	for (i = 0; i < mEquations ; i++) {
 	    count = 0;
 		do {
-            pqcSha256(in,32,out);
+            SHA256(in,32,out);
             Uint256ToBits(out, bits);
             for (k = 0; k < 256; k++) {
                 if(count < nTerms) {
@@ -1676,10 +1677,10 @@ static void  GenCoeffMatrix(uint256 hash, unsigned int nBits, std::vector<uint8_
     unsigned int count = 0, i, j ,k;
     uint8_t g[nTerms];
     std::bitset<256> bits;
-    pqcSha256(hash.begin(),32,in);
+    SHA256(hash.begin(),32,in);
 
     do {
-         pqcSha256(in,32,out);
+         SHA256(in,32,out);
          Uint256ToBits(out, bits);
          for (k = 0; k < 256; k++) {
              if(count < nTerms) {
@@ -2027,7 +2028,7 @@ static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 
 		    prevblockhash = 0;
 		} else {
             prevblockhash = pindexPrev->GetBlockHash();
-		}	
+		}
         if ( CheckSolution(hash, nBits,prevblockhash, pindexPrev->nVersion,nonce))
            break;
     }
@@ -2171,20 +2172,20 @@ static const unsigned int pSHA256InitState[8] =
 
 void SHA256Transform(void* pstate, void* pinput, const void* pinit)
 {
-    Sha256 ctx;
+    SHA256_CTX ctx;
     unsigned char data[64];
 
-    sha256Init(&ctx);
+    SHA256_Init(&ctx);
 
     for (int i = 0; i < 16; i++)
         ((uint32_t*)data)[i] = ByteReverse(((uint32_t*)pinput)[i]);
 
     for (int i = 0; i < 8; i++)
-        ctx.state[i] = ((uint32_t*)pinit)[i];
+        ctx.h[i] = ((uint32_t*)pinit)[i];
 
-    sha256Process(&ctx, data, sizeof(data));
+    SHA256_Update(&ctx, data, sizeof(data));
     for (int i = 0; i < 8; i++)
-        ((uint32_t*)pstate)[i] = ctx.state[i];
+        ((uint32_t*)pstate)[i] = ctx.h[i];
 }
 
 
@@ -2261,7 +2262,7 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
         return false;
 
     //// debug print
-    printf("AbcmintMiner:\n");
+    printf("BitcoinMiner:\n");
     pblock->print();
     printf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue).c_str());
 
@@ -2271,7 +2272,7 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
         if (pblock->hashPrevBlock != hashBestChain) {
             printf("\n\n ***********hashBestChain****************** %s \n\n", hashBestChain.ToString().c_str());
             printf("\n\n ***********pblock->hashPrevBlock****************** %s \n\n", pblock->hashPrevBlock.ToString().c_str());
-            return error("AbcmintMiner : generated block is stale");
+            return error("BitcoinMiner : generated block is stale");
         }
 
         // Remove key from key pool
@@ -2286,7 +2287,7 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
         // Process this block the same as if we had received it from another node
         CValidationState state;
         if (!ProcessBlock(state, NULL, pblock))
-            return error("AbcmintMiner : ProcessBlock, block not accepted");
+            return error("BitcoinMiner : ProcessBlock, block not accepted");
     }
 
     return true;
@@ -2583,11 +2584,11 @@ void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash
     memcpy(phash1, &tmp.hash1, 64);
 }
 
-void static AbcmintMiner(CWallet *pwallet)
+void static BitcoinMiner(CWallet *pwallet)
 {
-    printf("AbcmintMiner started\n");
+    printf("BitcoinMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("abcmint-miner");
+    RenameThread("bitcoin-miner");
 
     // Each thread has its own key and counter
     CReserveKey reservekey(pwallet);
@@ -2609,7 +2610,7 @@ void static AbcmintMiner(CWallet *pwallet)
         CBlock *pblock = &pblocktemplate->block;
         IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 
-        printf("Running AbcmintMiner with %" PRIszu " transactions in block (%u bytes)\n", pblock->vtx.size(),
+        printf("Running BitcoinMiner with %" PRIszu " transactions in block (%u bytes)\n", pblock->vtx.size(),
                ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
 
 
@@ -2618,9 +2619,9 @@ void static AbcmintMiner(CWallet *pwallet)
         //
         uint256 randomNonce = 0;
         if (pblock->nBits + 8 <= 48) {
-            randomNonce = (uint64)random_uint32_t();
+            randomNonce = (uint64)GetRand(32);
         } else if ((pblock->nBits + 8 > 48) && (pblock->nBits + 8 <= 80)) {
-            randomNonce = random_uint64_t();
+            randomNonce = GetRand(64);
         } else {
             randomNonce = GetRandHash();
         }
@@ -2670,12 +2671,12 @@ void static AbcmintMiner(CWallet *pwallet)
     } }
     catch (boost::thread_interrupted)
     {
-        printf("AbcmintMiner terminated\n");
+        printf("BitcoinMiner terminated\n");
         throw;
     }
 }
 
-void GenerateAbcmints(bool fGenerate, CWallet* pwallet)
+void GenerateBitcoins(bool fGenerate, CWallet* pwallet)
 {
     static boost::thread_group* minerThreads = NULL;
 
@@ -2695,7 +2696,5 @@ void GenerateAbcmints(bool fGenerate, CWallet* pwallet)
 
     minerThreads = new boost::thread_group();
     for (int i = 0; i < nThreads; i++)
-        minerThreads->create_thread(boost::bind(&AbcmintMiner, pwallet));
+        minerThreads->create_thread(boost::bind(&BitcoinMiner, pwallet));
 }
-
-

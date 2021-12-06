@@ -1,11 +1,10 @@
 // Copyright (c) 2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
+// Copyright (c) 2018 The Bitcoin developers
 
 
-#ifndef ABCMINT_NOUI_H
-#define ABCMINT_NOUI_H
+#ifndef BITCOIN_NOUI_H
+#define BITCOIN_NOUI_H
 
 extern void noui_connect();
 
-#endif // ABCMINT_NOUI_H
-
+#endif // BITCOIN_NOUI_H

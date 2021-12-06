@@ -80,3 +80,10 @@ node_modules/
 src/abcmint
 src/abcmintd
 src/test_abcmint
+
+src/bitcoin
+src/bitcoind
+src/test_bitcoin
+
+*.qm
+*.bak

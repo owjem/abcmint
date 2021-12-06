@@ -1,7 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef __cplusplus
 # error This header can only be compiled as C++.
@@ -88,7 +88,8 @@ class CAddress : public CService
                  pthis->Init();
              if (nType & SER_DISK)
                  READWRITE(nVersion);
-             if ((nType & SER_DISK) || !(nType & SER_GETHASH))
+             if ((nType & SER_DISK) ||
+                 (nVersion >= CADDR_TIME_VERSION && !(nType & SER_GETHASH)))
                  READWRITE(nTime);
              READWRITE(nServices);
              READWRITE(*pip);

@@ -1,7 +1,9 @@
-// Copyright (c) 2018 The Abcmint developers
-
-#ifndef ABCMINT_KEY_H
-#define ABCMINT_KEY_H
+// Copyright (c) 2009-2010 Satoshi Nakamoto
+// Copyright (c) 2009-2012 The Bitcoin developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifndef BITCOIN_KEY_H
+#define BITCOIN_KEY_H
 
 #include <stdexcept>
 #include <vector>
@@ -55,7 +57,7 @@ public:
 
     std::vector<unsigned char> vchPubKey;
 
-    CPubKey() 
+    CPubKey()
     {
         vchPubKey.resize(RAINBOW_PUBLIC_KEY_SIZE);
     }
@@ -70,7 +72,7 @@ public:
             else
                 vchPubKey.resize(RAINBOW_PUBLIC_KEY_SIZE);
     }
-    
+
     //! Construct a public key using begin/end iterators to byte data.
     template <typename T>
     CPubKey(const T pbegin, const T pend)
@@ -78,23 +80,23 @@ public:
         vchPubKey.resize(RAINBOW_PUBLIC_KEY_SIZE);
         Set(pbegin, pend);
     }
-    
-    CPubKey(const CPubKey &pk) 
+
+    CPubKey(const CPubKey &pk)
     {
         vchPubKey.resize(RAINBOW_PUBLIC_KEY_SIZE);
         Set(pk.vchPubKey.data(), pk.vchPubKey.data()+RAINBOW_PUBLIC_KEY_SIZE);
     }
 
 
-    explicit CPubKey(const std::vector<unsigned char> &vchPubKeyIn) 
-    { 
+    explicit CPubKey(const std::vector<unsigned char> &vchPubKeyIn)
+    {
         vchPubKey.resize(RAINBOW_PUBLIC_KEY_SIZE);
         memcpy(vchPubKey.data(), vchPubKeyIn.data(), vchPubKey.size());
     }
     friend bool operator==(const CPubKey &a, const CPubKey &b) { return a.vchPubKey == b.vchPubKey; }
     friend bool operator!=(const CPubKey &a, const CPubKey &b) { return a.vchPubKey != b.vchPubKey; }
     friend bool operator<(const CPubKey &a, const CPubKey &b) { return a.vchPubKey < b.vchPubKey; }
-    CPubKey &operator = (const CPubKey &rhs) 
+    CPubKey &operator = (const CPubKey &rhs)
     {
         if (this == &rhs) {
             return *this;
@@ -104,8 +106,7 @@ public:
         return *this;
     }
 
-    IMPLEMENT_SERIALIZE
-    (
+    IMPLEMENT_SERIALIZE(
         READWRITE(vchPubKey);
     )
 
@@ -137,9 +138,9 @@ public:
 
 
 // secure_allocator is defined in allocators.h
-// CPrivKey is a serialized private key, with all parameters included
+// CPrivKey is a serialized private key, with all parameters included (279 bytes)
 typedef std::vector<unsigned char > CPrivKey;
-// CSecret is a serialization of just the secret parameter 
+// CSecret is a serialization of just the secret parameter (32 bytes)
 typedef std::vector<unsigned char > CSecret;
 
 class CKey
@@ -157,8 +158,9 @@ public:
 
     CKey();
     CKey(const CKey& b);
-    ~CKey(){}
+
     CKey& operator=(const CKey& b);
+    ~CKey(){}
     bool IsNull() const{return !fSet;}
     void MakeNewKey();
     bool SetPrivKey(const CPrivKey& vchPrivKey);

@@ -1,5 +1,5 @@
-#ifndef ABCMINT_PQCRYPTO_SHA512_H
-#define ABCMINT_PQCRYPTO_SHA512_H
+#ifndef BITCOIN_PQCRYPTO_SHA512_H
+#define BITCOIN_PQCRYPTO_SHA512_H
 
 
 struct Sha512 {
@@ -17,4 +17,3 @@ int pqcSha512(const unsigned char *in, unsigned long inlen, unsigned char *hash)
 
 
 #endif
-

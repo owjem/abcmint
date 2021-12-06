@@ -1,7 +1,7 @@
-Copyright (c) 2018 AbcmintCore Developers
+Copyright (c) 2009-2013 Bitcoin Developers
 
-Abcmintcoie is released under the terms of the GNU GPL v. 3 license. 
-See https://www.gnu.org/licenses/gpl-3.0.en.html for more information.
+Distributed under the MIT/X11 software license, see the accompanying
+file COPYING or http://www.opensource.org/licenses/mit-license.php.
 This product includes software developed by the OpenSSL Project for use in the [OpenSSL Toolkit](http://www.openssl.org/). This product includes
 cryptographic software written by Eric Young ([eay@cryptsoft.com](mailto:eay@cryptsoft.com)), and UPnP software written by Thomas Bernard.
 
@@ -12,9 +12,9 @@ To Build
 ---------------------
 
 	cd src/
-	make -f makefile.unix		# Headless abcmint
+	make -f makefile.unix		# Headless bitcoin
 
-See readme-qt.rst for instructions on building Abcmint-Qt, the graphical user interface.
+See readme-qt.rst for instructions on building Bitcoin-Qt, the graphical user interface.
 
 Dependencies
 ---------------------
@@ -22,7 +22,7 @@ Dependencies
  Library     Purpose           Description
  -------     -------           -----------
  libssl      SSL Support       Secure communications
- libdb       Berkeley DB       Blockchain & wallet storage
+ libdb4.8    Berkeley DB       Blockchain & wallet storage
  libboost    Boost             C++ Library
  miniupnpc   UPnP Support      Optional firewall-jumping support
 
@@ -45,11 +45,11 @@ Licenses of statically linked libraries:
  miniupnpc     New (3-clause) BSD license
 
 - Versions used in this release:
--  GCC           6.2.0
--  OpenSSL       1.1.0g
--  Berkeley DB   5.1.29
--  Boost         1.65
--  miniupnpc     2.1
+-  GCC           4.3.3
+-  OpenSSL       1.0.1c
+-  Berkeley DB   4.8.30.NC
+-  Boost         1.37
+-  miniupnpc     1.6
 
 Dependency Build Instructions: Ubuntu & Debian
 ----------------------------------------------
@@ -62,24 +62,48 @@ for Ubuntu 12.04:
 
 	sudo apt-get install libboost-all-dev
 
- db4.8 packages are available [here](https://launchpad.net/~abcmint/+archive/abcmint).
+ db4.8 packages are available [here](https://launchpad.net/~bitcoin/+archive/bitcoin).
 
- Ubuntu precise has packages for libdb5.1-dev and libdb5.1++-dev.
+ Ubuntu precise has packages for libdb5.1-dev and libdb5.1++-dev,
+ but using these will break binary wallet compatibility, and is not recommended.
+
+for other Ubuntu & Debian:
+
+	sudo apt-get install libdb4.8-dev
+	sudo apt-get install libdb4.8++-dev
+	sudo apt-get install libboost1.37-dev
+ (If using Boost 1.37, append -mt to the boost libraries in the makefile)
 
 Optional:
 
 	sudo apt-get install libminiupnpc-dev (see USE_UPNP compile flag)
 
+
+Dependency Build Instructions: Gentoo
+-------------------------------------
+
+Note: If you just want to install bitcoind on Gentoo, you can add the Bitcoin overlay and use your package manager:
+
+	layman -a bitcoin && emerge bitcoind
+	emerge -av1 --noreplace boost glib openssl sys-libs/db:4.8
+
+Take the following steps to build (no UPnP support):
+
+	cd ${BITCOIN_DIR}/src
+	make -f makefile.unix USE_UPNP= USE_IPV6=1 BDB_INCLUDE_PATH='/usr/include/db4.8'
+	strip bitcoind
+
+
 Notes
 -----
-The release is built with GCC and then "strip abcmint" to strip the debug
+The release is built with GCC and then "strip bitcoind" to strip the debug
 symbols, which reduces the executable size by about 90%.
 
 
 miniupnpc
 ---------
-	tar -xzvf miniupnpc-2.1.tar.gz
-	cd miniupnpc-2.1
+	tar -xzvf miniupnpc-1.6.tar.gz
+	cd miniupnpc-1.6
 	make
 	sudo su
 	make install
@@ -87,7 +111,7 @@ miniupnpc
 
 Berkeley DB
 -----------
-You need Berkeley DB 5.1.  If you have to build Berkeley DB yourself:
+You need Berkeley DB 4.8.  If you have to build Berkeley DB yourself:
 
 	../dist/configure --enable-cxx
 	make
@@ -104,7 +128,7 @@ If you need to build Boost yourself:
 
 Security
 --------
-To help make your abcmint installation more secure by making certain attacks impossible to
+To help make your bitcoin installation more secure by making certain attacks impossible to
 exploit even if a vulnerability is found, you can take the following measures:
 
 * Position Independent Executable
@@ -123,7 +147,7 @@ exploit even if a vulnerability is found, you can take the following measures:
 
     To test that you have built PIE executable, install scanelf, part of paxutils, and use:
 
-    	scanelf -e ./abcmint
+    	scanelf -e ./bitcoin
 
     The output should contain:
      TYPE
@@ -131,13 +155,13 @@ exploit even if a vulnerability is found, you can take the following measures:
 
 * Non-executable Stack
     If the stack is executable then trivial stack based buffer overflow exploits are possible if
-    vulnerable buffers are found. By default, abcmint should be built with a non-executable stack
+    vulnerable buffers are found. By default, bitcoin should be built with a non-executable stack
     but if one of the libraries it uses asks for an executable stack or someone makes a mistake
     and uses a compiler extension which requires an executable stack, it will silently build an
     executable without the non-executable stack protection.
 
     To verify that the stack is non-executable after compiling use:
-    `scanelf -e ./abcmint`
+    `scanelf -e ./bitcoin`
 
     the output should contain:
 	STK/REL/PTL

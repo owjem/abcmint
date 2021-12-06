@@ -1,4 +1,7 @@
 // Copyright (c) 2012 Pieter Wuille
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #include "addrman.h"
 #include "hash.h"
 
@@ -490,23 +493,17 @@ int CAddrMan::Check_()
 
 void CAddrMan::GetAddr_(std::vector<CAddress> &vAddr)
 {
-    unsigned int nNodes = ADDRMAN_GETADDR_MAX_PCT*vRandom.size()/100;
+    int nNodes = ADDRMAN_GETADDR_MAX_PCT*vRandom.size()/100;
     if (nNodes > ADDRMAN_GETADDR_MAX)
         nNodes = ADDRMAN_GETADDR_MAX;
 
     // perform a random shuffle over the first nNodes elements of vRandom (selecting from all)
-    for (unsigned int n = 0; n < vRandom.size(); n++)
+    for (int n = 0; n<nNodes; n++)
     {
-        if (vAddr.size() >= nNodes)
-            break;
-
         int nRndPos = GetRandInt(vRandom.size() - n) + n;
         SwapRandom(n, nRndPos);
         assert(mapInfo.count(vRandom[n]) == 1);
-
-        const CAddrInfo& ai = mapInfo[vRandom[n]];
-        if (!ai.IsTerrible())
-            vAddr.push_back(ai);
+        vAddr.push_back(mapInfo[vRandom[n]]);
     }
 }
 

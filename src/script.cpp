@@ -1,7 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include <boost/foreach.hpp>
 #include <boost/tuple/tuple.hpp>
 
@@ -17,13 +17,18 @@ using namespace boost;
 #include "base58.h"
 #include "init.h"
 
-
-bool CheckSig(vector<unsigned char> vchSig, vector<unsigned char> vchPubKey, CScript scriptCode,
-                  const CTransaction& txTo, unsigned int nIn, int nHashType, int flags);
+bool CheckSig(vector<unsigned char> vchSig, vector<unsigned char> vchPubKey, CScript scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, int flags);
 
 
 
 typedef vector<unsigned char> valtype;
+static const valtype vchFalse(0);
+static const valtype vchZero(0);
+static const valtype vchTrue(1, 1);
+static const CScriptNum bnZero(0);
+static const CScriptNum bnOne(1);
+static const CScriptNum bnFalse(0);
+static const CScriptNum bnTrue(1);
 static const size_t nMaxNumSize = 4;
 
 bool CastToBool(const valtype& vch)
@@ -179,8 +184,10 @@ const char* GetOpName(opcodetype opcode)
     case OP_WITHIN                 : return "OP_WITHIN";
 
     // crypto
-
+    case OP_RIPEMD160              : return "OP_RIPEMD160";
+    case OP_SHA1                   : return "OP_SHA1";
     case OP_SHA256                 : return "OP_SHA256";
+    case OP_HASH160                : return "OP_HASH160";
     case OP_HASH256                : return "OP_HASH256";
     case OP_CODESEPARATOR          : return "OP_CODESEPARATOR";
     case OP_CHECKSIG               : return "OP_CHECKSIG";
@@ -222,7 +229,11 @@ bool IsCanonicalPubKey(const valtype &vchPubKey) {
 }
 
 bool IsCanonicalSignature(const valtype &vchSig) {
-    //check length
+    // See https://bitcointalk.org/index.php?topic=8392.msg127623#msg127623
+    // A canonical signature exists of: <30> <total len> <02> <len R> <R> <02> <len S> <S> <hashtype>
+    // Where R and S are not negative (their first byte has its highest bit not set), and not
+    // excessively padded (do not start with a 0 byte, unless an otherwise negative number follows,
+    // in which case a single 0 byte is necessary and even required).
     if (vchSig.size() < 9)
         return error("Non-canonical signature: too short");
     if (vchSig.size() > RAINBOW_SIGNATURE_SIZE + 1) //signature + hashtype
@@ -251,13 +262,7 @@ bool static CheckSignatureEncoding(const valtype &vchSig, unsigned int flags) {
 bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck)
 {
 
-    static const CScriptNum bnZero(0);
-    static const CScriptNum bnOne(1);
-    static const CScriptNum bnFalse(0);
-    static const CScriptNum bnTrue(1);
-    static const valtype vchFalse(0);
-    static const valtype vchZero(0);
-    static const valtype vchTrue(1, 1);
+
 
     CScript::const_iterator pc = script.begin();
     CScript::const_iterator pend = script.end();
@@ -792,11 +797,13 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                             //only push for P2PKH, vch is the public key，don't push public key position
                             //for signature check by oneself, the transaction already has the public keys when solver
                             txTo.vPubKeys.push_back(vch);
+                            // popstack(stack);
+                            // stack.push_back(vch);
                         }
                     }
                     valtype vchHash(32);
                     if (opcode == OP_SHA256)
-                        pqcSha256(&vch[0], vch.size(), &vchHash[0]);
+                        SHA256(&vch[0], vch.size(), &vchHash[0]);
                     else if (opcode == OP_HASH256)
                     {
                         uint256 hash = Hash(vch.begin(), vch.end());
@@ -1160,7 +1167,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         // Standard tx, sender provides pubkey, receiver adds signature
         mTemplates.insert(make_pair(TX_PUBKEY, CScript() << OP_PUBKEY << OP_CHECKSIG));
 
-        // Abcmint address tx, sender provides hash of pubkey, receiver provides signature and pubkey
+        // Bitcoin address tx, sender provides hash of pubkey, receiver provides signature and pubkey
         mTemplates.insert(make_pair(TX_PUBKEYHASH, CScript() << OP_DUP << OP_HASH256 << OP_PUBKEYHASH << OP_EQUALVERIFY << OP_CHECKSIG));
 
         // Sender provides N pubkeys, receivers provides M signatures
@@ -1358,7 +1365,7 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
             scriptSigRet<<v;
         } else {
             CDiskPubKeyPos pos;
-            string address = CAbcmintAddress(keyID).ToString();
+            string address = CBitcoinAddress(keyID).ToString();
             if (!pwalletMain->GetPubKeyPos(address, pos)) {
                 scriptSigRet << vch.vchPubKey;
 

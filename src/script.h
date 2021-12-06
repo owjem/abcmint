@@ -1,9 +1,9 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
-#ifndef H_ABCMINT_SCRIPT
-#define H_ABCMINT_SCRIPT
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifndef H_BITCOIN_SCRIPT
+#define H_BITCOIN_SCRIPT
 
 #include <string>
 #include <vector>
@@ -17,6 +17,7 @@
 
 class CCoins;
 class CTransaction;
+
 static const unsigned int MAX_SCRIPT_ELEMENT_SIZE = 512*1024 ; // bytes
 
 /** Signature hash types/flags */
@@ -58,7 +59,7 @@ public:
  *  * CNoDestination: no destination set
  *  * CKeyID: TX_PUBKEYHASH destination
  *  * CScriptID: TX_SCRIPTHASH destination
- *  A CTxDestination is the internal data type encoded in a CAbcmintAddress
+ *  A CTxDestination is the internal data type encoded in a CBitcoinAddress
  */
 typedef boost::variant<CNoDestination, CKeyID, CScriptID> CTxDestination;
 
@@ -176,7 +177,10 @@ enum opcodetype
     OP_WITHIN = 0xa5,
 
     // crypto
+    OP_RIPEMD160 = 0xa6,
+    OP_SHA1 = 0xa7,
     OP_SHA256 = 0xa8,
+    OP_HASH160 = 0xa9,
     OP_HASH256 = 0xaa,
     OP_CODESEPARATOR = 0xab,
     OP_CHECKSIG = 0xac,
@@ -390,6 +394,12 @@ inline std::string StackString(const std::vector<std::vector<unsigned char> >& v
     }
     return str;
 }
+
+
+
+
+
+
 
 
 /** Serialized script, used inside transaction inputs and outputs */
@@ -651,7 +661,7 @@ public:
         return nFound;
     }
 
-    // Pre-version-0.6, Abcmint always counted CHECKMULTISIGs
+    // Pre-version-0.6, Bitcoin always counted CHECKMULTISIGs
     // as 20 sigops. With pay-to-script-hash, that changed:
     // CHECKMULTISIGs serialized in scriptSigs are
     // counted more accurately, assuming they are of the form
@@ -799,8 +809,7 @@ public:
 bool IsCanonicalPubKey(const std::vector<unsigned char> &vchPubKey);
 bool IsCanonicalSignature(const std::vector<unsigned char> &vchSig);
 
-bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, CTransaction& txTo,
-    unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck = false);
+bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck = false);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);
 int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned char> >& vSolutions);
 bool IsStandard(const CScript& scriptPubKey);
@@ -808,16 +817,12 @@ bool IsMine(const CKeyStore& keystore, const CScript& scriptPubKey);
 bool IsMine(const CKeyStore& keystore, const CTxDestination &dest);
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet);
 bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet);
-bool SignSignature(const CKeyStore& keystore, const CScript& fromPubKey, CTransaction& txTo,
-    unsigned int nIn, int nHashType=SIGHASH_ALL);
-bool SignSignature(const CKeyStore& keystore, const CTransaction& txFrom, CTransaction& txTo,
-    unsigned int nIn, int nHashType=SIGHASH_ALL);
-bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, CTransaction& txTo,
-    unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck = false);
+bool SignSignature(const CKeyStore& keystore, const CScript& fromPubKey, CTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
+bool SignSignature(const CKeyStore& keystore, const CTransaction& txFrom, CTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
+bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck = false);
 
 // Given two sets of signatures for scriptPubKey, possibly with OP_0 placeholders,
 // combine them intelligently and return the result.
 CScript CombineSignatures(CScript scriptPubKey, const CTransaction& txTo, unsigned int nIn, const CScript& scriptSig1, const CScript& scriptSig2);
-
 
 #endif

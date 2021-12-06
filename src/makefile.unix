@@ -1,5 +1,6 @@
 # Copyright (c) 2009-2010 Satoshi Nakamoto
-# Copyright (c) 2018 ABCMintCore developers
+# Distributed under the MIT/X11 software license, see the accompanying
+# file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 # :=0 --> UPnP support turned off by default at runtime
 # :=1 --> UPnP support turned on by default at runtime
@@ -29,8 +30,8 @@ LIBS = $(addprefix -L,$(BOOST_LIB_PATH) $(BDB_LIB_PATH) $(OPENSSL_LIB_PATH))
 
 
 TESTDEFS = -DTEST_DATA_DIR=$(abspath test/data)
-#STATIC = all
-LMODE = static
+
+LMODE = dynamic
 LMODE2 = dynamic
 ifdef STATIC
 	LMODE = static
@@ -61,7 +62,7 @@ ifndef USE_UPNP
 endif
 ifneq (${USE_UPNP}, -)
 	LIBS += -l miniupnpc
-	DEFS += -DMINIUPNPC_STATICLIB -DUSE_UPNP=$(USE_UPNP)
+	DEFS += -DUSE_UPNP=$(USE_UPNP)
 endif
 
 ifneq (${USE_IPV6}, -)
@@ -113,7 +114,7 @@ DEBUGFLAGS=-g
 
 # CXXFLAGS can be specified on the make command line, so we use xCXXFLAGS that only
 # adds some defaults in front. Unfortunately, CXXFLAGS=... $(CXXFLAGS) does not work.
-xCXXFLAGS=-O2 -std=c++11 -pthread -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter \
+xCXXFLAGS=-O2 -pthread -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter \
     $(DEBUGFLAGS) $(DEFS) $(HARDENING) $(CXXFLAGS)
 
 # LDFLAGS can be specified on the make command line, so we use xLDFLAGS that only
@@ -132,14 +133,14 @@ OBJS= \
     obj/key.o \
     obj/db.o \
     obj/init.o \
-	obj/idxlut.o \
+    obj/idxlut.o \
     obj/keystore.o \
     obj/main.o \
     obj/miner.o \
     obj/diskpubkeypos.o \
     obj/net.o \
     obj/protocol.o \
-    obj/abcmintrpc.o \
+    obj/bitcoinrpc.o \
     obj/rpcdump.o \
     obj/rpcnet.o \
     obj/rpcmining.o \
@@ -155,15 +156,13 @@ OBJS= \
     obj/bloom.o \
     obj/noui.o \
     obj/leveldb.o \
-    obj/txdb.o \
-    obj/base58.o \
-    obj/abcmint.o
+    obj/txdb.o
 
 
-all: abcmint
+all: bitcoind
 
-test check: test_abcmint FORCE
-	./test_abcmint
+test check: test_bitcoin FORCE
+	./test_bitcoin --log_level=all --run_test=rpc_dump_tests -- DEBUG_LOG_OUT
 
 #
 # LevelDB support
@@ -197,6 +196,7 @@ pqcrypto/%.o: pqcrypto/%.cpp
 	  rm -f $(@:%.o=%.d)
 pqcrypto/libpqcrypto.a: $(PQCOBJS)
 	ar rcs $@ $^
+
 ifneq (${USE_GPU}, 0)
 DEFS += -DUSE_GPU=$(USE_GPU)
 OBJS += obj/gpumining.o
@@ -234,40 +234,10 @@ obj/%.o: %.cpp
 	      -e '/^$$/ d' -e 's/$$/ :/' < $(@:%.o=%.d) >> $(@:%.o=%.P); \
 	  rm -f $(@:%.o=%.d)
 
-abcmint:  $(OBJS:obj/%=obj/%)
+bitcoind: $(OBJS:obj/%=obj/%)
 	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS)
 
-
-TESTOBJS := obj-test/gtest.a obj-test/gtest_main.a
-TESTOBJS += $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
-DEFS += $(addprefix -I,$(GTEST_DIR)/include)
-
-# begin google test rules
-# Flags passed to the preprocessor.
-
-USER_DIR ?= $(CURDIR)/obj-test
-GTEST_DIR ?= $(CURDIR)/gtest
-CPPFLAGS += -isystem $(GTEST_DIR)/include
-CXXFLAGS += -g -Wall -Wextra -pthread
-
-GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
-                $(GTEST_DIR)/include/gtest/internal/*.h
-
-GTEST_SRCS_ = $(GTEST_DIR)/src/*.cc $(GTEST_DIR)/src/*.h $(GTEST_HEADERS)
-
-obj-test/gtest-all.o : $(GTEST_DIR)/src/gtest-all.cc $(GTEST_SRCS_)
-	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR) $(CXXFLAGS_BASE) -c -o $@ $<
-
-obj-test/gtest_main.o : $(GTEST_DIR)/src/gtest_main.cc $(GTEST_SRCS_)
-	$(CXX) $(CPPFLAGS) -I$(GTEST_DIR) $(CXXFLAGS_BASE) -c -o $@ $<
-
-obj-test/gtest.a : obj-test/gtest-all.o
-	ar rcs $@ $^
-
-obj-test/gtest_main.a : obj-test/gtest-all.o obj-test/gtest_main.o
-	ar rcs $@ $^
-
-# end google test rules
+TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
 
 obj-test/%.o: test/%.cpp
 	$(CXX) -c $(TESTDEFS) $(xCXXFLAGS) -MMD -MF $(@:%.o=%.d) -o $@ $<
@@ -276,15 +246,11 @@ obj-test/%.o: test/%.cpp
 	      -e '/^$$/ d' -e 's/$$/ :/' < $(@:%.o=%.d) >> $(@:%.o=%.P); \
 	  rm -f $(@:%.o=%.d)
 
-
-test_abcmint: $(TESTOBJS) $(filter-out obj/abcmint.o,$(OBJS:obj/%=obj/%))
+test_bitcoin: $(TESTOBJS) $(filter-out obj/init.o,$(OBJS:obj/%=obj/%))
 	$(LINK) $(xCXXFLAGS) -o $@ $(LIBPATHS) $^ $(TESTLIBS) $(xLDFLAGS) $(LIBS)
 
-#test_abcmint: $(TESTOBJS) $(filter-out obj/init.o,$(OBJS:obj/%=obj/%))
-#	$(LINK) $(xCXXFLAGS) -o $@ $(LIBPATHS) $^ $(TESTLIBS) $(xLDFLAGS) $(LIBS)
-
 clean:
-	-rm -f abcmint test_abcmint
+	-rm -f bitcoind test_bitcoin
 	-rm -f obj/*.o
 	-rm -f obj-test/*.o
 	-rm -f pqcrypto/*.o
@@ -292,10 +258,6 @@ clean:
 	-rm -f obj-test/*.P
 	-rm -f pqcrypto/*.P
 	-rm -f pqcrypto/libpqcrypto.a
-	-rm -f obj-test/gtest.a
-	-rm -f obj-test/gtest_main.a
-	-rm -f obj-test/gtest-all.o
-	-rm -f obj-test/gtest_main.o
 	-rm -f obj/build.h
 	-rm -f obj/gpukernel.inc
 	-rm -f obj/libgpumining.a

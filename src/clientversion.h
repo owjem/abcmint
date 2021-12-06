@@ -5,7 +5,7 @@
 // client versioning and copyright year
 //
 
-// These need to be macros, as version.cpp's and abcmint-qt.rc's voodoo requires it
+// These need to be macros, as version.cpp's and bitcoin-qt.rc's voodoo requires it
 #define CLIENT_VERSION_MAJOR       0
 #define CLIENT_VERSION_MINOR       0
 #define CLIENT_VERSION_REVISION    0
@@ -15,6 +15,7 @@
 #define CLIENT_VERSION_IS_RELEASE  true
 
 // Copyright year (2009-this)
+// Todo: update this when changing our copyright comments in the source
 #define COPYRIGHT_YEAR 2018
 
 // Converts the parameter X to a string after macro replacement on X has been performed.

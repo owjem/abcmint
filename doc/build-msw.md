@@ -1,12 +1,12 @@
-Copyright (c) 2018 AbcmintCore Developers
+Copyright (c) 2009-2013 Bitcoin Developers
 
-Abcmintcoie is released under the terms of the GNU GPL v. 3 license.
-See https://www.gnu.org/licenses/gpl-3.0.en.html for more information.
+Distributed under the MIT/X11 software license, see the accompanying
+file COPYING or http://www.opensource.org/licenses/mit-license.php.
 This product includes software developed by the OpenSSL Project for use in the [OpenSSL Toolkit](http://www.openssl.org/). This product includes
 cryptographic software written by Eric Young ([eay@cryptsoft.com](mailto:eay@cryptsoft.com)), and UPnP software written by Thomas Bernard.
 
 
-See readme-qt.rst for instructions on building Abcmint-Qt, the
+See readme-qt.rst for instructions on building Bitcoin-Qt, the
 graphical user interface.
 
 WINDOWS BUILD NOTES
@@ -23,10 +23,10 @@ Dependencies
 Libraries you need to download separately and build:
 
                 default path               download
-OpenSSL         \openssl-1.1.0g-mgw        http://www.openssl.org/source/
-Berkeley DB     \db-5.1.29-mgw          http://www.oracle.com/technology/software/products/berkeley-db/index.html
-Boost           \boost-1.65.0-mgw          http://www.boost.org/users/download/
-miniupnpc       \miniupnpc-2.1-mgw         http://miniupnp.tuxfamily.org/files/
+OpenSSL         \openssl-1.0.1c-mgw        http://www.openssl.org/source/
+Berkeley DB     \db-4.8.30.NC-mgw          http://www.oracle.com/technology/software/products/berkeley-db/index.html
+Boost           \boost-1.50.0-mgw          http://www.boost.org/users/download/
+miniupnpc       \miniupnpc-1.6-mgw         http://miniupnp.tuxfamily.org/files/
 
 Their licenses:
 
@@ -37,10 +37,10 @@ Their licenses:
 
 Versions used in this release:
 
-	OpenSSL      1.1.0g
-	Berkeley DB  5.1.29
-	Boost        1.65.0
-	miniupnpc    2.1
+	OpenSSL      1.0.1c
+	Berkeley DB  4.8.30.NC
+	Boost        1.50.0
+	miniupnpc    1.6
 
 
 OpenSSL
@@ -50,7 +50,7 @@ MSYS shell:
 un-tar sources with MSYS 'tar xfz' to avoid issue with symlinks (OpenSSL ticket 2377)
 change 'MAKE' env. variable from 'C:\MinGW32\bin\mingw32-make.exe' to '/c/MinGW32/bin/mingw32-make.exe'
 
-	cd /c/openssl-1.1.0g-mgw
+	cd /c/openssl-1.0.1c-mgw
 	./config
 	make
 
@@ -58,7 +58,7 @@ Berkeley DB
 -----------
 MSYS shell:
 
-	cd /c/db-5.1.29-mgw/build_unix
+	cd /c/db-4.8.30.NC-mgw/build_unix
 	sh ../dist/configure --enable-mingw --enable-cxx
 	make
 
@@ -67,7 +67,7 @@ Boost
 DOS prompt:
 
 	downloaded boost jam 3.1.18
-	cd \boost-1.65.0-mgw 
+	cd \boost-1.50.0-mgw
 	bjam toolset=gcc --build-type=complete stage
 
 MiniUPnPc
@@ -76,15 +76,15 @@ UPnP support is optional, make with `USE_UPNP=` to disable it.
 
 MSYS shell:
 
-	cd /c/miniupnpc-2.1-mgw
+	cd /c/miniupnpc-1.6-mgw
 	make -f Makefile.mingw
 	mkdir miniupnpc
 	cp *.h miniupnpc/
 
-Abcmint
+Bitcoin
 -------
 DOS prompt:
 
-	cd \abcmint\src
+	cd \bitcoin\src
 	mingw32-make -f makefile.mingw
-	strip abcmint.exe
+	strip bitcoind.exe

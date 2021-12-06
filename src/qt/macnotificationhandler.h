@@ -1,8 +1,8 @@
 // Copyright (c) 2011-2013 The Bitcoin Core developers
-// Copyright (c) 2018 The Abcmint Core Developers
+// Copyright (c) 2018 The Bitcoin Core Developers
 
-#ifndef ABCMINT_QT_MACNOTIFICATIONHANDLER_H
-#define ABCMINT_QT_MACNOTIFICATIONHANDLER_H
+#ifndef BITCOIN_QT_MACNOTIFICATIONHANDLER_H
+#define BITCOIN_QT_MACNOTIFICATIONHANDLER_H
 
 #include <QObject>
 
@@ -26,4 +26,4 @@ public:
 };
 
 
-#endif // ABCMINT_QT_MACNOTIFICATIONHANDLER_H
+#endif // BITCOIN_QT_MACNOTIFICATIONHANDLER_H

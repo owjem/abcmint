@@ -1,5 +1,5 @@
 // Copyright (c) 2011-2013 The Bitcoin Core developers
-// Copyright (c) 2018 The Abcmint Core Developers
+// Copyright (c) 2018 The Bitcoin Core Developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -79,7 +79,7 @@ MacNotificationHandler *MacNotificationHandler::instance()
     static MacNotificationHandler *s_instance = NULL;
     if (!s_instance) {
         s_instance = new MacNotificationHandler();
-        
+
         Class aPossibleClass = objc_getClass("NSBundle");
         if (aPossibleClass) {
             // change NSBundle -bundleIdentifier method to return a correct bundle identifier

@@ -1,6 +1,6 @@
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
+// Copyright (c) 2009-2012 The Bitcoin Developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef __CRYPTER_H__
 #define __CRYPTER_H__
 
@@ -10,7 +10,6 @@
 
 const unsigned int WALLET_CRYPTO_KEY_SIZE = 32;
 const unsigned int WALLET_CRYPTO_SALT_SIZE = 8;
-const unsigned int WALLET_CRYPTO_IV_SIZE = 16;
 
 /*
 Private key encryption is done based on a CMasterKey,
@@ -59,7 +58,7 @@ public:
     }
 };
 
-typedef std::vector<unsigned char> CKeyingMaterial;
+typedef std::vector<unsigned char, secure_allocator<unsigned char> > CKeyingMaterial;
 
 /** Encryption/decryption context with key information */
 class CCrypter
@@ -68,7 +67,6 @@ private:
     unsigned char chKey[WALLET_CRYPTO_KEY_SIZE];
     unsigned char chIV[WALLET_CRYPTO_KEY_SIZE];
     bool fKeySet;
-    int BytesToKeySHA512AES(const std::vector<unsigned char>& chSalt, const SecureString& strKeyData, int count, unsigned char *key,unsigned char *iv) const;
 
 public:
     bool SetKeyFromPassphrase(const SecureString &strKeyData, const std::vector<unsigned char>& chSalt, const unsigned int nRounds, const unsigned int nDerivationMethod);
@@ -78,8 +76,8 @@ public:
 
     void CleanKey()
     {
-        zeromem(chKey, sizeof(chKey));
-        zeromem(chIV, sizeof(chIV));
+        OPENSSL_cleanse(chKey, sizeof(chKey));
+        OPENSSL_cleanse(chIV, sizeof(chIV));
         fKeySet = false;
     }
 

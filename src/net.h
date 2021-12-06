@@ -1,13 +1,15 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
-#ifndef ABCMINT_NET_H
-#define ABCMINT_NET_H
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifndef BITCOIN_NET_H
+#define BITCOIN_NET_H
 
 #include <deque>
 #include <boost/array.hpp>
 #include <boost/foreach.hpp>
+#include <boost/signals2/signal.hpp>
+#include <openssl/rand.h>
 
 #ifndef WIN32
 #include <arpa/inet.h>
@@ -21,14 +23,14 @@
 #include "hash.h"
 #include "bloom.h"
 
+/** The maximum number of entries in an 'inv' protocol message */
+static const unsigned int MAX_INV_SZ = 50000;
+
 class CNode;
 class CBlockIndex;
 extern int nBestHeight;
 
-struct SeedSpec6 {
-    uint8_t addr[16];
-    uint16_t port;
-};
+
 
 inline unsigned int ReceiveFloodSize() { return 1000*GetArg("-maxreceivebuffer", 5*1000); }
 inline unsigned int SendBufferSize() { return 1000*GetArg("-maxsendbuffer", 1*1000); }
@@ -46,6 +48,16 @@ bool BindListenPort(const CService &bindAddr, std::string& strError=REF(std::str
 void StartNode(boost::thread_group& threadGroup);
 bool StopNode();
 void SocketSendData(CNode *pnode);
+
+// Signals for message handling
+struct CNodeSignals
+{
+    boost::signals2::signal<bool (CNode*)> ProcessMessages;
+    boost::signals2::signal<bool (CNode*, bool)> SendMessages;
+};
+
+CNodeSignals& GetNodeSignals();
+
 
 enum
 {
@@ -100,7 +112,7 @@ public:
     int64 nTimeConnected;
     std::string addrName;
     int nVersion;
-    std::string cleanSubVer;
+    std::string strSubVer;
     bool fInbound;
     int nStartingHeight;
     int nMisbehavior;
@@ -179,11 +191,7 @@ public:
     std::string addrName;
     CService addrLocal;
     int nVersion;
-    // strSubVer is whatever byte array we read from the wire. However, this field is intended
-    // to be printed out, displayed to humans in various forms and so on. So we sanitize it and
-    // store the sanitized version in cleanSubVer. The original should be used when dealing with
-    // the network or wire types and the cleaned string used when displayed or logged.
-    std::string strSubVer, cleanSubVer;
+    std::string strSubVer;
     bool fOneShot;
     bool fClient;
     bool fInbound;
@@ -364,8 +372,7 @@ public:
             nRequestTime = it->second;
         else
             nRequestTime = 0;
-        if (fDebugNet)
-            printf("askfor %s   %"PRI64d" (%s)\n", inv.ToString().c_str(), nRequestTime, DateTimeStrFormat("%H:%M:%S", nRequestTime/1000000).c_str());
+        LogPrint("net", "askfor %s   %"PRI64d" (%s)\n", inv.ToString().c_str(), nRequestTime, DateTimeStrFormat("%H:%M:%S", nRequestTime/1000000).c_str());
 
         // Make sure not to reuse time indexes to keep things in the same order
         int64 nNow = (GetTime() - 1) * 1000000;
@@ -391,8 +398,7 @@ public:
         ENTER_CRITICAL_SECTION(cs_vSend);
         assert(ssSend.size() == 0);
         ssSend << CMessageHeader(pszCommand, 0);
-        if (fDebug)
-            printf("sending: %s ", pszCommand);
+        LogPrint("net", "sending: %s ", pszCommand);
     }
 
     // TODO: Document the precondition of this function.  Is cs_vSend locked?
@@ -402,8 +408,7 @@ public:
 
         LEAVE_CRITICAL_SECTION(cs_vSend);
 
-        if (fDebug)
-            printf("(aborted)\n");
+        LogPrint("net", "(aborted)\n");
     }
 
     // TODO: Document the precondition of this function.  Is cs_vSend locked?
@@ -411,7 +416,7 @@ public:
     {
         if (mapArgs.count("-dropmessagestest") && GetRand(atoi(mapArgs["-dropmessagestest"])) == 0)
         {
-            printf("dropmessages DROPPING SEND MESSAGE\n");
+            LogPrint("net", "dropmessages DROPPING SEND MESSAGE\n");
             AbortMessage();
             return;
         }
@@ -430,9 +435,10 @@ public:
         assert(ssSend.size () >= CMessageHeader::CHECKSUM_OFFSET + sizeof(nChecksum));
         memcpy((char*)&ssSend[CMessageHeader::CHECKSUM_OFFSET], &nChecksum, sizeof(nChecksum));
 
-        if (fDebug) {
-            printf("(%d bytes)\n", nSize);
-        }
+		LogPrint("net", "(%d bytes)\n", nSize);
+
+        LogPrint("net", " SEND %s %s \n", addrName.c_str(), HexStr(ssSend.begin(),ssSend.end()).c_str());
+
 
         std::deque<CSerializeData>::iterator it = vSendMsg.insert(vSendMsg.end(), CSerializeData());
         ssSend.GetAndClear(*it);
@@ -606,7 +612,6 @@ public:
         }
     }
 
-    void PushGetBlocks(CBlockIndex* pindexBegin, uint256 hashEnd);
     bool IsSubscribed(unsigned int nChannel);
     void Subscribe(unsigned int nChannel, unsigned int nHops=0);
     void CancelSubscribe(unsigned int nChannel);
@@ -635,8 +640,6 @@ public:
 };
 
 
-/** Get the number of active peers */
-int GetNumBlocksOfPeers();
 
 class CTransaction;
 void RelayTransaction(const CTransaction& tx, const uint256& hash);

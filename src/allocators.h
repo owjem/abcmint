@@ -1,15 +1,16 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
-#ifndef ABCMINT_ALLOCATORS_H
-#define ABCMINT_ALLOCATORS_H
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifndef BITCOIN_ALLOCATORS_H
+#define BITCOIN_ALLOCATORS_H
 
 #include <string.h>
 #include <string>
 #include <boost/thread/mutex.hpp>
 #include <map>
-#include "pqcrypto/pqcrypto.h"
+#include <openssl/crypto.h> // for OPENSSL_cleanse()
+
 #ifdef WIN32
 #ifdef _WIN32_WINNT
 #undef _WIN32_WINNT
@@ -176,6 +177,19 @@ private:
 };
 
 //
+// Functions for directly locking/unlocking memory objects.
+// Intended for non-dynamically allocated structures.
+//
+template<typename T> void LockObject(const T &t) {
+    LockedPageManager::instance.LockRange((void*)(&t), sizeof(T));
+}
+
+template<typename T> void UnlockObject(const T &t) {
+    OPENSSL_cleanse((void*)(&t), sizeof(T));
+    LockedPageManager::instance.UnlockRange((void*)(&t), sizeof(T));
+}
+
+//
 // Allocator that locks its contents from being paged
 // out of memory and clears its contents before deletion.
 //
@@ -212,7 +226,7 @@ struct secure_allocator : public std::allocator<T>
     {
         if (p != NULL)
         {
-            zeromem(p, sizeof(T) * n);
+            OPENSSL_cleanse(p, sizeof(T) * n);
             LockedPageManager::instance.UnlockRange(p, sizeof(T) * n);
         }
         std::allocator<T>::deallocate(p, n);
@@ -246,7 +260,7 @@ struct zero_after_free_allocator : public std::allocator<T>
     void deallocate(T* p, std::size_t n)
     {
         if (p != NULL)
-            zeromem(p, sizeof(T) * n);
+            OPENSSL_cleanse(p, sizeof(T) * n);
         std::allocator<T>::deallocate(p, n);
     }
 };

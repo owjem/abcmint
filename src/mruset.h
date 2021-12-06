@@ -1,8 +1,8 @@
 // Copyright (c) 2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
-#ifndef ABCMINT_MRUSET_H
-#define ABCMINT_MRUSET_H
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifndef BITCOIN_MRUSET_H
+#define BITCOIN_MRUSET_H
 
 #include <set>
 #include <deque>

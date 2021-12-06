@@ -1,82 +1,112 @@
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.P
+*.tar.gz
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
+*.exe
+src/bitcoin
+src/bitcoind
+src/bitcoin-cli
+src/bitcoin-tx
+src/test/test_bitcoin
+src/qt/test/test_bitcoin-qt
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
+# autoreconf
+Makefile.in
+aclocal.m4
+autom4te.cache/
+build-aux/config.guess
+build-aux/config.sub
+build-aux/depcomp
+build-aux/install-sh
+build-aux/ltmain.sh
+build-aux/m4/libtool.m4
+build-aux/m4/lt~obsolete.m4
+build-aux/m4/ltoptions.m4
+build-aux/m4/ltsugar.m4
+build-aux/m4/ltversion.m4
+build-aux/missing
+build-aux/compile
+build-aux/test-driver
+config.log
+config.status
+configure
+libtool
 
-# VS stuff
-build
-ipch
-*.sdf
-*.opensdf
-*.suo
-*.vcxproj
-*.vcxproj.filters
-*.sln
+src/Makefile.in
+src/config/bitcoin-config.h
+src/config/bitcoin-config.h.in
+src/qt/Makefile.in
+src/config/stamp-h1
+share/setup.nsi
+share/qt/Info.plist
+src/qt/*.moc
+src/qt/moc_*.cpp
+src/qt/forms/ui_*.h
 
-# VIM stuff
-*.swp
-
-# Xcode stuff
-build_xc
-
-*.user
-*.user.*
-*~
-
-# build system
-build.*/
-extdep/install
-extdep/download
-/cmake-build-*/
-build/
-
+src/qt/test/moc*.cpp
+.deps
+.dirstamp
+.libs
+.*.swp
+*.*~*
+*.bak
+*.rej
+*.orig
 *.pyc
+*.o
+*.o-*
+*.patch
+.bitcoin
+*.a
+*.pb.cc
+*.pb.h
 
-# MacOS Development
+*.log
+*.trs
+*.dmg
+
+*.json.h
+*.raw.h
+
+#libtool object files
+*.lo
+*.la
+
+# Compilation and Qt preprocessor part
+*.qm
+Makefile
+bitcoin-qt
+Bitcoin-Qt.app
+
+# Unit-tests
+Makefile.test
+bitcoin-qt_test
+src/test/buildenv.py
+
+# Resources cpp
+qrc_*.cpp
+
+# Qt creator
+*.pro.user
+
+# Mac specific
 .DS_Store
-# CocoaPods
-Pods/
-Podfile.lock
-# Xcode
-.DS_Store
-build/
-*.pbxuser
-!default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-!default.perspectivev3
-*.xcworkspace
-!default.xcworkspace
-xcuserdata
-*.xcuserstate
-profile
-*.moved-aside
-DerivedData
-project.pbxproj
+build
 
-# JetBrains stuff
-.idea/
+#lcov
+*.gcno
+/*.info
+test_bitcoin.coverage/
+total.coverage/
+coverage_percent.txt
 
-doc/html
-*.autosave
-node_modules/
+#build tests
+linux-coverage-build
+linux-build
+win32-build
+qa/pull-tester/run-bitcoind-for-test.sh
+qa/pull-tester/tests-config.sh
+qa/pull-tester/cache/*
+qa/pull-tester/test.*/*
 
-# vscode
-.vscode/
+!src/leveldb*/Makefile
 
-src/abcmint
-src/abcmintd
-src/test_abcmint
+/doc/doxygen/

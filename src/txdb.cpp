@@ -1,11 +1,12 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "txdb.h"
 #include "main.h"
 #include "hash.h"
+#include "chainparams.h"
 
 using namespace std;
 
@@ -23,8 +24,8 @@ void static BatchWriteHashBestChain(CLevelDBBatch &batch, const uint256 &hash) {
 CCoinsViewDB::CCoinsViewDB(size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / "chainstate", nCacheSize, fMemory, fWipe) {
 }
 
-bool CCoinsViewDB::GetCoins(const uint256 &txid, CCoins &coins) { 
-    return db.Read(make_pair('c', txid), coins); 
+bool CCoinsViewDB::GetCoins(const uint256 &txid, CCoins &coins) {
+    return db.Read(make_pair('c', txid), coins);
 }
 
 bool CCoinsViewDB::SetCoins(const uint256 &txid, const CCoins &coins) {
@@ -34,7 +35,7 @@ bool CCoinsViewDB::SetCoins(const uint256 &txid, const CCoins &coins) {
 }
 
 bool CCoinsViewDB::HaveCoins(const uint256 &txid) {
-    return db.Exists(make_pair('c', txid)); 
+    return db.Exists(make_pair('c', txid));
 }
 
 CBlockIndex *CCoinsViewDB::GetBestBlock() {
@@ -49,12 +50,12 @@ CBlockIndex *CCoinsViewDB::GetBestBlock() {
 
 bool CCoinsViewDB::SetBestBlock(CBlockIndex *pindex) {
     CLevelDBBatch batch;
-    BatchWriteHashBestChain(batch, pindex->GetBlockHash()); 
+    BatchWriteHashBestChain(batch, pindex->GetBlockHash());
     return db.WriteBatch(batch);
 }
 
 bool CCoinsViewDB::BatchWrite(const std::map<uint256, CCoins> &mapCoins, CBlockIndex *pindex) {
-    printf("Committing %u changed transactions to coin database...\n", (unsigned int)mapCoins.size());
+    LogPrint("coindb", "Committing %u changed transactions to coin database...\n", (unsigned int)mapCoins.size());
 
     CLevelDBBatch batch;
     for (std::map<uint256, CCoins>::const_iterator it = mapCoins.begin(); it != mapCoins.end(); it++)
@@ -135,7 +136,7 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) {
                 ssKey >> txhash;
                 ss << txhash;
                 ss << VARINT(coins.nVersion);
-                ss << (coins.fCoinBase ? 'c' : 'n'); 
+                ss << (coins.fCoinBase ? 'c' : 'n');
                 ss << VARINT(coins.nHeight);
                 stats.nTransactions++;
                 for (unsigned int i=0; i<coins.vout.size(); i++) {
@@ -210,11 +211,11 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 // Construct block index object
                 CBlockIndex* pindexNew = InsertBlockIndex(diskindex.GetBlockHash());
                 pindexNew->pprev          = InsertBlockIndex(diskindex.hashPrev);
-                if (pindexNew->nHeight != 0) {
-                    assert(pindexNew->nHeight == diskindex.nHeight);
-                } else {
+                // if (pindexNew->nHeight != 0) {
+                //     assert(pindexNew->nHeight == diskindex.nHeight);
+                // } else {
                     pindexNew->nHeight    = diskindex.nHeight;
-                }
+                // }
                 pindexNew->nFile          = diskindex.nFile;
                 pindexNew->nDataPos       = diskindex.nDataPos;
                 pindexNew->nUndoPos       = diskindex.nUndoPos;
@@ -225,12 +226,12 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nNonce         = diskindex.nNonce;
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
-                if (pindexNew->nHeight > 0 && pindexNew->pprev->nHeight == 0) {
-                    pindexNew->pprev->nHeight = diskindex.nHeight - 1;
-                }
+                // if (pindexNew->nHeight > 0 && pindexNew->pprev->nHeight == 0) {
+                //     pindexNew->pprev->nHeight = diskindex.nHeight - 1;
+                // }
 
                 // Watch for genesis block
-                if (pindexGenesisBlock == NULL && diskindex.GetBlockHash() == hashGenesisBlock)
+                if (pindexGenesisBlock == NULL && diskindex.GetBlockHash() == Params().HashGenesisBlock())
                     pindexGenesisBlock = pindexNew;
 
                 if (!pindexNew->CheckIndex())

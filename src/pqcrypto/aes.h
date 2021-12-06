@@ -1,8 +1,8 @@
 // Copyright (c) 2015-2016 The Bitcoin Core developers
 // C++ wrapper around ctaes, a constant-time AES implementation
 
-#ifndef ABCMINT_CRYPTO_AES_H
-#define ABCMINT_CRYPTO_AES_H
+#ifndef BITCOIN_CRYPTO_AES_H
+#define BITCOIN_CRYPTO_AES_H
 
 #include "ctaes.h"
 
@@ -110,4 +110,4 @@ private:
     unsigned char iv[AES_BLOCKSIZE];
 };
 
-#endif // ABCMINT_CRYPTO_AES_H
+#endif // BITCOIN_CRYPTO_AES_H

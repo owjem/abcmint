@@ -1,5 +1,5 @@
 /*
- * Qt4 abcmint GUI.
+ * Qt4 bitcoin GUI.
  *
  * W.J. van der Laan 2011-2012
  * The Bitcoin Developers 2011-2013
@@ -9,7 +9,7 @@
 
 #include <QFrame>
 
-class AbcmintGUI;
+class BitcoinGUI;
 class ClientModel;
 class WalletModel;
 class WalletStack;
@@ -18,7 +18,7 @@ class WalletFrame : public QFrame
 {
     Q_OBJECT
 public:
-    explicit WalletFrame(AbcmintGUI *_gui);
+    explicit WalletFrame(BitcoinGUI *_gui);
     ~WalletFrame();
 
     void setClientModel(ClientModel *clientModel);
@@ -33,7 +33,7 @@ public:
     void showOutOfSyncWarning(bool fShow);
 
 private:
-    AbcmintGUI *gui;
+    BitcoinGUI *gui;
     ClientModel *clientModel;
     WalletStack *walletStack;
 

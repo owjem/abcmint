@@ -1,8 +1,12 @@
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifndef BITCOIN_NETBASE_H
+#define BITCOIN_NETBASE_H
 
-#ifndef ABCMINT_NETBASE_H
-#define ABCMINT_NETBASE_H
+#if defined(HAVE_CONFIG_H)
+#include "config/bitcoin-config.h"
+#endif
 
 #include <string>
 #include <vector>
@@ -43,11 +47,6 @@ class CNetAddr
         explicit CNetAddr(const std::string &strIp, bool fAllowLookup = false);
         void Init();
         void SetIP(const CNetAddr& ip);
-        /**
-          * Transform an arbitrary string into a non-routable ipv6 address.
-          * Useful for mapping resolved addresses back to their source.
-         */
-        bool SetInternal(const std::string& name);
         bool SetSpecial(const std::string &strName); // for Tor addresses
         bool IsIPv4() const;    // IPv4 mapped address (::FFFF:0:0/96, 0.0.0.0/0)
         bool IsIPv6() const;    // IPv6 address (not mapped IPv4, not Tor)
@@ -146,7 +145,6 @@ bool IsProxy(const CNetAddr &addr);
 bool SetNameProxy(CService addrProxy, int nSocksVersion = 5);
 bool HaveNameProxy();
 bool LookupHost(const char *pszName, std::vector<CNetAddr>& vIP, unsigned int nMaxSolutions = 0, bool fAllowLookup = true);
-bool LookupHost(const char *pszName, CNetAddr& addr, bool fAllowLookup);
 bool LookupHostNumeric(const char *pszName, std::vector<CNetAddr>& vIP, unsigned int nMaxSolutions = 0);
 bool Lookup(const char *pszName, CService& addr, int portDefault = 0, bool fAllowLookup = true);
 bool Lookup(const char *pszName, std::vector<CService>& vAddr, int portDefault = 0, bool fAllowLookup = true, unsigned int nMaxSolutions = 0);

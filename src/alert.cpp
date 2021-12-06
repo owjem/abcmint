@@ -48,8 +48,8 @@ std::string CUnsignedAlert::ToString() const
     return strprintf(
         "CAlert(\n"
         "    nVersion     = %d\n"
-        "    nRelayUntil  = %" PRI64d "\n"
-        "    nExpiration  = %" PRI64d "\n"
+        "    nRelayUntil  = %"PRI64d"\n"
+        "    nExpiration  = %"PRI64d"\n"
         "    nID          = %d\n"
         "    nCancel      = %d\n"
         "    setCancel    = %s\n"
@@ -76,7 +76,7 @@ std::string CUnsignedAlert::ToString() const
 
 void CUnsignedAlert::print() const
 {
-    printf("%s", ToString().c_str());
+    LogPrintf("%s", ToString().c_str());
 }
 
 void CAlert::SetNull()
@@ -203,13 +203,13 @@ bool CAlert::ProcessAlert(bool fThread)
             const CAlert& alert = (*mi).second;
             if (Cancels(alert))
             {
-                printf("cancelling alert %d\n", alert.nID);
+                LogPrint("alert", "cancelling alert %d\n", alert.nID);
                 uiInterface.NotifyAlertChanged((*mi).first, CT_DELETED);
                 mapAlerts.erase(mi++);
             }
             else if (!alert.IsInEffect())
             {
-                printf("expiring alert %d\n", alert.nID);
+                LogPrint("alert", "expiring alert %d\n", alert.nID);
                 uiInterface.NotifyAlertChanged((*mi).first, CT_DELETED);
                 mapAlerts.erase(mi++);
             }
@@ -223,7 +223,7 @@ bool CAlert::ProcessAlert(bool fThread)
             const CAlert& alert = item.second;
             if (alert.Cancels(*this))
             {
-                printf("alert already cancelled by %d\n", alert.nID);
+                LogPrint("alert", "alert already cancelled by %d\n", alert.nID);
                 return false;
             }
         }
@@ -241,7 +241,15 @@ bool CAlert::ProcessAlert(bool fThread)
                 // be safe we first strip anything not in safeChars, then add single quotes around
                 // the whole string before passing it to the shell:
                 std::string singleQuote("'");
-                std::string safeStatus = SanitizeString(strStatusBar);
+                // safeChars chosen to allow simple messages/URLs/email addresses, but avoid anything
+                // even possibly remotely dangerous like & or >
+                std::string safeChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@");
+                std::string safeStatus;
+                for (std::string::size_type i = 0; i < strStatusBar.size(); i++)
+                {
+                    if (safeChars.find(strStatusBar[i]) != std::string::npos)
+                        safeStatus.push_back(strStatusBar[i]);
+                }
                 safeStatus = singleQuote+safeStatus+singleQuote;
                 boost::replace_all(strCmd, "%s", safeStatus);
 
@@ -253,6 +261,6 @@ bool CAlert::ProcessAlert(bool fThread)
         }
     }
 
-    printf("accepted alert %d, AppliesToMe()=%d\n", nID, AppliesToMe());
+    LogPrint("alert", "accepted alert %d, AppliesToMe()=%d\n", nID, AppliesToMe());
     return true;
 }

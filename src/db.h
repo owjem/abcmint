@@ -1,26 +1,26 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifndef BITCOIN_DB_H
+#define BITCOIN_DB_H
 
-#ifndef ABCMINT_DB_H
-#define ABCMINT_DB_H
-
-#include "main.h"
+#include "sync.h"
+#include "serialize.h"
 
 #include <map>
 #include <string>
 #include <vector>
 
+#include <boost/filesystem.hpp>
 #include <db_cxx.h>
 
-class CAddress;
 class CAddrMan;
 class CBlockLocator;
 class CDiskBlockIndex;
 class CMasterKey;
 class COutPoint;
 class CWallet;
-class CWalletTx;
 
 extern unsigned int nWalletDBUpdated;
 
@@ -244,7 +244,7 @@ protected:
         if (ret != 0)
             return ret;
         else if (datKey.get_data() == NULL || datValue.get_data() == NULL)
-            return DB_NOTFOUND;
+            return 99999;
 
         // Convert to streams
         ssKey.SetType(SER_DISK);
@@ -307,6 +307,12 @@ public:
 };
 
 
+
+
+
+
+
+
 /** Access to the (IP) address database (peers.dat) */
 class CAddrDB
 {
@@ -318,4 +324,4 @@ public:
     bool Read(CAddrMan& addr);
 };
 
-#endif // ABCMINT_DB_H
+#endif // BITCOIN_DB_H

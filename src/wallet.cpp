@@ -1,22 +1,47 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
+// Copyright (c) 2009-2014 The Bitcoin developers
+// Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "wallet.h"
-#include "walletdb.h"
-#include "crypter.h"
-#include "ui_interface.h"
+
 #include "base58.h"
+#include "checkpoints.h"
+#include "coincontrol.h"
+#include "net.h"
+#include "script/script.h"
+#include "script/sign.h"
+#include "timedata.h"
+#include "util.h"
+#include "utilmoneystr.h"
+
+#include <assert.h>
+
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/thread.hpp>
 
 using namespace std;
 
+/**
+ * Settings
+ */
+CFeeRate payTxFee(DEFAULT_TRANSACTION_FEE);
+CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
+unsigned int nTxConfirmTarget = 1;
+bool bSpendZeroConfChange = true;
+bool fSendFreeTransactions = false;
+bool fPayAtLeastCustomFee = true;
 
-//////////////////////////////////////////////////////////////////////////////
-//
-// mapWallet
-//
+/** 
+ * Fees smaller than this (in satoshi) are considered zero fee (for transaction creation) 
+ * Override with -mintxfee
+ */
+CFeeRate CWallet::minTxFee = CFeeRate(1000);
+
+/** @defgroup mapWallet
+ *
+ * @{
+ */
 
 struct CompareValueOnly
 {

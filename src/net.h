@@ -179,7 +179,7 @@ public:
     std::string addrName;
     CService addrLocal;
     int nVersion;
-    // strSubVer is whatever byte array we read from the wire. However, this field is intended 
+    // strSubVer is whatever byte array we read from the wire. However, this field is intended
     // to be printed out, displayed to humans in various forms and so on. So we sanitize it and
     // store the sanitized version in cleanSubVer. The original should be used when dealing with
     // the network or wire types and the cleaned string used when displayed or logged.
@@ -293,7 +293,7 @@ public:
     unsigned int GetTotalRecvSize()
     {
         unsigned int total = 0;
-        BOOST_FOREACH(const CNetMessage &msg, vRecvMsg) 
+        BOOST_FOREACH(const CNetMessage &msg, vRecvMsg)
             total += msg.vRecv.size() + 24;
         return total;
     }
@@ -432,6 +432,10 @@ public:
 
         if (fDebug) {
             printf("(%d bytes)\n", nSize);
+            // CDataStream bbbb(SER_NETWORK, MIN_PROTO_VERSION);
+            // memcpy(&bbbb, &ssSend, sizeof(ssSend));
+            std::string aaaa = HexStr(ssSend.begin(),ssSend.end());
+            printf(" SEND %s %s \n", addrName.c_str(), aaaa.c_str());
         }
 
         std::deque<CSerializeData>::iterator it = vSendMsg.insert(vSendMsg.end(), CSerializeData());

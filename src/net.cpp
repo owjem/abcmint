@@ -151,6 +151,9 @@ static std::vector<CAddress> convertSeed6(const std::vector<SeedSpec6> &vSeedsIn
         CAddress addr(CService(ip, seed_in.port));
         addr.nTime = GetTime() - GetRand(nOneWeek) - nOneWeek;
         vSeedsOut.push_back(addr);
+
+
+        printf(" =====>  convertSeed6() returned %s\n", addr.ToStringIP().c_str());
     }
     return vSeedsOut;
 }
@@ -1218,26 +1221,26 @@ void MapPort(bool)
 // The first name is used as information source for addrman.
 // The second name should resolve to a list of seed addresses.
 static const char *strMainNetDNSSeed[][2] = {
-    {"bitcoin-bohr.com", "bitcoin-bohr.com"},
-    {"bitcoin-einstein.com", "bitcoin-einstein.com"},
-    {"bitcoin-euclid.com","bitcoin-euclid.com"},
-    {"bitcoin-feynman.com", "bitcoin-feynman.com"},
-    {"bitcoin-gauss.com", "bitcoin-gauss.com"},
-    {"bitcoin-newton.com", "bitcoin-newton.com"},
-    {"bitcoin-planck.com", "bitcoin-planck.com"},
-    {"bitcoin-turing.com", "bitcoin-turing.com"},
+    {"abcmint-bohr.com", "abcmint-bohr.com"},
+    {"abcmint-einstein.com", "abcmint-einstein.com"},
+    {"abcmint-euclid.com","abcmint-euclid.com"},
+    {"abcmint-feynman.com", "abcmint-feynman.com"},
+    {"abcmint-gauss.com", "abcmint-gauss.com"},
+    {"abcmint-newton.com", "abcmint-newton.com"},
+    {"abcmint-planck.com", "abcmint-planck.com"},
+    {"abcmint-turing.com", "abcmint-turing.com"},
     {NULL, NULL}
 };
 
 static const char *strTestNetDNSSeed[][2] = {
-    {"bitcoin-bohr.com", "bitcoin-bohr.com"},
-    {"bitcoin-einstein.com", "bitcoin-einstein.com"},
-    {"bitcoin-euclid.com","bitcoin-euclid.com"},
-    {"bitcoin-feynman.com", "bitcoin-feynman.com"},
-    {"bitcoin-gauss.com", "bitcoin-gauss.com"},
-    {"bitcoin-newton.com", "bitcoin-newton.com"},
-    {"bitcoin-planck.com", "bitcoin-planck.com"},
-    {"bitcoin-turing.com", "bitcoin-turing.com"},
+    {"abcmint-bohr.com", "abcmint-bohr.com"},
+    {"abcmint-einstein.com", "abcmint-einstein.com"},
+    {"abcmint-euclid.com","abcmint-euclid.com"},
+    {"abcmint-feynman.com", "abcmint-feynman.com"},
+    {"abcmint-gauss.com", "abcmint-gauss.com"},
+    {"abcmint-newton.com", "abcmint-newton.com"},
+    {"abcmint-planck.com", "abcmint-planck.com"},
+    {"abcmint-turing.com", "abcmint-turing.com"},
     {NULL, NULL}
 };
 

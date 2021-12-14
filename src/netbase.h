@@ -43,11 +43,6 @@ class CNetAddr
         explicit CNetAddr(const std::string &strIp, bool fAllowLookup = false);
         void Init();
         void SetIP(const CNetAddr& ip);
-        /**
-          * Transform an arbitrary string into a non-routable ipv6 address.
-          * Useful for mapping resolved addresses back to their source.
-         */
-        bool SetInternal(const std::string& name);
         bool SetSpecial(const std::string &strName); // for Tor addresses
         bool IsIPv4() const;    // IPv4 mapped address (::FFFF:0:0/96, 0.0.0.0/0)
         bool IsIPv6() const;    // IPv6 address (not mapped IPv4, not Tor)

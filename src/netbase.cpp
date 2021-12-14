@@ -559,19 +559,6 @@ void CNetAddr::SetIP(const CNetAddr& ipIn)
 }
 
 static const unsigned char pchOnionCat[] = {0xFD,0x87,0xD8,0x7E,0xEB,0x43};
-// 0xFD + sha256("bitcoin")[0:5]
-static const unsigned char g_internal_prefix[] = {0xFD,0x96,0xA1,0xB6,0x77,0x5E};
-bool CNetAddr::SetInternal(const std::string &name)
-{
-    if (name.empty()) {
-        return false;
-    }
-    unsigned char hash[32] = {};
-	SHA256((const unsigned char*)name.data(), name.size(),hash);
-    memcpy(ip, g_internal_prefix, sizeof(g_internal_prefix));
-    memcpy(ip + sizeof(g_internal_prefix), hash, sizeof(ip) - sizeof(g_internal_prefix));
-    return true;
-}
 
 bool CNetAddr::SetSpecial(const std::string &strName)
 {

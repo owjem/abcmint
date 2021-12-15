@@ -10,6 +10,7 @@ using namespace boost;
 
 #include "script.h"
 #include "keystore.h"
+#include "bignum.h"
 #include "key.h"
 #include "main.h"
 #include "sync.h"
@@ -25,11 +26,20 @@ typedef vector<unsigned char> valtype;
 static const valtype vchFalse(0);
 static const valtype vchZero(0);
 static const valtype vchTrue(1, 1);
-static const CScriptNum bnZero(0);
-static const CScriptNum bnOne(1);
-static const CScriptNum bnFalse(0);
-static const CScriptNum bnTrue(1);
+static const CBigNum bnZero(0);
+static const CBigNum bnOne(1);
+static const CBigNum bnFalse(0);
+static const CBigNum bnTrue(1);
 static const size_t nMaxNumSize = 4;
+
+
+CBigNum CastToBigNum(const valtype& vch)
+{
+    if (vch.size() > nMaxNumSize)
+        throw runtime_error("CastToBigNum() : overflow");
+    // Get rid of extra leading zeros
+    return CBigNum(CBigNum(vch).getvch());
+}
 
 bool CastToBool(const valtype& vch)
 {
@@ -338,7 +348,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                 case OP_16:
                 {
                     // ( -- value)
-                    CScriptNum bn((int)opcode - (int)(OP_1 - 1));
+                    CBigNum bn((int)opcode - (int)(OP_1 - 1));
                     stack.push_back(bn.getvch());
                 }
                 break;
@@ -514,7 +524,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                 case OP_DEPTH:
                 {
                     // -- stacksize
-                    CScriptNum bn(stack.size());
+                    CBigNum bn(stack.size());
                     stack.push_back(bn.getvch());
                 }
                 break;
@@ -564,7 +574,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                     // (xn ... x2 x1 x0 n - ... x2 x1 x0 xn)
                     if (stack.size() < 2)
                         return false;
-                   int n = CScriptNum(stacktop(-1)).getint();
+                    int n = CastToBigNum(stacktop(-1)).getint();
                     popstack(stack);
                     if (n < 0 || n >= (int)stack.size())
                         return false;
@@ -612,7 +622,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                     // (in -- in size)
                     if (stack.size() < 1)
                         return false;
-                    CScriptNum bn(stacktop(-1).size());
+                    CBigNum bn(stacktop(-1).size());
                     stack.push_back(bn.getvch());
                 }
                 break;
@@ -666,7 +676,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                     // (in -- out)
                     if (stack.size() < 1)
                         return false;
-                    CScriptNum bn(stacktop(-1));
+                    CBigNum bn = CastToBigNum(stacktop(-1));
                     switch (opcode)
                     {
                     case OP_1ADD:       bn += bnOne; break;
@@ -699,10 +709,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                     // (x1 x2 -- out)
                     if (stack.size() < 2)
                         return false;
-                    CScriptNum bn1(stacktop(-2));
-                    CScriptNum bn2(stacktop(-1));
-                    CScriptNum bn(0);
-
+                    CBigNum bn1 = CastToBigNum(stacktop(-2));
+                    CBigNum bn2 = CastToBigNum(stacktop(-1));
+                    CBigNum bn;
                     switch (opcode)
                     {
                     case OP_ADD:
@@ -745,10 +754,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                     // (x min max -- out)
                     if (stack.size() < 3)
                         return false;
-                    CScriptNum bn1(stacktop(-3));
-                    CScriptNum bn2(stacktop(-2));
-                    CScriptNum bn3(stacktop(-1));
-
+                    CBigNum bn1 = CastToBigNum(stacktop(-3));
+                    CBigNum bn2 = CastToBigNum(stacktop(-2));
+                    CBigNum bn3 = CastToBigNum(stacktop(-1));
                     bool fValue = (bn2 <= bn1 && bn1 < bn3);
                     popstack(stack);
                     popstack(stack);
@@ -847,8 +855,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
 
                     bool fSuccess = (!fStrictEncodings || IsCanonicalPubKey(vchPubKey));
                     if (fSuccess)
-                        fSuccess = CheckSig(vchSig, vchPubKey, scriptCode, txTo, nIn,
-                                            nHashType, flags);
+                        fSuccess = CheckSig(vchSig, vchPubKey, scriptCode, txTo, nIn, nHashType, flags);
 
                     popstack(stack);
                     popstack(stack);
@@ -872,7 +879,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                     if ((int)stack.size() < i)
                         return false;
 
-                    int nKeysCount = CScriptNum(stacktop(-i)).getint();
+                    int nKeysCount = CastToBigNum(stacktop(-i)).getint();
                     if (nKeysCount < 0 || nKeysCount > 20)
                         return false;
                     nOpCount += nKeysCount;
@@ -883,7 +890,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                     if ((int)stack.size() < i)
                         return false;
 
-                    int nSigsCount = CScriptNum(stacktop(-i)).getint();
+                    int nSigsCount = CastToBigNum(stacktop(-i)).getint();
                     if (nSigsCount < 0 || nSigsCount > nKeysCount)
                         return false;
                     int isig = ++i;
@@ -914,8 +921,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                         // Check signature
                         bool fOk = (!fStrictEncodings || IsCanonicalPubKey(vchPubKey));
                         if (fOk)
-                            fOk = CheckSig(vchSig, vchPubKey, scriptCode, txTo, nIn,
-                                           nHashType, flags);
+                            fOk = CheckSig(vchSig, vchPubKey, scriptCode, txTo, nIn, nHashType, flags);
 
                         if (fOk) {
                             isig++;
@@ -1197,7 +1203,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         // Compare
         CScript::const_iterator pc1 = script1.begin();
         CScript::const_iterator pc2 = script2.begin();
-        while(true)
+        loop
         {
             if (pc1 == script1.end() && pc2 == script2.end())
             {
@@ -1318,7 +1324,7 @@ bool SignN(const vector<valtype>& multisigdata, const CKeyStore& keystore, uint2
 // Returns false if scriptPubKey could not be completely satisfied.
 //
 bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash, int nHashType,
-              CScript& scriptSigRet, txnouttype& whichTypeRet, vector<vector<unsigned char> >& vPubKeys)
+                  CScript& scriptSigRet, txnouttype& whichTypeRet, vector<vector<unsigned char> >& vPubKeys)
 {
     scriptSigRet.clear();
 
@@ -1552,8 +1558,8 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
     return true;
 }
 
-bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, CTransaction& txTo,
-    unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck)
+bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, CTransaction& txTo, unsigned int nIn,
+                  unsigned int flags, int nHashType, bool isSignCheck)
 {
     vector<vector<unsigned char> > stack, stackCopy;
     if (!EvalScript(stack, scriptSig, txTo, nIn, flags, nHashType, isSignCheck))
@@ -1566,6 +1572,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, CTransa
 
     if (stack.empty())
         return false;
+
     if (CastToBool(stack.back()) == false)
         return false;
 
@@ -1596,8 +1603,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, CTransa
 }
 
 
-bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CTransaction& txTo,
-                    unsigned int nIn, int nHashType)
+bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CTransaction& txTo, unsigned int nIn, int nHashType)
 {
     assert(nIn < txTo.vin.size());
     CTxIn& txin = txTo.vin[nIn];
@@ -1632,8 +1638,7 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CTransa
     return VerifyScript(txin.scriptSig, fromPubKey, txTo, nIn, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC, 0, true);
 }
 
-bool SignSignature(const CKeyStore &keystore, const CTransaction& txFrom, CTransaction& txTo,
-                      unsigned int nIn, int nHashType)
+bool SignSignature(const CKeyStore &keystore, const CTransaction& txFrom, CTransaction& txTo, unsigned int nIn, int nHashType)
 {
     assert(nIn < txTo.vin.size());
     CTxIn& txin = txTo.vin[nIn];

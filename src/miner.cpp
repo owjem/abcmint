@@ -4,6 +4,7 @@
 #include "init.h"
 #include "miner.h"
 #include "wallet.h"
+#include "bignum.h"
 
 #include <openssl/sha.h>
 
@@ -2249,7 +2250,7 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
     }
     ++nExtraNonce;
     unsigned int nHeight = pindexPrev->nHeight+1; // Height first in coinbase required for block.version=2
-    pblock->vtx[0].vin[0].scriptSig = (CScript() << nHeight << CScriptNum(nExtraNonce));
+    pblock->vtx[0].vin[0].scriptSig = (CScript() << nHeight << CBigNum(nExtraNonce));
     assert(pblock->vtx[0].vin[0].scriptSig.size() <= 200*1024);
 
     pblock->hashMerkleRoot = pblock->BuildMerkleTree();

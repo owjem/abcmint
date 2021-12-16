@@ -139,7 +139,7 @@ unsigned int ComputeMinWork(unsigned int nBase, int64 nTime);
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock);
 
-uint256 SerchSolution(uint256 hash, unsigned int nBits, uint256 randomNonce, CBlockIndex* pindexPrev);
+uint256 SerchSolution(uint256 hash, unsigned int nBits, uint256 randomNonce, CBlockIndex* pindexPrev, int deviceID, int deviceCount);
 
 bool CheckSolution(uint256 hash, unsigned int nBits, uint256 preblockhash,int nblockversion, uint256 nNonce) ;
 

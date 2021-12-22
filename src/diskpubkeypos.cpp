@@ -59,7 +59,7 @@ bool FindPubKeyPos(std::string& pubKeyIn, CDiskPubKeyPos& pubKeyPos)
                     offsetVin += GetSizeOfCompactSize(nScriptSigSize);
                     pubKeyPos.nPubKeyOffset = offset + offsetVin + found/2; // the offset in the current block, 2 hex char for one byte
                     unsigned int npubKeyLength = GetSizeOfCompactSize(pubKeyIn.length());
-                    printf("public key found: offset:%u, offsetVin:%u, found:%u, npubKeyLength:%u. \n",
+                    printf("public key found: offset:%u, offsetVin:%u, found:%lu, npubKeyLength:%u. \n",
                             offset, offsetVin, found, npubKeyLength);
                     pubKeyPos.nPubKeyOffset -= npubKeyLength;
                     return true;
@@ -71,7 +71,7 @@ bool FindPubKeyPos(std::string& pubKeyIn, CDiskPubKeyPos& pubKeyPos)
             offset += GetSerializeSize(tx, SER_DISK, CLIENT_VERSION); //CTransaction length
         }
 
-        pBlockIndex = pBlockIndex->pnext;
+        pBlockIndex = pBlockIndex->GetNextInMainChain();
     }
 
     //still no transation contain this pubkey in the block chain
@@ -87,7 +87,7 @@ bool GetPubKeyByPos(CDiskPubKeyPos pos, CPubKey& pubKey)
             bFindBlockByHeight = true;
             break;
         } else {
-            pblockindex = pblockindex->pnext;
+            pblockindex = pblockindex->GetNextInMainChain();
         }
     }
 
@@ -213,18 +213,18 @@ void PubKeyScanner(CWallet* pwalletMain)
 
                 CPubKey pubKey;
                 if (!pwalletMain->GetPubKey(*it, pubKey)) {
-                    printf("address %s not found in wallet.\n", address.c_str());
+                    // printf("address %s not found in wallet.\n", address.c_str());
                     continue;
                 }
 
                 if(!UpdatePubKeyPos(pubKey, address)) {
-                    printf("address %s update public key position is not in active chain util you create a transaction.\n", address.c_str());
+                    // printf("address %s update public key position is not in active chain util you create a transaction.\n", address.c_str());
                     allPosFound = false;
                     continue;
                 } else {
-                    std::map<CTxDestination, std::string>::iterator mi = pwalletMain->mapAddressBook.find(*it);
+                    std::map<CTxDestination, CAddressBookData>::iterator mi = pwalletMain->mapAddressBook.find(*it);
                     if (mi != pwalletMain->mapAddressBook.end())
-                        pwalletMain->NotifyAddressBookChanged(pwalletMain, *it, mi->second, true, CT_UPDATED);
+                        pwalletMain->NotifyAddressBookChanged(pwalletMain, *it, "", true, mi->second.name, CT_UPDATED);
                 }
 
             }

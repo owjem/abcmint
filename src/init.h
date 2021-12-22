@@ -7,13 +7,13 @@
 
 #include "wallet.h"
 
+extern std::string strWalletFile;
 extern CWallet* pwalletMain;
 
 void StartShutdown();
 bool ShutdownRequested();
 void Shutdown();
 bool AppInit2(boost::thread_group& threadGroup);
-bool AppInit(int argc, char* argv[]);
 std::string HelpMessage();
 
 #endif

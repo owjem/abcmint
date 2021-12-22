@@ -8,6 +8,8 @@
 #include <deque>
 #include <boost/array.hpp>
 #include <boost/foreach.hpp>
+#include <boost/signals2/signal.hpp>
+#include <openssl/rand.h>
 
 #ifndef WIN32
 #include <arpa/inet.h>
@@ -21,14 +23,14 @@
 #include "hash.h"
 #include "bloom.h"
 
+/** The maximum number of entries in an 'inv' protocol message */
+static const unsigned int MAX_INV_SZ = 50000;
+
 class CNode;
 class CBlockIndex;
 extern int nBestHeight;
 
-struct SeedSpec6 {
-    uint8_t addr[16];
-    uint16_t port;
-};
+
 
 inline unsigned int ReceiveFloodSize() { return 1000*GetArg("-maxreceivebuffer", 5*1000); }
 inline unsigned int SendBufferSize() { return 1000*GetArg("-maxsendbuffer", 1*1000); }
@@ -46,6 +48,16 @@ bool BindListenPort(const CService &bindAddr, std::string& strError=REF(std::str
 void StartNode(boost::thread_group& threadGroup);
 bool StopNode();
 void SocketSendData(CNode *pnode);
+
+// Signals for message handling
+struct CNodeSignals
+{
+    boost::signals2::signal<bool (CNode*)> ProcessMessages;
+    boost::signals2::signal<bool (CNode*, bool)> SendMessages;
+};
+
+CNodeSignals& GetNodeSignals();
+
 
 enum
 {
@@ -100,7 +112,7 @@ public:
     int64 nTimeConnected;
     std::string addrName;
     int nVersion;
-    std::string cleanSubVer;
+    std::string strSubVer;
     bool fInbound;
     int nStartingHeight;
     int nMisbehavior;
@@ -179,11 +191,7 @@ public:
     std::string addrName;
     CService addrLocal;
     int nVersion;
-    // strSubVer is whatever byte array we read from the wire. However, this field is intended
-    // to be printed out, displayed to humans in various forms and so on. So we sanitize it and
-    // store the sanitized version in cleanSubVer. The original should be used when dealing with
-    // the network or wire types and the cleaned string used when displayed or logged.
-    std::string strSubVer, cleanSubVer;
+    std::string strSubVer;
     bool fOneShot;
     bool fClient;
     bool fInbound;
@@ -365,7 +373,7 @@ public:
         else
             nRequestTime = 0;
         if (fDebugNet)
-            printf("askfor %s   %"PRI64d" (%s)\n", inv.ToString().c_str(), nRequestTime, DateTimeStrFormat("%H:%M:%S", nRequestTime/1000000).c_str());
+            printf("askfor %s   %" PRI64d" (%s)\n", inv.ToString().c_str(), nRequestTime, DateTimeStrFormat("%H:%M:%S", nRequestTime/1000000).c_str());
 
         // Make sure not to reuse time indexes to keep things in the same order
         int64 nNow = (GetTime() - 1) * 1000000;
@@ -639,8 +647,6 @@ public:
 };
 
 
-/** Get the number of active peers */
-int GetNumBlocksOfPeers();
 
 class CTransaction;
 void RelayTransaction(const CTransaction& tx, const uint256& hash);

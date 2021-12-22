@@ -15,6 +15,10 @@ bool CKeyStore::GetPubKey(const CKeyID &address, CPubKey &vchPubKeyOut) const
     return true;
 }
 
+bool CKeyStore::AddKey(const CKey &key) {
+    return AddKeyPubKey(key, key.GetPubKey());
+}
+
 bool CBasicKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
 {
     LOCK(cs_KeyStore);
@@ -22,55 +26,40 @@ bool CBasicKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
     return true;
 }
 
-bool CBasicKeyStore::AddKey(const CKey& key)
-{
-    return AddKeyPubKey(key, key.GetPubKey());
-}
 
 bool CBasicKeyStore::AddCScript(const CScript& redeemScript)
 {
-    {
-        LOCK(cs_KeyStore);
-        mapScripts[redeemScript.GetID()] = redeemScript;
-    }
+    LOCK(cs_KeyStore);
+    mapScripts[redeemScript.GetID()] = redeemScript;
     return true;
 }
 
 bool CBasicKeyStore::HaveCScript(const CScriptID& hash) const
 {
-    bool result;
-    {
-        LOCK(cs_KeyStore);
-        result = (mapScripts.count(hash) > 0);
-    }
-    return result;
+    LOCK(cs_KeyStore);
+    return mapScripts.count(hash) > 0;
 }
-
 
 bool CBasicKeyStore::GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const
 {
+    LOCK(cs_KeyStore);
+    ScriptMap::const_iterator mi = mapScripts.find(hash);
+    if (mi != mapScripts.end())
     {
-        LOCK(cs_KeyStore);
-        ScriptMap::const_iterator mi = mapScripts.find(hash);
-        if (mi != mapScripts.end())
-        {
-            redeemScriptOut = (*mi).second;
-            return true;
-        }
+        redeemScriptOut = (*mi).second;
+        return true;
     }
     return false;
 }
 
 bool CCryptoKeyStore::SetCrypted()
 {
-    {
-        LOCK(cs_KeyStore);
-        if (fUseCrypto)
-            return true;
-        if (!mapKeys.empty())
-            return false;
-        fUseCrypto = true;
-    }
+    LOCK(cs_KeyStore);
+    if (fUseCrypto)
+        return true;
+    if (!mapKeys.empty())
+        return false;
+    fUseCrypto = true;
     return true;
 }
 
@@ -123,13 +112,12 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
     return true;
 }
 
-bool CCryptoKeyStore::AddKey(const CKey& key)
+bool CCryptoKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
 {
     {
         LOCK(cs_KeyStore);
         if (!IsCrypted())
-            return CBasicKeyStore::AddKey(key);
-
+            return CBasicKeyStore::AddKeyPubKey(key, pubkey);
         if (IsLocked())
             return false;
 
@@ -138,7 +126,7 @@ bool CCryptoKeyStore::AddKey(const CKey& key)
         if (!EncryptSecret(vMasterKey, key.GetPrivKey(), vchPubKey.GetHash(), vchCryptedSecret))
             return false;
 
-        if (!AddCryptedKey(key.GetPubKey(), vchCryptedSecret))
+        if (!AddCryptedKey(pubkey, vchCryptedSecret))
             return false;
     }
     return true;

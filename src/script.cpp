@@ -2,21 +2,22 @@
 // Copyright (c) 2009-2012 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#include <boost/foreach.hpp>
-#include <boost/tuple/tuple.hpp>
-
-using namespace std;
-using namespace boost;
-
 #include "script.h"
+#include "core.h"
 #include "keystore.h"
 #include "bignum.h"
 #include "key.h"
 #include "main.h"
 #include "sync.h"
 #include "util.h"
+
+#include <boost/foreach.hpp>
+#include <boost/tuple/tuple.hpp>
 #include "base58.h"
 #include "init.h"
+
+using namespace std;
+using namespace boost;
 
 bool CheckSig(vector<unsigned char> vchSig, vector<unsigned char> vchPubKey, CScript scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, int flags);
 
@@ -269,7 +270,7 @@ bool static CheckSignatureEncoding(const valtype &vchSig, unsigned int flags) {
     return true;
 }
 
-bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck)
+bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, const CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck)
 {
 
 
@@ -777,38 +778,40 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                         return false;
                     valtype& vch = stacktop(-1);
                     CPubKey pubKey;
-                    if (vch.size() == RAINBOW_PUBLIC_KEY_REUSED_SIZE) {
-                        unsigned int cursor0 = ((unsigned char)vch[0]) & 0xff;
-                        unsigned int cursor1 = ((unsigned char)vch[1]) & 0xff;
-                        unsigned int cursor2 = ((unsigned char)vch[2]) & 0xff;
-                        unsigned int cursor3 = ((unsigned char)vch[3]) & 0xff;
-                        unsigned int index = cursor0 + (cursor1<<8) + (cursor2<<16) + (cursor3<<24);
 
-                        if (txTo.vPubKeys.size() > index) {
-                            vch = txTo.vPubKeys.at(index);
-                        } else {
-                            printf("signature can't find public key in vPubKeys, index=%u\n", index);
-                            return false;
-                        }
-                    } else {
-                        if (vch.size() == RAINBOW_PUBLIC_KEY_POS_SIZE) {
-                            CDiskPubKeyPos pos;
-                            pos << vch;
-                            if (GetPubKeyByPos(pos, pubKey)) {
-                                vch = pubKey.vchPubKey;
-                            } else {
-                                printf("signature can't find public key at height=%u, offset=%u, maybe not public key position\n",
-                                    pos.nHeight, pos.nPubKeyOffset);
-                                return false;
-                            }
-                        } else if (!isSignCheck) {
-                            //only push for P2PKH, vch is the public key，don't push public key position
-                            //for signature check by oneself, the transaction already has the public keys when solver
-                            txTo.vPubKeys.push_back(vch);
-                            // popstack(stack);
-                            // stack.push_back(vch);
-                        }
-                    }
+                    printf(" ===> vch.size() %ld ",vch.size());
+                    // if (vch.size() == RAINBOW_PUBLIC_KEY_REUSED_SIZE) {
+                    //     unsigned int cursor0 = ((unsigned char)vch[0]) & 0xff;
+                    //     unsigned int cursor1 = ((unsigned char)vch[1]) & 0xff;
+                    //     unsigned int cursor2 = ((unsigned char)vch[2]) & 0xff;
+                    //     unsigned int cursor3 = ((unsigned char)vch[3]) & 0xff;
+                    //     unsigned int index = cursor0 + (cursor1<<8) + (cursor2<<16) + (cursor3<<24);
+
+                    //     if (txTo.vPubKeys.size() > index) {
+                    //         vch = txTo.vPubKeys.at(index);
+                    //     } else {
+                    //         printf("signature can't find public key in vPubKeys, index=%u\n", index);
+                    //         return false;
+                    //     }
+                    // } else {
+                    //     if (vch.size() == RAINBOW_PUBLIC_KEY_POS_SIZE) {
+                    //         CDiskPubKeyPos pos;
+                    //         pos << vch;
+                    //         if (GetPubKeyByPos(pos, pubKey)) {
+                    //             vch = pubKey.vchPubKey;
+                    //         } else {
+                    //             printf("signature can't find public key at height=%u, offset=%u, maybe not public key position\n",
+                    //                 pos.nHeight, pos.nPubKeyOffset);
+                    //             return false;
+                    //         }
+                    //     } else if (!isSignCheck) {
+                    //         //only push for P2PKH, vch is the public key，don't push public key position
+                    //         //for signature check by oneself, the transaction already has the public keys when solver
+                    //         txTo.vPubKeys.push_back(vch);
+                    //         // popstack(stack);
+                    //         // stack.push_back(vch);
+                    //     }
+                    // }
                     valtype vchHash(32);
                     if (opcode == OP_SHA256)
                         SHA256(&vch[0], vch.size(), &vchHash[0]);
@@ -1118,18 +1121,20 @@ bool CheckSig(vector<unsigned char> vchSig, vector<unsigned char> vchPubKey, CSc
 
     CPubKey pubkey;
     if (vchPubKey.size() == RAINBOW_PUBLIC_KEY_REUSED_SIZE) {
-        unsigned int cursor0 = ((unsigned char)vchPubKey[0]) & 0xff;
-        unsigned int cursor1 = ((unsigned char)vchPubKey[1]) & 0xff;
-        unsigned int cursor2 = ((unsigned char)vchPubKey[2]) & 0xff;
-        unsigned int cursor3 = ((unsigned char)vchPubKey[3]) & 0xff;
-        unsigned int index = cursor0 + (cursor1<<8) + (cursor2<<16) + (cursor3<<24);
+        // unsigned int cursor0 = ((unsigned char)vchPubKey[0]) & 0xff;
+        // unsigned int cursor1 = ((unsigned char)vchPubKey[1]) & 0xff;
+        // unsigned int cursor2 = ((unsigned char)vchPubKey[2]) & 0xff;
+        // unsigned int cursor3 = ((unsigned char)vchPubKey[3]) & 0xff;
+        // unsigned int index = cursor0 + (cursor1<<8) + (cursor2<<16) + (cursor3<<24);
 
-        if (txTo.vPubKeys.size() > index) {
-            pubkey.vchPubKey = txTo.vPubKeys.at(index);
-        } else {
-            printf("CheckSig can't find public key in vPubKeys, index=%u\n", index);
-            return false;
-        }
+        // if (txTo.vPubKeys.size() > index) {
+        //     pubkey.vchPubKey = txTo.vPubKeys.at(index);
+        // } else {
+        //     printf("CheckSig can't find public key in vPubKeys, index=%u\n", index);
+        //     return false;
+        // }
+        printf(" ===> vchPubKey.size() == RAINBOW_PUBLIC_KEY_REUSED_SIZE=%ld \n", vchPubKey.size());
+        return false;
     } else if (vchPubKey.size() == RAINBOW_PUBLIC_KEY_POS_SIZE) {
         CDiskPubKeyPos pos;
         pos << vchPubKey;
@@ -1203,7 +1208,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         // Compare
         CScript::const_iterator pc1 = script1.begin();
         CScript::const_iterator pc2 = script2.begin();
-        loop
+        while (true)
         {
             if (pc1 == script1.end() && pc2 == script2.end())
             {
@@ -1342,46 +1347,48 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
         keyID = CPubKey(vSolutions[0]).GetID();
         return Sign1(keyID, keystore, hash, nHashType, scriptSigRet);
     case TX_PUBKEYHASH:
-        {
         keyID = CKeyID(uint256(vSolutions[0]));
-        if (!Sign1(keyID, keystore, hash, nHashType, scriptSigRet)) return false;
+        if (!Sign1(keyID, keystore, hash, nHashType, scriptSigRet))
+            return false;
+        else
+        {
 
-        CPubKey vch;
-        keystore.GetPubKey(keyID, vch);
-        unsigned int index = 0;
-        bool reused = false;
-        for (std::vector< std::vector<unsigned char> >::iterator it = vPubKeys.begin() ; it != vPubKeys.end(); ++it) {
-            const vector<unsigned char> vPubKey = *it;
-            if (vPubKey == vch.vchPubKey) {
-                reused = true;
-                break;
+            CPubKey vch;
+            keystore.GetPubKey(keyID, vch);
+            unsigned int index = 0;
+            bool reused = false;
+            for (std::vector< std::vector<unsigned char> >::iterator it = vPubKeys.begin() ; it != vPubKeys.end(); ++it) {
+                const vector<unsigned char> vPubKey = *it;
+                if (vPubKey == vch.vchPubKey) {
+                    reused = true;
+                    break;
+                }
+                index++;
             }
-            index++;
-        }
 
-        if (reused) {
-            std::vector<unsigned char> v;
-            unsigned char* ch = (unsigned char*)&index;
-            unsigned int i =0;
-            while(i < sizeof(index)) {
-                v.push_back(*ch);
-                i++;
-                ch++;
-            }
-            scriptSigRet<<v;
-        } else {
-            CDiskPubKeyPos pos;
-            string address = CBitcoinAddress(keyID).ToString();
-            if (!pwalletMain->GetPubKeyPos(address, pos)) {
-                scriptSigRet << vch.vchPubKey;
-
-                //only push for P2PKH, vch is the public key，don't push public key position
-                vPubKeys.push_back(vch.vchPubKey);
+            if (reused) {
+                std::vector<unsigned char> v;
+                unsigned char* ch = (unsigned char*)&index;
+                unsigned int i =0;
+                while(i < sizeof(index)) {
+                    v.push_back(*ch);
+                    i++;
+                    ch++;
+                }
+                scriptSigRet<<v;
             } else {
-                scriptSigRet << pos.ToVector();
+                CDiskPubKeyPos pos;
+                string address = CBitcoinAddress(keyID).ToString();
+                if (!pwalletMain->GetPubKeyPos(address, pos)) {
+                    scriptSigRet << vch.vchPubKey;
+
+                    //only push for P2PKH, vch is the public key，don't push public key position
+                    vPubKeys.push_back(vch.vchPubKey);
+                } else {
+                    scriptSigRet << pos.ToVector();
+                }
             }
-        }
-        return true;
+            return true;
         }
     case TX_SCRIPTHASH:
         return keystore.GetCScript(uint256(vSolutions[0]), scriptSigRet);
@@ -1558,7 +1565,43 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
     return true;
 }
 
-bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, CTransaction& txTo, unsigned int nIn,
+class CAffectedKeysVisitor : public boost::static_visitor<void> {
+private:
+    const CKeyStore &keystore;
+    std::vector<CKeyID> &vKeys;
+
+public:
+    CAffectedKeysVisitor(const CKeyStore &keystoreIn, std::vector<CKeyID> &vKeysIn) : keystore(keystoreIn), vKeys(vKeysIn) {}
+
+    void Process(const CScript &script) {
+        txnouttype type;
+        std::vector<CTxDestination> vDest;
+        int nRequired;
+        if (ExtractDestinations(script, type, vDest, nRequired)) {
+            BOOST_FOREACH(const CTxDestination &dest, vDest)
+                boost::apply_visitor(*this, dest);
+        }
+    }
+
+    void operator()(const CKeyID &keyId) {
+        if (keystore.HaveKey(keyId))
+            vKeys.push_back(keyId);
+    }
+
+    void operator()(const CScriptID &scriptId) {
+        CScript script;
+        if (keystore.GetCScript(scriptId, script))
+            Process(script);
+    }
+
+    void operator()(const CNoDestination &none) {}
+};
+
+void ExtractAffectedKeys(const CKeyStore &keystore, const CScript& scriptPubKey, std::vector<CKeyID> &vKeys) {
+    CAffectedKeysVisitor(keystore, vKeys).Process(scriptPubKey);
+}
+
+bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const CTransaction& txTo, unsigned int nIn,
                   unsigned int flags, int nHashType, bool isSignCheck)
 {
     vector<vector<unsigned char> > stack, stackCopy;
@@ -1612,8 +1655,11 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CTransa
     // The checksig op will also drop the signatures from its hash.
     uint256 hash = SignatureHash(fromPubKey, txTo, nIn, nHashType);
 
+
+    vector<vector<unsigned char>>  vPubKeys;
     txnouttype whichType;
-    if (!Solver(keystore, fromPubKey, hash, nHashType, txin.scriptSig, whichType, txTo.vPubKeys))
+    // if (!Solver(keystore, fromPubKey, hash, nHashType, txin.scriptSig, whichType, txTo.vPubKeys))
+    if (!Solver(keystore, fromPubKey, hash, nHashType, txin.scriptSig, whichType, vPubKeys))
         return false;
 
     if (whichType == TX_SCRIPTHASH)
@@ -1627,8 +1673,11 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CTransa
         uint256 hash2 = SignatureHash(subscript, txTo, nIn, nHashType);
 
         txnouttype subType;
+        // bool fSolved =
+        //     Solver(keystore, subscript, hash2, nHashType, txin.scriptSig, subType, txTo.vPubKeys) && subType != TX_SCRIPTHASH;
+
         bool fSolved =
-            Solver(keystore, subscript, hash2, nHashType, txin.scriptSig, subType, txTo.vPubKeys) && subType != TX_SCRIPTHASH;
+            Solver(keystore, subscript, hash2, nHashType, txin.scriptSig, subType, vPubKeys) && subType != TX_SCRIPTHASH;
         // Append serialized subscript whether or not it is completely signed:
         txin.scriptSig << static_cast<valtype>(subscript);
         if (!fSolved) return false;

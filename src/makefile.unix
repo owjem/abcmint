@@ -117,16 +117,18 @@ xLDFLAGS=$(LDHARDENING) $(LDFLAGS)
 OBJS= \
     leveldb/libleveldb.a \
     pqcrypto/libpqcrypto.a \
+    miner/libminer.a \
     obj/alert.o \
     obj/version.o \
     obj/checkpoints.o \
+    obj/chainparams.o \
+    obj/core.o \
     obj/netbase.o \
     obj/addrman.o \
     obj/crypter.o \
     obj/key.o \
     obj/db.o \
     obj/init.o \
-    obj/idxlut.o \
     obj/keystore.o \
     obj/main.o \
     obj/miner.o \
@@ -149,7 +151,8 @@ OBJS= \
     obj/bloom.o \
     obj/noui.o \
     obj/leveldb.o \
-    obj/txdb.o
+    obj/txdb.o \
+    obj/bitcoind.o
 
 
 all: bitcoind
@@ -190,6 +193,24 @@ pqcrypto/%.o: pqcrypto/%.cpp
 pqcrypto/libpqcrypto.a: $(PQCOBJS)
 	ar rcs $@ $^
 
+
+LIBS += $(CURDIR)/miner/libminer.a
+DEFS += $(addprefix -I,$(CURDIR)/miner)
+PQCOBJS := $(patsubst miner/%.cpp,miner/%.o,$(wildcard miner/*.cpp))
+
+miner/%.o: miner/%.cpp
+	$(CXX) -c $(xCXXFLAGS) -MMD -MF $(@:%.o=%.d) -o $@ $<
+	@cp $(@:%.o=%.d) $(@:%.o=%.P); \
+	  sed -e 's/#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
+	      -e '/^$$/ d' -e 's/$$/ :/' < $(@:%.o=%.d) >> $(@:%.o=%.P); \
+	  rm -f $(@:%.o=%.d)
+miner/libminer.a: $(PQCOBJS)
+	ar rcs $@ $^
+
+ifneq (${HAVE_WORKING_BOOST_SLEEP_FOR},0)
+DEFS += -DHAVE_WORKING_BOOST_SLEEP_FOR=$(HAVE_WORKING_BOOST_SLEEP_FOR)
+endif
+
 ifneq (${USE_GPU}, 0)
 DEFS += -DUSE_GPU=$(USE_GPU)
 OBJS += obj/gpumining.o
@@ -211,9 +232,11 @@ LIBS += -lcudadevrt -lcudart
 # LIBS += -lcudadevrt -lcudart_static -lrt -pthread -ldl -lc -lpthread -Bstatic -lgcc -lstdc++
 #LIBS += $$PWD/obj/libgpumining.a
 
-obj/kernel.inc: gen_kernel.py
-	./gen_kernel.py -k $(K) --unroll=$(UNROLL) > kernel.inc
-obj/gpumining.o: gpumining.cu  kernel.inc
+
+
+obj/kernel.inc: ./miner/gen_kernel.py
+	./miner/gen_kernel.py -k $(K) --unroll=$(UNROLL) > ./miner/kernel.inc
+obj/gpumining.o: ./miner/gpumining.cu ./miner/kernel.inc
 	$(NVCC) -c $(NVCFLAGS) $< -o $@
 obj/libgpumining.a:obj/gpumining.o
 	ar rcs $@ $^
@@ -226,6 +249,7 @@ obj/%.o: %.cpp
 	  sed -e 's/#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' \
 	      -e '/^$$/ d' -e 's/$$/ :/' < $(@:%.o=%.d) >> $(@:%.o=%.P); \
 	  rm -f $(@:%.o=%.d)
+
 
 bitcoind: $(OBJS:obj/%=obj/%)
 	$(LINK) $(xCXXFLAGS) -o $@ $^ $(xLDFLAGS) $(LIBS)
@@ -244,13 +268,18 @@ test_bitcoin: $(TESTOBJS) $(filter-out obj/init.o,$(OBJS:obj/%=obj/%))
 
 clean:
 	-rm -f bitcoind test_bitcoin
+	-rm -f *.o
 	-rm -f obj/*.o
 	-rm -f obj-test/*.o
 	-rm -f pqcrypto/*.o
+	-rm -f miner/*.o
+	-rm -f *.P
 	-rm -f obj/*.P
 	-rm -f obj-test/*.P
 	-rm -f pqcrypto/*.P
+	-rm -f miner/*.P
 	-rm -f pqcrypto/libpqcrypto.a
+	-rm -f miner/libminer.a
 	-rm -f obj/build.h
 	-rm -f obj/gpukernel.inc
 	-rm -f obj/libgpumining.a

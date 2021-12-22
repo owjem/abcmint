@@ -6,6 +6,7 @@
 #include "txdb.h"
 #include "main.h"
 #include "hash.h"
+#include "chainparams.h"
 
 using namespace std;
 
@@ -210,11 +211,11 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 // Construct block index object
                 CBlockIndex* pindexNew = InsertBlockIndex(diskindex.GetBlockHash());
                 pindexNew->pprev          = InsertBlockIndex(diskindex.hashPrev);
-                if (pindexNew->nHeight != 0) {
-                    assert(pindexNew->nHeight == diskindex.nHeight);
-                } else {
+                // if (pindexNew->nHeight != 0) {
+                //     assert(pindexNew->nHeight == diskindex.nHeight);
+                // } else {
                     pindexNew->nHeight    = diskindex.nHeight;
-                }
+                // }
                 pindexNew->nFile          = diskindex.nFile;
                 pindexNew->nDataPos       = diskindex.nDataPos;
                 pindexNew->nUndoPos       = diskindex.nUndoPos;
@@ -225,12 +226,12 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 pindexNew->nNonce         = diskindex.nNonce;
                 pindexNew->nStatus        = diskindex.nStatus;
                 pindexNew->nTx            = diskindex.nTx;
-                if (pindexNew->nHeight > 0 && pindexNew->pprev->nHeight == 0) {
-                    pindexNew->pprev->nHeight = diskindex.nHeight - 1;
-                }
+                // if (pindexNew->nHeight > 0 && pindexNew->pprev->nHeight == 0) {
+                //     pindexNew->pprev->nHeight = diskindex.nHeight - 1;
+                // }
 
                 // Watch for genesis block
-                if (pindexGenesisBlock == NULL && diskindex.GetBlockHash() == hashGenesisBlock)
+                if (pindexGenesisBlock == NULL && diskindex.GetBlockHash() == Params().HashGenesisBlock())
                     pindexGenesisBlock = pindexNew;
 
                 if (!pindexNew->CheckIndex())

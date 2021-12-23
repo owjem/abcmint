@@ -47,6 +47,7 @@ src/qt/res/.dirstamp
 *.rej
 *.orig
 *.o
+*.P
 *.patch
 .bitcoin
 *.a

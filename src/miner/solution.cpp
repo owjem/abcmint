@@ -65,7 +65,7 @@ pck_vector_t packed_eval(LUT_t LUT, int n, int d, pck_vector_t F[], uint64_t i)
     if (d == 2) {
         return packed_eval_deg_2(LUT, n, F, i);
     } else {
-        printf("degree-%d naive evaluation is not yet implemented...\n", d);
+        LogPrintf("degree-%d naive evaluation is not yet implemented...\n", d);
         assert(0);
         return 0;
     }
@@ -131,7 +131,7 @@ void print_vec(__m128i foo)
     Vec4 bar;
     bar.v = foo;
     for (int i = 0; i < 8; i++)
-        printf("%04x ", bar.e[i]);
+        LogPrintf("%04x ", bar.e[i]);
 }
 
 pck_vector_t packed_eval_deg_2(LUT_t LUT, int n, pck_vector_t F[], uint64_t i)
@@ -226,7 +226,7 @@ void exhaustive_ia32_deg_2(LUT_t LUT, int n, pck_vector_t F[],
     }
 
     if (verbose) {
-        printf("fes: initialisation = %15ld cycles\n", rdtsc() - init_start_time);
+        LogPrintf("fes: initialisation = %15ld cycles\n", rdtsc() - init_start_time);
     }
     uint64_t enumeration_start_time = rdtsc();
     uint64_t n_solutions_found = 0;
@@ -846,7 +846,7 @@ void exhaustive_ia32_deg_2(LUT_t LUT, int n, pck_vector_t F[],
     FLUSH_SOLUTIONS();
     uint64_t end_time = rdtsc();
     if (verbose) {
-        printf("fes: enumeration+check = %ld cycles\n", end_time - enumeration_start_time);
+        LogPrintf("fes: enumeration+check = %ld cycles\n", end_time - enumeration_start_time);
     }
     QUIT();
 }
@@ -1081,7 +1081,7 @@ int exhaustive_search_wrapper(const int n, int n_eqs, const int degree,
         break;
 
     default:
-        printf("internal bug (settings not chosen ?!?) \n");
+        LogPrintf("internal bug (settings not chosen ?!?) \n");
     }
 
     bool should_free_F = 0;

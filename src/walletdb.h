@@ -157,7 +157,7 @@ public:
     {
         nWalletDBUpdated++;
 
-    printf(" [%s] %s \n", __func__, vchPubKey.GetID().GetHex().c_str());
+    LogPrintf(" [%s] %s \n", __func__, vchPubKey.GetID().GetHex().c_str());
         return Write(std::string("defaultkey"), vchPubKey);
     }
 

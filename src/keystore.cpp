@@ -26,7 +26,6 @@ bool CBasicKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
     return true;
 }
 
-
 bool CBasicKeyStore::AddCScript(const CScript& redeemScript)
 {
     LOCK(cs_KeyStore);
@@ -101,7 +100,7 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
         }
         if (keyPass && keyFail)
         {
-            printf("The wallet is probably corrupted: Some keys decrypt but not all.\n");
+            LogPrintf("The wallet is probably corrupted: Some keys decrypt but not all.\n");
             assert(false);
         }
         if (keyFail || !keyPass)

@@ -1,6 +1,7 @@
+include Makefile.include
 AM_CPPFLAGS =  $(INCLUDES) -I$(top_builddir)/src/obj \
   -I$(top_srcdir)/src/leveldb/include -I$(top_srcdir)/src/leveldb/helpers \
-  $(BOOST_INCLUDES)
+  -I$(builddir) $(BOOST_INCLUDES) $(BDB_CPPFLAGS)
 AM_LDFLAGS = $(PTHREAD_CFLAGS)
 
 noinst_LIBRARIES = libbitcoin.a
@@ -90,13 +91,23 @@ bitcoind_LDADD = libbitcoin.a leveldb/libleveldb.a leveldb/libmemenv.a \
 bitcoind_SOURCES = bitcoind.cpp
 #
 
-leveldb/libleveldb.a:
-	@echo "Building LevelDB ..." && cd leveldb && CXX="$(CXX)" CC="$(CC)" \
-	  PLATFORM=$(TARGET_OS) AR="$(AR)" $(MAKE) $(LEVELDB_TARGET_FLAGS) OPT="$(CXXFLAGS) $(CPPFLAGS)" libleveldb.a
+if TARGET_WINDOWS
+bitcoind_SOURCES += bitcoin-res.rc
+endif
 
-leveldb/libmemenv.a:
-	@echo "Building LevelDB ..." && cd leveldb && CXX="$(CXX)" CC="$(CC)" \
-	  PLATFORM=$(TARGET_OS) AR="$(AR)" $(MAKE) $(LEVELDB_TARGET_FLAGS) OPT="$(CXXFLAGS) $(CPPFLAGS)" libmemenv.a
+AM_CPPFLAGS += $(BDB_CPPFLAGS)
+bitcoind_LDADD += $(BDB_LIBS)
+
+leveldb/libleveldb.a: leveldb/libmemenv.a
+
+leveldb/%.a:
+	@echo "Building LevelDB ..." && $(MAKE) -C $(@D) $(@F) CXX="$(CXX)" \
+	  CC="$(CC)" PLATFORM=$(TARGET_OS) AR="$(AR)" $(LEVELDB_TARGET_FLAGS) \
+	  OPT="$(CXXFLAGS) $(CPPFLAGS)"
+
+qt/bitcoinstrings.cpp: $(libbitcoin_a_SOURCES)
+	@test -n $(XGETTEXT) || echo "xgettext is required for updating translations"
+	@cd $(top_srcdir); XGETTEXT=$(XGETTEXT) share/qt/extract_strings_qt.py
 
 CLEANFILES = leveldb/libleveldb.a leveldb/libmemenv.a *.gcda *.gcno
 

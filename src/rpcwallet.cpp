@@ -21,7 +21,7 @@ static CCriticalSection cs_nWalletUnlockTime;
 
 std::string HelpRequiringPassphrase()
 {
-    return pwalletMain->IsCrypted()
+    return pwalletMain && pwalletMain->IsCrypted()
         ? "\nrequires wallet passphrase to be set with walletpassphrase first"
         : "";
 }
@@ -72,18 +72,22 @@ Value getinfo(const Array& params, bool fHelp)
     Object obj;
     obj.push_back(Pair("version",       (int)CLIENT_VERSION));
     obj.push_back(Pair("protocolversion",(int)PROTOCOL_VERSION));
-    obj.push_back(Pair("walletversion", pwalletMain->GetVersion()));
-    obj.push_back(Pair("balance",       ValueFromAmount(pwalletMain->GetBalance())));
+    if (pwalletMain) {
+        obj.push_back(Pair("walletversion", pwalletMain->GetVersion()));
+        obj.push_back(Pair("balance",       ValueFromAmount(pwalletMain->GetBalance())));
+    }
     obj.push_back(Pair("blocks",        (int)nBestHeight));
     obj.push_back(Pair("timeoffset",    (boost::int64_t)GetTimeOffset()));
     obj.push_back(Pair("connections",   (int)vNodes.size()));
     obj.push_back(Pair("proxy",         (proxy.first.IsValid() ? proxy.first.ToStringIPPort() : string())));
     obj.push_back(Pair("difficulty",    (int)GetDifficulty()));
     obj.push_back(Pair("testnet",       TestNet()));
-    obj.push_back(Pair("keypoololdest", (boost::int64_t)pwalletMain->GetOldestKeyPoolTime()));
-    obj.push_back(Pair("keypoolsize",   (int)pwalletMain->GetKeyPoolSize()));
+    if (pwalletMain) {
+        obj.push_back(Pair("keypoololdest", (boost::int64_t)pwalletMain->GetOldestKeyPoolTime()));
+        obj.push_back(Pair("keypoolsize",   (int)pwalletMain->GetKeyPoolSize()));
+    }
     obj.push_back(Pair("paytxfee",      ValueFromAmount(nTransactionFee)));
-    if (pwalletMain->IsCrypted())
+    if (pwalletMain && pwalletMain->IsCrypted())
         obj.push_back(Pair("unlocked_until", (boost::int64_t)nWalletUnlockTime));
     obj.push_back(Pair("errors",        GetWarnings("statusbar")));
     return obj;
@@ -127,7 +131,26 @@ CBitcoinAddress GetAccountAddress(string strAccount, bool bForceNew=false)
     CAccount account;
     walletdb.ReadAccount(strAccount, account);
 
-    if (!account.vchPubKey.IsValid() || bForceNew)
+    bool bKeyUsed = false;
+
+    // Check if the current key has been used
+    if (account.vchPubKey.IsValid())
+    {
+        CScript scriptPubKey;
+        scriptPubKey.SetDestination(account.vchPubKey.GetID());
+        for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin();
+             it != pwalletMain->mapWallet.end() && account.vchPubKey.IsValid();
+             ++it)
+        {
+            const CWalletTx& wtx = (*it).second;
+            BOOST_FOREACH(const CTxOut& txout, wtx.vout)
+                if (txout.scriptPubKey == scriptPubKey)
+                    bKeyUsed = true;
+        }
+    }
+
+    // Generate a new key
+    if (!account.vchPubKey.IsValid() || bForceNew || bKeyUsed)
     {
         if (!pwalletMain->GetKeyFromPool(account.vchPubKey))
             throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
@@ -1446,6 +1469,7 @@ public:
         int nRequired;
         ExtractDestinations(subscript, whichType, addresses, nRequired);
         obj.push_back(Pair("script", GetTxnOutputType(whichType)));
+        obj.push_back(Pair("hex", HexStr(subscript.begin(), subscript.end())));
         Array a;
         BOOST_FOREACH(const CTxDestination& addr, addresses)
             a.push_back(CBitcoinAddress(addr).ToString());
@@ -1555,3 +1579,4 @@ Value listlockunspent(const Array& params, bool fHelp)
 
     return ret;
 }
+

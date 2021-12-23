@@ -1,5 +1,6 @@
 
 #include "common.h"
+#include "util.h"
 #include <iostream>
 
 
@@ -62,15 +63,15 @@ uint8_t*** CreateEquationsUint8(int n, int e)
 {
     uint8_t*** Eqs = (uint8_t***)calloc(e, sizeof(uint8_t**)); // Create an array for saving coefficients for exfes.
     if (!Eqs)
-        printf("malloc Eqs failure!\n");
+        LogPrintf("malloc Eqs failure!\n");
     for (int i = 0; i < e; i++) {
         Eqs[i] = (uint8_t**)calloc(3, sizeof(uint8_t*));
         if (!Eqs[i])
-            printf("malloc Eqs failure!\n");
+            LogPrintf("malloc Eqs failure!\n");
         for (int j = 0; j < 3; j++) {
             Eqs[i][j] = (uint8_t*)calloc(Binomial(n, j), sizeof(uint8_t));
             if (!Eqs[i][j])
-                printf("malloc Eqs failure!\n");
+                LogPrintf("malloc Eqs failure!\n");
         }
     }
     return Eqs;
@@ -80,15 +81,15 @@ int*** CreateEquations(int n, int e)
 {
     int*** Eqs = (int***)calloc(e, sizeof(int**)); // Create an array for saving coefficients for exfes.
     if (!Eqs)
-        printf("malloc Eqs failure!\n");
+        LogPrintf("malloc Eqs failure!\n");
     for (int i = 0; i < e; i++) {
         Eqs[i] = (int**)calloc(3, sizeof(int*));
         if (!Eqs[i])
-            printf("malloc Eqs failure!\n");
+            LogPrintf("malloc Eqs failure!\n");
         for (int j = 0; j < 3; j++) {
             Eqs[i][j] = (int*)calloc(Binomial(n, j), sizeof(int));
             if (!Eqs[i][j])
-                printf("malloc Eqs failure!\n");
+                LogPrintf("malloc Eqs failure!\n");
         }
     }
     return Eqs;

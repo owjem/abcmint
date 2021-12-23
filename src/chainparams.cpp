@@ -101,9 +101,9 @@ public:
         assert(genesis.hashMerkleRoot == uint256("0xaef6a6cb3767fa5d965b10f9d1e3e183ddea21a5f7ffce9bd7a86c065e7c6865"));
 
         // uint256 hash = uint256("0xcea89aa6adb81572f8b9e5f9b5d0184cbbc25208164cb1547decf3655da9dc77");
-        // printf("%s\n", hash.ToString().c_str());
-        // printf("%s\n", hashGenesisBlock.ToString().c_str());
-        // printf("%s\n", genesis.hashMerkleRoot.ToString().c_str());
+        // LogPrintf("%s\n", hash.ToString().c_str());
+        // LogPrintf("%s\n", hashGenesisBlock.ToString().c_str());
+        // LogPrintf("%s\n", genesis.hashMerkleRoot.ToString().c_str());
 
         vSeeds.push_back(CDNSSeedData("abcmint-bohr.com", "abcmint-bohr.com"));
         vSeeds.push_back(CDNSSeedData("abcmint-einstein.com", "abcmint-einstein.com"));
@@ -172,23 +172,7 @@ public:
         genesis.nNonce = uint256("0x0000000000000000000000000000000000000000000000000001ee7340a9a1d6");
         hashGenesisBlock = genesis.GetHash();
 
-        // uint256 hash = uint256("0xcea89aa6adb81572f8b9e5f9b5d0184cbbc25208164cb1547decf3655da9dc77");
-        // cont ("hash %s\n", hash.ToString().c_str());
-        // printf("hashGenesisBlock %s\n", hashGenesisBlock.ToString().c_str());
-        // printf("hashMerkleRoot %s\n", genesis.hashMerkleRoot.ToString().c_str());
-        // std::cout << hashGenesisBlock.ToString().c_str() << std::endl;
-
-
         assert(hashGenesisBlock == uint256("cea89aa6adb81572f8b9e5f9b5d0184cbbc25208164cb1547decf3655da9dc77"));
-
-
-        // assert(hashGenesisBlock == uint256("0xcea89aa6adb81572f8b9e5f9b5d0184cbbc25208164cb1547decf3655da9dc77"));
-        // assert(genesis.hashMerkleRoot == uint256("0xaef6a6cb3767fa5d965b10f9d1e3e183ddea21a5f7ffce9bd7a86c065e7c6865"));
-
-        // uint256 hash = uint256("0xcea89aa6adb81572f8b9e5f9b5d0184cbbc25208164cb1547decf3655da9dc77");
-        // printf("%s\n", hash.ToString().c_str());
-        // printf("%s\n", hashGenesisBlock.ToString().c_str());
-        // printf("%s\n", genesis.hashMerkleRoot.ToString().c_str());
 
         vFixedSeeds.clear();
         vSeeds.clear();
@@ -232,9 +216,6 @@ public:
         strDataDir = "regtest";
         assert(hashGenesisBlock == uint256("0444e67245baf5a1461d799910d353d86776fd4896beee622db01b72efd04a37"));
 
-
-        // std::cout << hashGenesisBlock.ToString().c_str() << std::endl;
-        // printf("hashGenesisBlock %s\n", hashGenesisBlock.ToString().c_str());
         vSeeds.clear();  // Regtest mode doesn't have any DNS seeds.
     }
 

@@ -19,7 +19,7 @@ using namespace boost;
 static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 randomNonce, CBlockIndex* pindexPrev, int deviceID, int deviceCount, uint64_t& solm, char* threadname)
 {
 
-    printf("[%s] =============> hash: %s diff: %d, randomNonce: %s, height: %d, deviceID: %d, deviceCount: %d, solm: %ld \n", threadname, hash.ToString().c_str(), nBits, randomNonce.ToString().c_str(), pindexPrev->nHeight , deviceID, deviceCount, solm);
+    LogPrintf("[%s] =============> hash: %s diff: %d, randomNonce: %s, height: %d, deviceID: %d, deviceCount: %d, solm: %ld \n", threadname, hash.ToString().c_str(), nBits, randomNonce.ToString().c_str(), pindexPrev->nHeight , deviceID, deviceCount, solm);
 
     unsigned int mEquations = nBits;
     unsigned int nUnknowns = nBits + 8;
@@ -62,7 +62,7 @@ static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 
     uint64_t upBound = std::min((uint64_t)(deviceID + 1) * balance, (uint64_t)(1 << nFix));
     uint64_t downBound = deviceID * balance;
 
-    printf("[%s] =============> balance: %ld, upBound: %ld, downBound: %ld  \n", threadname, balance, upBound, downBound);
+    LogPrintf("[%s] =============> balance: %ld, upBound: %ld, downBound: %ld  \n", threadname, balance, upBound, downBound);
 
     int p = nUnknowns - nFix;
     int npartial;
@@ -78,10 +78,10 @@ static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 
     uint32_t* coefficients = (uint32_t*)malloc((mEquations * (newNumTerms + newNumVariables)) * sizeof(uint32_t));
     if (coefficients == NULL){
         throw boost::thread_interrupted();
-        printf("ERROR: SearchSolution malloc failure!");
+        LogPrintf("ERROR: SearchSolution malloc failure!");
     }
 
-    printf("[%s] =============> newNumVariables: %d, newNumEquations: %d, newNumTerms: %d  \n", threadname, newNumVariables, newNumEquations, newNumTerms);
+    LogPrintf("[%s] =============> newNumVariables: %d, newNumEquations: %d, newNumTerms: %d  \n", threadname, newNumVariables, newNumEquations, newNumTerms);
     // int searchTimes = 0;
     for (solm = downBound; solm < (uint64_t)upBound; solm++) {
         if (pindexPrev != pindexBest)
@@ -114,10 +114,10 @@ static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 
         foundSolution = GPUSearchSolution(coefficients, newNumVariables, mEquations);
         if(foundSolution==0) continue;
 
-        printf("[%s] =============> solm: %ld \n", threadname, solm);
-        printf("[%s] =============> foundSolution: %ld \n", threadname, foundSolution);
+        LogPrintf("[%s] =============> solm: %ld \n", threadname, solm);
+        LogPrintf("[%s] =============> foundSolution: %ld \n", threadname, foundSolution);
         nonce = uint256(foundSolution);
-        printf("[%s] =============> nonce: %s\n", threadname, nonce.ToString().c_str());
+        LogPrintf("[%s] =============> nonce: %s\n", threadname, nonce.ToString().c_str());
         uint256 fixSolution = nonce;
         uint8_t x[newNumVariables];
         Uint256ToSolutionBits(x, newNumVariables, fixSolution);
@@ -246,10 +246,10 @@ public:
 
     void print() const
     {
-        printf("COrphan(hash=%s, dPriority=%.1f, dFeePerKb=%.1f)\n",
+        LogPrintf("COrphan(hash=%s, dPriority=%.1f, dFeePerKb=%.1f)\n",
                ptx->GetHash().ToString().c_str(), dPriority, dFeePerKb);
         BOOST_FOREACH(uint256 hash, setDependsOn)
-            printf("   setDependsOn %s\n", hash.ToString().c_str());
+            LogPrintf("   setDependsOn %s\n", hash.ToString().c_str());
     }
 };
 
@@ -304,7 +304,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
     // Largest block you're willing to create:
     unsigned int nBlockMaxSize = GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
     // Limit to betweeen 2000K and MAX_BLOCK_SIZE-2K for sanity:
-    // nBlockMaxSize = std::max((unsigned int)2000*1024, std::min((unsigned int)(MAX_BLOCK_SIZE-200*1024), nBlockMaxSize));
+    nBlockMaxSize = std::max((unsigned int)2000*1024, std::min((unsigned int)(MAX_BLOCK_SIZE-200*1024), nBlockMaxSize));
 
     // How much of the block should be dedicated to high-priority transactions,
     // included regardless of the fees they pay
@@ -351,7 +351,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                     // or other transactions in the memory pool.
                     if (!mempool.mapTx.count(txin.prevout.hash))
                     {
-                        printf("ERROR: mempool transaction missing input\n");
+                        LogPrintf("ERROR: mempool transaction missing input\n");
                         if (fDebug) assert("mempool transaction missing input" == 0);
                         fMissingInputs = true;
                         if (porphan)
@@ -472,7 +472,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 
             if (fPrintPriority)
             {
-                printf("priority %.1f feeperkb %.1f txid %s\n",
+                LogPrintf("priority %.1f feeperkb %.1f txid %s\n",
                        dPriority, dFeePerKb, tx.GetHash().ToString().c_str());
             }
 
@@ -496,7 +496,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 
         nLastBlockTx = nBlockTx;
         nLastBlockSize = nBlockSize;
-        printf("CreateNewBlock(): total size %"PRI64u"\n", nBlockSize);
+        LogPrintf("CreateNewBlock(): total size %"PRI64u"\n", nBlockSize);
 
         pblock->vtx[0].vout[0].nValue = GetBlockValue(pindexPrev->nHeight+1, nFees);
         pblocktemplate->vTxFees[0] = -nFees;
@@ -602,16 +602,16 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
         return false;
 
     //// debug print
-    printf("BitcoinMiner:\n");
+    LogPrintf("BitcoinMiner:\n");
     pblock->print();
-    printf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue).c_str());
+    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue).c_str());
 
     // Found a solution
     {
         LOCK(cs_main);
         if (pblock->hashPrevBlock != hashBestChain) {
-            printf("\n\n ***********hashBestChain****************** %s \n\n", hashBestChain.ToString().c_str());
-            printf("\n\n ***********pblock->hashPrevBlock****************** %s \n\n", pblock->hashPrevBlock.ToString().c_str());
+            LogPrintf("\n\n ***********hashBestChain****************** %s \n\n", hashBestChain.ToString().c_str());
+            LogPrintf("\n\n ***********pblock->hashPrevBlock****************** %s \n\n", pblock->hashPrevBlock.ToString().c_str());
             return error("BitcoinMiner : generated block is stale");
         }
 
@@ -635,7 +635,7 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
 
 void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int deviceCount)
 {
-    printf("BitcoinMiner started\n");
+    LogPrintf("BitcoinMiner started\n");
     char threadname[16];
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
 
@@ -670,7 +670,7 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
         CBlock *pblock = &pblocktemplate->block;
         IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 
-        printf("[%s] Running BitcoinMiner with %" PRIszu " transactions in block (%u bytes)\n", threadname, pblock->vtx.size(),
+        LogPrintf("[%s] Running BitcoinMiner with %" PRIszu " transactions in block (%u bytes)\n", threadname, pblock->vtx.size(),
                ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
 
         //
@@ -744,10 +744,10 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
     } }
     catch (boost::thread_interrupted)
     {
-        printf("[%s] BitcoinMiner terminated\n", threadname);
+        LogPrintf("[%s] BitcoinMiner terminated\n", threadname);
         throw;
     } catch (const std::runtime_error& e) {
-        printf("[%s] BitcoinMiner runtime error: %s\n", threadname, e.what());
+        LogPrintf("[%s] BitcoinMiner runtime error: %s\n", threadname, e.what());
         return;
     }
 }
@@ -760,7 +760,7 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet)
 
 #ifdef USE_GPU
     int deviceCount = GetDeviceCount();
-    printf("The number of devices is %d \n", deviceCount);
+    LogPrintf("The number of devices is %d \n", deviceCount);
 
     if (nThreads < 0)
         nThreads = deviceCount;

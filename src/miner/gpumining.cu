@@ -13,7 +13,7 @@
 #define BLOCK_DIM (NUM_THREADS > 128 ? 128 : NUM_THREADS)
 #define GRID_DIM (NUM_THREADS / BLOCK_DIM)
 
-//#define PRINT_SOL(X) printf("%lX\n", X)
+//#define PRINT_SOL(X) LogPrintf("%lX\n", X)
 #define PRINT_SOL(X)
 
 //#define LOG(level, f_, ...) fprintf(stderr, (f_), ##__VA_ARGS__)
@@ -116,7 +116,7 @@ parse_cha_header(const char* str, uint32_t &N, uint32_t &M) {
   bool verbose = false;
   if(check_prefix(CHA_EQ_START, str)) {
     if(verbose) {
-      printf("\t\treading equations...\n");
+      LogPrintf("\t\treading equations...\n");
     }
     return false;
   }
@@ -139,7 +139,7 @@ parse_cha_header(const char* str, uint32_t &N, uint32_t &M) {
 //    }
 
     if(verbose) {
-      printf("\t\tnumber of variables: %" PRIu64 "\n", var_num);
+      LogPrintf("\t\tnumber of variables: %" PRIu64 "\n", var_num);
     }
 
   } else if(check_prefix(CHA_EQ_LINE, str)) {
@@ -158,7 +158,7 @@ parse_cha_header(const char* str, uint32_t &N, uint32_t &M) {
 //    }
 
     if(verbose) {
-      printf("\t\tnumber of equations: %" PRIu64 "\n", eq_num);
+      LogPrintf("\t\tnumber of equations: %" PRIu64 "\n", eq_num);
     }
 
   } else if(check_prefix(CHA_SEED_LINE, str)) {
@@ -168,7 +168,7 @@ parse_cha_header(const char* str, uint32_t &N, uint32_t &M) {
     }
 
     if(verbose) {
-      printf("\t\tseed: %" PRIu64 "\n", seed);
+      LogPrintf("\t\tseed: %" PRIu64 "\n", seed);
     }
 
   } else if(check_prefix(CHA_GF_LINE, str)) {
@@ -179,7 +179,7 @@ parse_cha_header(const char* str, uint32_t &N, uint32_t &M) {
     }
 
     if(verbose) {
-      printf("\t\tfield: GF(%d)\n", prime);
+      LogPrintf("\t\tfield: GF(%d)\n", prime);
     }
   }
 

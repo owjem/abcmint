@@ -15,8 +15,6 @@
 #include <boost/variant/get.hpp>
 #include <boost/algorithm/string.hpp>
 
-#define printf OutputDebugStringF
-
 using namespace json_spirit;
 using namespace std;
 
@@ -56,7 +54,7 @@ std::string DecodeDumpString(const std::string &str) {
     for (unsigned int pos = 0; pos < str.length(); pos++) {
         unsigned char c = str[pos];
         if (c == '%' && pos+2 < str.length()) {
-            c = (((str[pos+1]>>6)*9+((str[pos+1]-'0')&15)) << 4) |
+            c = (((str[pos+1]>>6)*9+((str[pos+1]-'0')&15)) << 4) | 
                 ((str[pos+2]>>6)*9+((str[pos+2]-'0')&15));
             pos += 2;
         }
@@ -103,6 +101,10 @@ Value importprivkey(const Array& params, bool fHelp)
 
         pwalletMain->MarkDirty();
         pwalletMain->SetAddressBook(vchAddress, strLabel, "receive");
+
+        // Don't throw error in case a key is already there
+        if (pwalletMain->HaveKey(vchAddress))
+            return Value::null;
 
         if (!pwalletMain->AddKey(key))
             throw JSONRPCError(RPC_WALLET_ERROR, "Error adding key to wallet");
@@ -155,7 +157,7 @@ Value importwallet(const Array& params, bool fHelp)
         CPubKey pubkey = key.GetPubKey();
         CKeyID keyid = pubkey.GetID();
         if (pwalletMain->HaveKey(keyid)) {
-            printf("Skipping import of %s (key already present)\n", CBitcoinAddress(keyid).ToString().c_str());
+            LogPrintf("Skipping import of %s (key already present)\n", CBitcoinAddress(keyid).ToString().c_str());
             continue;
         }
         int64 nTime = DecodeDumpTime(vstr[1]);
@@ -173,7 +175,7 @@ Value importwallet(const Array& params, bool fHelp)
                 fLabel = true;
             }
         }
-        printf("Importing %s...\n", CBitcoinAddress(keyid).ToString().c_str());
+        LogPrintf("Importing %s...\n", CBitcoinAddress(keyid).ToString().c_str());
         if (!pwalletMain->AddKeyPubKey(key, pubkey)) {
             fGood = false;
             continue;
@@ -189,7 +191,7 @@ Value importwallet(const Array& params, bool fHelp)
     while (pindex && pindex->pprev && pindex->nTime > nTimeBegin - 7200)
         pindex = pindex->pprev;
 
-    printf("Rescanning last %i blocks\n", pindexBest->nHeight - pindex->nHeight + 1);
+    LogPrintf("Rescanning last %i blocks\n", pindexBest->nHeight - pindex->nHeight + 1);
     pwalletMain->ScanForWalletTransactions(pindex);
     pwalletMain->ReacceptWalletTransactions();
     pwalletMain->MarkDirty();

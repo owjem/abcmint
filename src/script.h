@@ -547,6 +547,13 @@ public:
         return true;
     }
 
+    // Returns whether the script is guaranteed to fail at execution,
+    // regardless of the initial stack. This allows outputs to be pruned
+    // instantly when entering the UTXO set.
+    bool IsUnspendable() const
+    {
+        return (size() > 0 && *begin() == OP_RETURN);
+    }
 
     void SetDestination(const CTxDestination& address);
     void SetMultisig(int nRequired, const std::vector<CDiskPubKeyPos>& vPubKeyPos);
@@ -554,7 +561,7 @@ public:
 
     void PrintHex() const
     {
-        printf("CScript(%s)\n", HexStr(begin(), end(), true).c_str());
+        LogPrintf("CScript(%s)\n", HexStr(begin(), end(), true).c_str());
     }
 
     std::string ToString() const
@@ -582,7 +589,7 @@ public:
 
     void print() const
     {
-        printf("%s\n", ToString().c_str());
+        LogPrintf("%s\n", ToString().c_str());
     }
 
     CScriptID GetID() const
@@ -664,8 +671,8 @@ public:
     }
 };
 
-bool IsCanonicalPubKey(const std::vector<unsigned char> &vchPubKey);
-bool IsCanonicalSignature(const std::vector<unsigned char> &vchSig);
+bool IsCanonicalPubKey(const std::vector<unsigned char> &vchPubKey, unsigned int flags);
+bool IsCanonicalSignature(const std::vector<unsigned char> &vchSig, unsigned int flags);
 
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, const CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck = false);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);

@@ -24,8 +24,8 @@ void static BatchWriteHashBestChain(CLevelDBBatch &batch, const uint256 &hash) {
 CCoinsViewDB::CCoinsViewDB(size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / "chainstate", nCacheSize, fMemory, fWipe) {
 }
 
-bool CCoinsViewDB::GetCoins(const uint256 &txid, CCoins &coins) {
-    return db.Read(make_pair('c', txid), coins);
+bool CCoinsViewDB::GetCoins(const uint256 &txid, CCoins &coins) { 
+    return db.Read(make_pair('c', txid), coins); 
 }
 
 bool CCoinsViewDB::SetCoins(const uint256 &txid, const CCoins &coins) {
@@ -35,7 +35,7 @@ bool CCoinsViewDB::SetCoins(const uint256 &txid, const CCoins &coins) {
 }
 
 bool CCoinsViewDB::HaveCoins(const uint256 &txid) {
-    return db.Exists(make_pair('c', txid));
+    return db.Exists(make_pair('c', txid)); 
 }
 
 CBlockIndex *CCoinsViewDB::GetBestBlock() {
@@ -50,12 +50,12 @@ CBlockIndex *CCoinsViewDB::GetBestBlock() {
 
 bool CCoinsViewDB::SetBestBlock(CBlockIndex *pindex) {
     CLevelDBBatch batch;
-    BatchWriteHashBestChain(batch, pindex->GetBlockHash());
+    BatchWriteHashBestChain(batch, pindex->GetBlockHash()); 
     return db.WriteBatch(batch);
 }
 
 bool CCoinsViewDB::BatchWrite(const std::map<uint256, CCoins> &mapCoins, CBlockIndex *pindex) {
-    printf("Committing %u changed transactions to coin database...\n", (unsigned int)mapCoins.size());
+    LogPrint("coindb", "Committing %u changed transactions to coin database...\n", (unsigned int)mapCoins.size());
 
     CLevelDBBatch batch;
     for (std::map<uint256, CCoins>::const_iterator it = mapCoins.begin(); it != mapCoins.end(); it++)
@@ -136,7 +136,7 @@ bool CCoinsViewDB::GetStats(CCoinsStats &stats) {
                 ssKey >> txhash;
                 ss << txhash;
                 ss << VARINT(coins.nVersion);
-                ss << (coins.fCoinBase ? 'c' : 'n');
+                ss << (coins.fCoinBase ? 'c' : 'n'); 
                 ss << VARINT(coins.nHeight);
                 stats.nTransactions++;
                 for (unsigned int i=0; i<coins.vout.size(); i++) {

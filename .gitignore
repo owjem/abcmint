@@ -26,6 +26,12 @@ share/qt/Info.plist
 
 src/leveldb/.deps/
 
+src/miner/.deps/
+src/miner/.dirstamp
+
+src/pqcrypto/.deps/
+src/pqcrypto/.dirstamp
+
 src/test/.deps
 src/test/.dirstamp
 
@@ -57,6 +63,9 @@ src/qt/res/.dirstamp
 *.log
 *.trs
 *.dmg
+
+*.json.h
+*.raw.h
 
 # Compilation and Qt preprocessor part
 *.qm

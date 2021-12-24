@@ -10,6 +10,7 @@ AC_DEFUN([BITCOIN_FIND_BDB48],[
   elif test "$BDB_CFLAGS" = ""; then
     AC_MSG_CHECKING([for Berkeley DB C++ headers])
     BDB_CPPFLAGS=
+    BDB_LDFLAGS="-L${depends_prefix}/lib"
     bdbpath=X
     bdb48path=X
     bdbdirlist=
@@ -76,9 +77,10 @@ AC_DEFUN([BITCOIN_FIND_BDB48],[
     use_bdb=no
   elif test "$BDB_LIBS" = ""; then
     # TODO: Ideally this could find the library version and make sure it matches the headers being used
+    LDFLAGS="$LDFLAGS $BDB_LDFLAGS"
     for searchlib in db_cxx-4.8 db_cxx db4_cxx; do
       AC_CHECK_LIB([$searchlib],[main],[
-        BDB_LIBS="-l${searchlib}"
+        BDB_LIBS="$BDB_LDFLAGS -l${searchlib}"
         break
       ])
     done

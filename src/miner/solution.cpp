@@ -8,6 +8,7 @@
 #include "miner.h"
 #include "main.h"
 #include "common.h"
+#include "solution.h"
 
 // #include <openssl/sha.h>
 

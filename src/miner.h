@@ -3,15 +3,7 @@
 #ifndef BITCOIN_MINER_H
 #define BITCOIN_MINER_H
 
-#include <inttypes.h>
-#include <emmintrin.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-#include <assert.h>
-#include <stdarg.h>
-#include <stdbool.h>
+
 #include "miner/idxlut.h"
 #include "main.h"
 

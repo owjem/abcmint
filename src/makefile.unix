@@ -163,12 +163,13 @@ test check: test_bitcoin FORCE
 #
 # LevelDB support
 #
-MAKEOVERRIDES =
+# MAKEOVERRIDES =
 LIBS += $(CURDIR)/leveldb/libleveldb.a $(CURDIR)/leveldb/libmemenv.a
 DEFS += $(addprefix -I,$(CURDIR)/leveldb/include)
-DEFS += $(addprefix -I,$(CURDIR)/leveldb/helpers)
+DEFS += $(addprefix -I,$(CURDIR)/leveldb/helpers/memenv)
 leveldb/libleveldb.a:
 	@echo "Building LevelDB ..." && cd leveldb && $(MAKE) CC=$(CC) CXX=$(CXX) OPT="$(xCXXFLAGS)" libleveldb.a libmemenv.a && cd ..
+
 
 # auto-generated dependencies:
 -include obj/*.P

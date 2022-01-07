@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
+#include <../config/bitcoin-config.h>
 
 #define K PARK
 

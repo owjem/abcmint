@@ -1,8 +1,8 @@
-ACLOCAL_AMFLAGS = -I src/m4
+ACLOCAL_AMFLAGS = -I build-aux/m4
 SUBDIRS = src
-.PHONY: deploy
+.PHONY: deploy FORCE
 
-GZIP_ENV="-9n"
+# GZIP_ENV="-9n"
 
 BITCOIND_BIN=$(top_builddir)/src/bitcoind$(EXEEXT)
 BITCOIN_QT_BIN=$(top_builddir)/src/qt/bitcoin-qt$(EXEEXT)
@@ -37,8 +37,8 @@ distcheck-hook:
 	cp -rf $(top_srcdir)/src/leveldb/* $(top_distdir)/_build/src/leveldb/
 	-$(MAKE) -C $(top_distdir)/_build/src/leveldb clean
 
-distcleancheck:
-	@:
+# distcleancheck:
+# 	@:
 
 $(BITCOIN_WIN_INSTALLER): $(BITCOIND_BIN) $(BITCOIN_QT_BIN)
 	$(MAKE) distdir

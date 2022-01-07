@@ -29,7 +29,7 @@ config.log
 config.status
 configure
 libtool
-src/.deps/
+
 src/Makefile.in
 src/config/bitcoin-config.h
 src/config/bitcoin-config.h.in
@@ -37,26 +37,10 @@ src/qt/Makefile.in
 src/config/stamp-h1
 share/setup.nsi
 share/qt/Info.plist
-
-src/leveldb/.deps/
-
-src/miner/.deps/
-src/miner/.dirstamp
-
-src/pqcrypto/.deps/
-src/pqcrypto/.dirstamp
-
-src/test/.deps
-src/test/.dirstamp
-
-src/qt/.deps/
-src/qt/.dirstamp
 src/qt/*.moc
 src/qt/moc_*.cpp
 src/qt/forms/ui_*.h
 
-src/qt/test/.deps/
-src/qt/test/.dirstamp
 src/qt/test/moc*.cpp
 .deps
 .dirstamp

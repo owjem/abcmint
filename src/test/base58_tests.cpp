@@ -11,6 +11,7 @@
 #include "util.h"
 #include "pqcrypto/random.h"
 #include "pqcrypto/pqcrypto.h"
+#include "pqcrypto/sha512.h"
 #include "key.h"
 
 using namespace json_spirit;
@@ -151,5 +152,35 @@ BOOST_AUTO_TEST_CASE(base58_public_key_address)
 
 // }
 #endif
+
+BOOST_AUTO_TEST_CASE(base58_pqcSha256)
+{
+    Array tests = read_json(std::string(json_tests::base58_encode_decode, json_tests::base58_encode_decode + sizeof(json_tests::base58_encode_decode)));
+    BOOST_FOREACH(Value& tv, tests)
+    {
+        Array test = tv.get_array();
+        std::string strTest = write_string(tv, false);
+        if (test.size() < 2) // Allow for extra stuff (useful for comments)
+        {
+            BOOST_ERROR("Bad test: " << strTest);
+            continue;
+        }
+
+        // SHA256
+        std::vector<unsigned char> sourcedata =  ParseHex(test[0].get_str());
+
+        std::vector<unsigned char> hash1(32);
+        std::vector<unsigned char> hash2(32);
+
+        SHA256(&sourcedata[0], sourcedata.size(), &hash1[0]);
+        pqcSha256(&sourcedata[0], sourcedata.size(), &hash2[0]);
+
+        std::string string1 = HexStr(hash1.begin(),hash1.end());
+        std::string string2 = HexStr(hash2.begin(),hash2.end());
+        BOOST_CHECK_MESSAGE(
+                    string1 == string2,
+                    strTest + " HexStr:"+ string1);
+    }
+}
 
 BOOST_AUTO_TEST_SUITE_END()

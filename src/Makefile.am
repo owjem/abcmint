@@ -244,7 +244,7 @@ if USE_GPU
 
 GPUMINING_H = miner/gpumining.h
 
-miner/kernel.inc: miner/gen_kernel.py FORCE
+miner/kernel.inc: miner/gen_kernel.py
 	@$(top_srcdir)/src/miner/gen_kernel.py -k $(CUDA_K) --unroll=$(CUDA_UNROLL) > $(abs_top_builddir)/src/miner/kernel.inc
 obj/gpumining.o: miner/gpumining.cu miner/kernel.inc
 	$(NVCC) -c $(NVCC_CFLAGS) $(BITCOIN_CONFIG_INCLUDES) $< -o $@
@@ -296,7 +296,7 @@ bitcoind_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)  $(CUDA_CFL
 
 
 
-CLEANFILES = leveldb/libleveldb.a leveldb/libmemenv.a *.gcda *.gcno
+CLEANFILES = leveldb/libleveldb.a leveldb/libmemenv.a *.gcda *.gcno obj/*.o
 
 DISTCLEANFILES = obj/build.h
 

@@ -185,6 +185,8 @@ public:
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
     unsigned int nLockTime;
+    //TODO:: abc pubkey
+    std::vector< std::vector<unsigned char> > vPubKeys; //for reused public, not serialize
 
     CTransaction()
     {
@@ -206,6 +208,8 @@ public:
         vin.clear();
         vout.clear();
         nLockTime = 0;
+        //TODO:: abc pubkey
+        vPubKeys.clear();
     }
 
     bool IsNull() const

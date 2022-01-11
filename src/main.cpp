@@ -558,7 +558,8 @@ int64 GetValueOut(const CTransaction& tx)
 // expensive-to-check-upon-redemption script like:
 //   DUP CHECKSIG DROP ... repeated 100 times... OP_1
 //
-bool AreInputsStandard(const CTransaction& tx, CCoinsViewCache& mapInputs)
+//TODO:: abc pubkey
+bool AreInputsStandard(CTransaction& tx, CCoinsViewCache& mapInputs)
 {
     if (tx.IsCoinBase())
         return true; // Coinbases don't use vin normally
@@ -583,7 +584,7 @@ bool AreInputsStandard(const CTransaction& tx, CCoinsViewCache& mapInputs)
         // beside "push data" in the scriptSig the
         // IsStandard() call returns false
         vector<vector<unsigned char> > stack;
-        // CTransaction tmpTx = *tx;
+        //TODO:: abc pubkey
         if (!EvalScript(stack, tx.vin[i].scriptSig, tx, i, false, 0))
             return false;
 
@@ -788,7 +789,7 @@ void CTxMemPool::pruneSpent(const uint256 &hashTx, CCoins &coins)
     }
 }
 
-bool CTxMemPool::accept(CValidationState &state, const CTransaction &tx, bool fLimitFree,
+bool CTxMemPool::accept(CValidationState &state, CTransaction &tx, bool fLimitFree,
                         bool* pfMissingInputs, bool fRejectInsaneFee)
 {
     if (pfMissingInputs)
@@ -928,6 +929,8 @@ bool CTxMemPool::accept(CValidationState &state, const CTransaction &tx, bool fL
                          hash.ToString().c_str(),
                          nFees, CTransaction::nMinRelayTxFee * 10000);
 
+        //TODO:: abc pubkey
+        tx.vPubKeys.clear();
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         if (!CheckInputs(tx, state, view, true, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC))
@@ -1448,7 +1451,7 @@ int64 GetBlockValue(int nHeight, int64 nFees)
     return 0;
 }
 
-static const int64 nNewTargetTimespan = 3 * 24 * 60 * 60 + 12; // 3.5 days
+static const int64 nNewTargetTimespan = 3.5 * 24 * 60 * 60; // 3.5 days
 static const int64 nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
 static const int64 nTargetSpacing = 10 * 60;
 static const int64 nInterval = nTargetTimespan / nTargetSpacing;
@@ -1547,7 +1550,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     LogPrintf("GetNextWorkRequired RETARGET\n");
     LogPrintf("nTargetTimespan = %"PRI64d"    nActualTimespan = %"PRI64d"\n", _targetTimespan, nActualTimespan);
     LogPrintf("Before: %08x  %s\n", pindexLast->nBits, CBigNum().SetCompact(pindexLast->nBits).getuint256().ToString().c_str());
-    LogPrintf("After:  %" PRI64d " %s \n", bnNew, CBigNum().SetCompact(bnNew).getuint256().ToString().c_str());
+    LogPrintf("After:  %08x  %s \n", (unsigned int &)bnNew, CBigNum().SetCompact(bnNew).getuint256().ToString().c_str());
 
     return bnNew;
 }
@@ -1831,12 +1834,14 @@ bool CScriptCheck::operator()() const {
     return true;
 }
 
-bool VerifySignature(const CCoins& txFrom, const CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType)
+//TODO:: abc pubkey
+bool VerifySignature(const CCoins& txFrom, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType)
 {
     return CScriptCheck(txFrom, txTo, nIn, flags, nHashType)();
 }
 
-bool CheckInputs(const CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, std::vector<CScriptCheck> *pvChecks)
+//TODO:: abc pubkey
+bool CheckInputs(CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsCoinBase())
     {
@@ -2044,8 +2049,7 @@ bool ConnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, C
     if (!CheckBlock(block, state, !fJustCheck, !fJustCheck))
         return false;
 
-// block.print();
-// LogPrintf("\n");
+    if (fDebug) block.print();
 
     // verify that the view's current state corresponds to the previous block
     assert(pindex->pprev == view.GetBestBlock());
@@ -2113,7 +2117,9 @@ bool ConnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, C
 
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
-        const CTransaction &tx = block.vtx[i];
+        CTransaction &tx = block.vtx[i];
+        //TODO:: abc pubkey
+        tx.vPubKeys.clear();
 
         nInputs += tx.vin.size();
         nSigOps += GetLegacySigOpCount(tx);
@@ -3951,7 +3957,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
                      ++mi)
                 {
                     const uint256& orphanHash = *mi;
-                    const CTransaction& orphanTx = mapOrphanTransactions[orphanHash];
+                    //TODO:: abc pubkey
+                    CTransaction& orphanTx = mapOrphanTransactions[orphanHash];
                     bool fMissingInputs2 = false;
                     // Use a dummy CValidationState so someone can't setup nodes to counter-DoS based on orphan
                     // resolution (that is, feeding people an invalid transaction based on LegitTxX in order to get

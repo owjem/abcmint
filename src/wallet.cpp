@@ -1206,6 +1206,8 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64> >& vecSend,
             {
                 wtxNew.vin.clear();
                 wtxNew.vout.clear();
+                //TODO:: abc pubkey
+                wtxNew.vPubKeys.clear();
                 wtxNew.fFromMe = true;
 
                 int64 nTotalValue = nValue + nFeeRet;

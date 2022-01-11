@@ -437,12 +437,12 @@ bool AppInit2(boost::thread_group& threadGroup)
 
     // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
     nScriptCheckThreads = GetArg("-par", 0);
-    if (nScriptCheckThreads <= 0)
-        nScriptCheckThreads += boost::thread::hardware_concurrency();
-    if (nScriptCheckThreads <= 1)
-        nScriptCheckThreads = 0;
-    else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
-        nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
+    // if (nScriptCheckThreads <= 0)
+    //     nScriptCheckThreads += boost::thread::hardware_concurrency();
+    // if (nScriptCheckThreads <= 1)
+    //     nScriptCheckThreads = 0;
+    // else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
+    //     nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
 
     // -debug implies fDebug*
     if (fDebug)

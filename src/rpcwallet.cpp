@@ -1293,7 +1293,7 @@ Value keypoolrefill(const Array& params, bool fHelp)
             "Fills the keypool."
             + HelpRequiringPassphrase());
 
-    unsigned int kpSize = max(GetArg("-keypool", 100), 0LL);
+    unsigned int kpSize = max(GetArg("-keypool", 0), 0LL);
     if (params.size() > 0) {
         if (params[0].get_int() < 0)
             throw JSONRPCError(-8, "Invalid parameter, expected valid size");
@@ -1579,4 +1579,3 @@ Value listlockunspent(const Array& params, bool fHelp)
 
     return ret;
 }
-

@@ -165,7 +165,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle);
 void ThreadScriptCheck();
 /** Check whether a block hash satisfies the proof-of-work requirement specified by nBits */
 // bool CheckProofOfWork(uint256 hash, unsigned int nBits);
-bool CheckProofOfWork(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce);
+bool CheckProofOfWork(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce,unsigned int nTime);
 /** Calculate the minimum amount of work a received block needs, without knowing its direct parent */
 unsigned int ComputeMinWork(unsigned int nBase, int64 nTime);
 /** Get the number of active peers */
@@ -204,7 +204,7 @@ bool AbortNode(const std::string &msg);
 
 bool GetWalletFile(CWallet* pwallet, std::string &strWalletFileOut);
 
-bool CheckSolution(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce);
+bool CheckSolution(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce, unsigned int nTime = 1538270779);
 
 struct CDiskBlockPos
 {
@@ -850,17 +850,11 @@ public:
 
     bool CheckIndex() const
     {
-        if (pprev) {
-            uint256 tempHash = pprev->GetBlockHash() ^ hashMerkleRoot;
-            uint256 seedHash = Hash(BEGIN(tempHash), END(tempHash));
-            return CheckProofOfWork(seedHash, nBits, pprev->GetBlockHash(),nVersion, nNonce);
-        }
-        else {
-            uint256 initHash = 0;
-            uint256 tempHash = initHash ^ hashMerkleRoot;
-            uint256 seedHash = Hash(BEGIN(tempHash), END(tempHash));
-            return CheckProofOfWork(seedHash, nBits, initHash, nVersion, nNonce);
-        }
+        uint256 initHash = 0;
+        if (pprev) initHash = pprev->GetBlockHash();
+        uint256 tempHash = initHash ^ hashMerkleRoot;
+        uint256 seedHash = Hash(BEGIN(tempHash), END(tempHash));
+        return CheckProofOfWork(seedHash, nBits, initHash, nVersion, nNonce, nTime);
     }
 
 

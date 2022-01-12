@@ -1352,7 +1352,7 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
             keystore.GetPubKey(keyID, vch);
             // scriptSigRet << vch;
             //TODO:: abc pubkey
-            LogPrintf(" ===> Solver  %s ", keyID.GetHex().c_str());
+            if(fDebug) LogPrintf(" ===> Solver  %s ", keyID.GetHex().c_str());
             unsigned int index = 0;
             bool reused = false;
             for (std::vector< std::vector<unsigned char> >::iterator it = vPubKeys.begin() ; it != vPubKeys.end(); ++it) {

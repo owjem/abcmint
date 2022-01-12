@@ -130,10 +130,11 @@ PQCRYPTO_H = \
 
 MINER_H = \
   miner/common.h \
-  miner/gpumining.h \
   miner/idxlut.h \
   miner/solution.h \
   miner.h
+
+GPUMINING_H = miner/gpumining.h
 
 obj/build.h: FORCE
 	@$(MKDIR_P) $(builddir)/obj
@@ -200,11 +201,7 @@ miner_libminer_a_SOURCES = \
   miner/idxlut.cpp \
   miner/solution.cpp \
   miner.cpp \
-  $(MINER_H)
-
-
-# nodist_libbitcoin_a_SOURCES = $(srcdir)/obj/build.h
-#
+  $(MINER_H) $(GPUMINING_H)
 
 
 if USE_GPU
@@ -241,8 +238,6 @@ if USE_GPU
 # 	@$(top_srcdir)/share/genbuild.sh $(abs_top_builddir)/src/obj/build.h \
 # 	  $(abs_top_srcdir)
 # libbitcoin_a-clientversion.$(OBJEXT): obj/build.h
-
-GPUMINING_H = miner/gpumining.h
 
 miner/kernel.inc: miner/gen_kernel.py
 	@$(top_srcdir)/src/miner/gen_kernel.py -k $(CUDA_K) --unroll=$(CUDA_UNROLL) > $(abs_top_builddir)/src/miner/kernel.inc
@@ -283,12 +278,14 @@ if TARGET_WINDOWS
 bitcoind_SOURCES += bitcoin-res.rc
 endif
 
-bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) obj/gpumining.o
+bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS)
 libbitcoin_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 bitcoind_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)  $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 
 
-
+if USE_GPU
+bitcoind_LDADD += obj/gpumining.o
+endif
 
 
 

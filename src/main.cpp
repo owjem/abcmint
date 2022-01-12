@@ -1265,7 +1265,7 @@ bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos)
     // Check the header
     uint256 tempHash = block.hashPrevBlock ^ block.hashMerkleRoot;
     uint256 seedHash = Hash(BEGIN(tempHash), END(tempHash));
-    if (!CheckProofOfWork(seedHash, block.nBits, block.hashPrevBlock, block.nVersion, block.nNonce))
+    if (!CheckProofOfWork(seedHash, block.nBits, block.hashPrevBlock, block.nVersion, block.nNonce, block.nTime))
         return error("ReadBlockFromDisk(CBlock&, CDiskBlockPos&) : errors in block header");
 
     return true;
@@ -1463,12 +1463,12 @@ static const int64 nNewInterval = nNewTargetTimespan / nTargetSpacing;
 //
 unsigned int ComputeMinWork(unsigned int nBase, int64 nTime)
 {
-    const CBigNum &bnLimit = Params().ProofOfWorkLimit();
-    const CBigNum &bnLimitLow = Params().ProofOfWorkLimit();
+    const unsigned int &bnLimit = Params().ProofOfWorkLimit();
+    const unsigned int &bnLimitLow = Params().ProofOfWorkLimitMin();
     // Testnet has min-difficulty blocks
     // after nTargetSpacing*2 time between blocks:
     if (TestNet() && nTime > nTargetSpacing*2)
-        return bnLimitLow.getint();
+        return bnLimitLow;
 
     unsigned int bnResult = nBase;
     while (nTime > 0 && bnResult < bnLimitLow) {
@@ -1482,13 +1482,13 @@ unsigned int ComputeMinWork(unsigned int nBase, int64 nTime)
         }
     }
     if (bnResult > bnLimit)
-        bnResult = bnLimit.getint();
+        bnResult = bnLimit;
     return bnResult;
 }
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock)
 {
-    unsigned int nProofOfWorkLimit = Params().ProofOfWorkLimit().GetCompact();
+    unsigned int nProofOfWorkLimit = Params().ProofOfWorkLimit();
 
     // Genesis block
     if (pindexLast == NULL)
@@ -1555,7 +1555,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     return bnNew;
 }
 
-bool CheckProofOfWork(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce)
+bool CheckProofOfWork(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce,unsigned int nTime)
 {
     unsigned int bnTarget = nBits;
 
@@ -1564,7 +1564,7 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, uint256 preblockhash, in
         return error("CheckProofOfWork() : nBits below minimum work");
 
     // Check proof of work matches claimed amount
-    if (!CheckSolution(hash, nBits, preblockhash, nblockversion, nNonce))
+    if (!CheckSolution(hash, nBits, preblockhash, nblockversion, nNonce, nTime))
         return error("CheckProofOfWork() : hash doesn't match nBits");
 
     return true;
@@ -2048,8 +2048,6 @@ bool ConnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, C
     // Check it again in case a previous version let a bad block in
     if (!CheckBlock(block, state, !fJustCheck, !fJustCheck))
         return false;
-
-    if (fDebug) block.print();
 
     // verify that the view's current state corresponds to the previous block
     assert(pindex->pprev == view.GetBestBlock());
@@ -2553,7 +2551,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     // Check proof of work matches claimed amount
 	uint256 tempHash = block.hashPrevBlock ^ block.hashMerkleRoot;
 	uint256 seedHash = Hash(BEGIN(tempHash), END(tempHash));
-    if (fCheckPOW && !CheckProofOfWork(seedHash, block.nBits, block.hashPrevBlock, block.nVersion, block.nNonce))
+    if (fCheckPOW && !CheckProofOfWork(seedHash, block.nBits, block.hashPrevBlock, block.nVersion, block.nNonce, block.nTime))
         return state.DoS(50, error("CheckBlock() : proof of work failed"));
 
     // Check timestamp
@@ -2730,6 +2728,8 @@ bool ProcessBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, CDiskBl
     if (mapOrphanBlocks.count(hash))
         return state.Invalid(error("ProcessBlock() : already have block (orphan) %s", hash.ToString().c_str()));
 
+    if(fDebug) pblock->print();
+
     // Preliminary checks
     if (!CheckBlock(*pblock, state))
         return error("ProcessBlock() : CheckBlock FAILED");
@@ -2746,7 +2746,7 @@ bool ProcessBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, CDiskBl
         unsigned int bnRequired = ComputeMinWork(pcheckpoint->nBits, deltaTime);
         if (pblock->nBits < bnRequired)
         {
-            return state.DoS(100, error("ProcessBlock() : block with too little proof-of-work"));
+            return state.DoS(100, error("ProcessBlock() : nBits[%d] bnRequired[%d] block with too little proof-of-work", pblock->nBits, bnRequired));
         }
     }
 
@@ -4482,34 +4482,19 @@ public:
 
 
 
-bool CheckSolution(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce)
+
+
+
+bool CheckSolution(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce, unsigned int nTime)
 {
     unsigned int mEquations = nBits;
     unsigned int nUnknowns = nBits + 8;
     unsigned int nTerms = 1 + (nUnknowns + 1) * (nUnknowns) / 2;
     std::vector<uint8_t> coeffMatrix;
     coeffMatrix.resize(mEquations * nTerms);
-    // Get prev block index
-    CBlockIndex* pindexPrev = NULL;
-    int height = 0;
-    uint256 initHash = 0;
-    if (preblockhash != initHash) {
-        std::map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(preblockhash);
-        if (mi == mapBlockIndex.end()) {
-            if (nblockversion == 1) {
-                height = 0;
-            }
-            if (nblockversion == 2) {
-                height = 25217;
-            }
-        } else {
-            pindexPrev = (*mi).second;
-            height = pindexPrev->nHeight + 1;
-        }
-    } else {
-        height = 0;
-    }
-    if (height < 25217) {
+
+    // if (height < 25217) {
+    if(nTime < 1538270779) {
         GenCoeffMatrix(hash, nBits, coeffMatrix);
     } else {
         NewGenCoeffMatrix(hash, nBits, coeffMatrix);

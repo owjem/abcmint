@@ -62,8 +62,8 @@ public:
     const MessageStartChars& MessageStart() const { return pchMessageStart; }
     const vector<unsigned char>& AlertKey() const { return vAlertPubKey; }
     int GetDefaultPort() const { return nDefaultPort; }
-    const CBigNum& ProofOfWorkLimit() const { return bnProofOfWorkLimit; }
-    const CBigNum& ProofOfWorkLimitMin() const { return bnProofOfWorkLimitMin; }
+    const unsigned int & ProofOfWorkLimit() const { return bnProofOfWorkLimit; }
+    const unsigned int & ProofOfWorkLimitMin() const { return bnProofOfWorkLimitMin; }
     int SubsidyHalvingInterval() const { return nSubsidyHalvingInterval; }
     virtual const CBlock& GenesisBlock() const = 0;
     virtual bool RequireRPCPassword() const { return true; }
@@ -82,8 +82,8 @@ protected:
     vector<unsigned char> vAlertPubKey;
     int nDefaultPort;
     int nRPCPort;
-    CBigNum bnProofOfWorkLimit;
-    CBigNum bnProofOfWorkLimitMin;
+    unsigned int bnProofOfWorkLimit;
+    unsigned int bnProofOfWorkLimitMin;
     int nSubsidyHalvingInterval;
     string strDataDir;
     vector<CDNSSeedData> vSeeds;

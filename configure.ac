@@ -12,6 +12,15 @@ AC_CONFIG_HEADERS([src/config/bitcoin-config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
 
+dnl Unless the user specified ARFLAGS, force it to be cr
+AC_ARG_VAR([ARFLAGS], [Flags for the archiver, defaults to <cr> if not set])
+if test "${ARFLAGS+set}" != "set"; then
+  ARFLAGS="cr"
+fi
+
+# AC_SUBST([ARFLAGS], ["cr"])
+# AC_SUBST([ARFLAGS], ["rcs"])
+
 AC_CANONICAL_HOST
 
 AH_TOP([#ifndef BITCOIN_CONFIG_H])
@@ -884,7 +893,7 @@ fi
 
 dnl enable upnp support
 AC_MSG_CHECKING([if GPU should be enabled])
-if test x$use_gpu != xno; then
+if test x$use_gpu = xyes; then
   AC_MSG_RESULT([yes])
   AC_MSG_CHECKING([if gpu miner should be on by default])
   AC_DEFINE_UNQUOTED([USE_GPU],[1],[Define to 1 for gpu miner])
@@ -971,7 +980,10 @@ if test x$use_tests = xyes; then
   BUILD_TEST="test"
 fi
 
+
+AC_MSG_CHECKING([if CUDA should be enabled])
 if test x$use_gpu = xyes; then
+  AC_MSG_RESULT([yes])
 # Checks for libraries.
 #CUDA_PATH="/usr/local/cuda"
 #AC_SUBST([CUDA_PATH], ["/usr/local/cuda-5.0"])
@@ -984,8 +996,6 @@ AC_SUBST([CUDA_CFLAGS], ["-I${CUDA_PATH}/include"])
 AC_SUBST([CUDA_LDFLAGS], ["-L${CUDA_PATH}/lib64 -lcudadevrt -lcudart"])
 AC_SUBST([CUDA_ARCH], ["-arch=sm_60 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61 -gencode=arch=compute_62,code=sm_62 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_70,code=compute_70"])
 
-AC_SUBST([ARFLAGS], ["rcs"])
-
 cuda_k=20
 cuda_unroll=8
 AC_SUBST([CUDA_K], ["${cuda_k}"])
@@ -996,7 +1006,8 @@ AC_SUBST([NVCC_CFLAGS], ["--resource-usage -lineinfo -DPARK=${cuda_k} ${CUDA_ARC
 
 AC_DEFINE_UNQUOTED([PARK], [$cuda_k], [Define this symbol for NVCC])
 AC_SUBST([NVCC_OMPFLAGS], ["-fopenmp -lomp"])
-
+else
+  AC_MSG_RESULT([no])
 fi
 
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
@@ -1101,4 +1112,6 @@ echo "  ARFLAGS         = $ARFLAGS"
 echo "  TESTDEFS        = $TESTDEFS"
 echo "  NVXX            = $NVCC"
 echo "  NVXXCFLAGS      = $NVCC_CFLAGS"
+echo "  CUDA_CFLAGS     = $CUDA_CFLAGS"
+echo "  CUDA_LDFLAGS    = $CUDA_LDFLAGS"
 echo

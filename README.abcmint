@@ -22,10 +22,10 @@ License
 
 ABCMintCore is released under the terms of the GNU GPL v. 3 license. See https://www.gnu.org/licenses/gpl-3.0.en.html for more information.
 
-THIRD PARTY SOFTWARE DISCLOSURE, ATTRIBUTIONS, COPYRIGHT NOTICES, AND LICENSES
+THIRD PARTY SOFTWARE DISCLOSURE, ATTRIBUTIONS, COPYRIGHT NOTICES, AND LICENSES 
 
 Certain open source third-party software and data components are integrated and/or redistributed with
-ABCMintCore. Such third-party components include terms and conditions, such as attribution and liability disclaimers (collectively "Third Party Disclosures") for which disclosure is required by their respective owners. This notice sets forth such Third Party Disclosures for ABCMintCore.
+ABCMintCore. Such third-party components include terms and conditions, such as attribution and liability disclaimers (collectively "Third Party Disclosures") for which disclosure is required by their respective owners. This notice sets forth such Third Party Disclosures for ABCMintCore. 
 
 ABC MINT FOUNDATION MAKES NO REPRESENTATION, WARRANTY OR OTHER COMMITMENT REGARDING SUCH THIRD PARTY COMPONENTS.  ABCMINTCORE, AND ALL THIRD PARTY COMPONENTS, ARE DISTRIBUTED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, UNLESS PROHIBITED BY APPLICABLE LAW
 
@@ -45,7 +45,7 @@ ABC MINT FOUNDATION MAKES NO REPRESENTATION, WARRANTY OR OTHER COMMITMENT REGARD
 •	Copyright (c) 1990, 1993, 1994, 1995	The Regents of the University of California, all rights reserved
 •	Copyright (c) 1995, 1996 The President and Fellows of Harvard University, all rights reserved
 •	URL: http://www.oracle.com/technetwork/database/database-technologies/berkeleydb/overview/index.html
-•	Version: 4.8.30
+•	Version: 5.1.29
 •	License:  Affero General Public License v.3
 
 3. Level db
@@ -54,14 +54,14 @@ ABC MINT FOUNDATION MAKES NO REPRESENTATION, WARRANTY OR OTHER COMMITMENT REGARD
 •	Version:1.1
 •	License:  BSD License Clause 3
 
-4. Boost
+4. Boost 
 •	Copyright Beman Dawes, David Abrahams, 1998-2005.
 •	Copyright Rene Rivera 2004-2005.
 •	URL: https://www.boost.org/
 •	Version: 1.65.0
 •	License:  Boost Software License
 
-5. libpng
+5. libpng 
 •	libpng versions 1.0.7, July 1, 2000 through 1.6.32, August 24, 2017 are Copyright (c) 2000-2002, 2004, 2006-2017 Glenn Randers-Pehrson, are derived from libpng-1.0.6, and are distributed according to the same disclaimer and license as libpng-1.0.6 with the following individuals added to the list of Contributing Authors:
 
 o	   Simon-Pierre Cadieux
@@ -95,19 +95,26 @@ o	   Vadim Barkov
 •	Version: 5.6.3
 •	License GPL v. 2; GPL v. 3; : LGPL v. 3
 
-9. MiniUPnP
+
+9. Google Test
+•	Copyright 2008, Google Inc., all rights reserved
+•	URL: https://github.com/google/googletest/
+•	Version: 
+•	License BSD 3-Clause
+
+10. MiniUPnP
 •	Copyright (c) 2006-2017, Thomas BERNARD, all rights reserved
 •	URL:http://miniupnp.free.fr/
 •	Version: 2.1
 •	License: MiniUPnP License
 
-10. Bitcoin Core
+11. Bitcoin Core
 •	Copyright (c) 2009-2018 The Bitcoin Core developers
 •	URL:https://bitcoin.org/en/bitcoin-core/
 •	Version:0.8.6
 •	License: MIT License
 
-11. libFES algorithm
+12. libFES algorithm
 •	URL: http://www.lifl.fr/~bouillag/fes/index.html
 •	Version:0.2
 •	GPL V3
@@ -144,22 +151,36 @@ requests than we can review and test. Please be patient and help out, and
 remember this is a security-critical project where any mistake might cost people
 lots of money.
 
-### build
+### Automated Testing
 
-```
-./autogen.sh
-CONFIG_SITE=./depends/x86_64-pc-linux-gnu/share/config.site ./configure --without-qt
-make
-```
+Developers are strongly encouraged to write unit tests for new code, and to
+submit new unit tests for old code.
 
-Dependency Build Instructions: Ubuntu & Debian
--------
-```
-cd depends
-make clean
-make
-```
+Unit tests for the core code are in `src/test/`. To compile and run them:
 
-about QT GUI
--------
-There is no time to work on QT GUI, so we can deal with it when necessary. Now we mainly use our spare time to merge part of the code of the new version of bitcoin into abcmint, and then add rainbow BLS signature and isolation witness.
+    cd src; make -f makefile.unix test
+
+Unit tests for the GUI code are in `src/qt/test/`. To compile and run them:
+
+    qmake ABCMINT_QT_TEST=1 -o Makefile.test abcmint-qt.pro
+    make -f Makefile.test
+    ./abcmint-qt_test
+
+Every pull request is built for both Windows and Linux on a dedicated server,
+and unit and sanity tests are automatically run. The binaries produced may be
+used for manual QA testing — a link to them will appear in a comment on the
+pull request posted by [AbcmintPullTester](https://github.com/AbcmintPullTester). See https://github.com/TheBlueMatt/test-scripts
+for the build/test scripts.
+
+### Manual Quality Assurance (QA) Testing
+
+Large changes should have a test plan, and should be tested by somebody other
+than the developer who wrote the code.
+
+See https://github.com/abcmint/QA/ for how to create a test plan.
+
+### Mining Algorithm Using GPU 
+A new program that can be used to do ABC mining on a GPU is recently release at
+http://polycephaly.org/projects/forcemq/data/MQForceGPU-20180724.tgz
+
+To use it correctly, one may have to do some small adjustments. 

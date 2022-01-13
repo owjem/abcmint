@@ -147,6 +147,7 @@ libbitcoin_a_LIBADD = $(LIBMINER)
 libbitcoin_a_SOURCES = \
   addrman.cpp \
   alert.cpp \
+  allocators.cpp \
   bitcoinrpc.cpp \
   bloom.cpp \
   chainparams.cpp \
@@ -275,7 +276,7 @@ bitcoind_SOURCES = bitcoind.cpp
 #
 
 if TARGET_WINDOWS
-bitcoind_SOURCES += bitcoin-res.rc
+bitcoind_SOURCES += bitcoind-res.rc
 endif
 
 bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS)

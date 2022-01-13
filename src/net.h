@@ -301,7 +301,7 @@ public:
     unsigned int GetTotalRecvSize()
     {
         unsigned int total = 0;
-        BOOST_FOREACH(const CNetMessage &msg, vRecvMsg)
+        BOOST_FOREACH(const CNetMessage &msg, vRecvMsg) 
             total += msg.vRecv.size() + 24;
         return total;
     }
@@ -435,7 +435,7 @@ public:
         assert(ssSend.size () >= CMessageHeader::CHECKSUM_OFFSET + sizeof(nChecksum));
         memcpy((char*)&ssSend[CMessageHeader::CHECKSUM_OFFSET], &nChecksum, sizeof(nChecksum));
 
-		LogPrint("net", "(%d bytes)\n", nSize);
+        LogPrint("net", "(%d bytes)\n", nSize);
 
         LogPrint("net", " SEND %s %s \n", addrName.c_str(), HexStr(ssSend.begin(),ssSend.end()).c_str());
 

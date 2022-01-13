@@ -9,8 +9,16 @@
 #include "main.h"
 #include "miner/common.h"
 
-using namespace std;
-using namespace boost;
+// using namespace std;
+// using namespace boost;
+
+double dHashesPerSec = 0.0;
+int64 nHPSTimerStart = 0;
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// BitcoinMiner
+//
 
 #ifdef USE_GPU
 #include <cuda.h>

@@ -131,6 +131,7 @@ void Shutdown()
     UnregisterAllWallets();
     if (pwalletMain)
         delete pwalletMain;
+    LogPrintf("Shutdown : done\n");
 }
 
 //

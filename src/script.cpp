@@ -230,7 +230,9 @@ const char* GetOpName(opcodetype opcode)
     }
 }
 
-bool IsCanonicalPubKey(const valtype &vchPubKey) {
+bool IsCanonicalPubKey(const valtype &vchPubKey, unsigned int flags) {
+    if (!(flags & SCRIPT_VERIFY_STRICTENC))
+        return true;
     if (vchPubKey.size() != RAINBOW_PUBLIC_KEY_SIZE
         && vchPubKey.size() != RAINBOW_PUBLIC_KEY_POS_SIZE
         && vchPubKey.size() != RAINBOW_PUBLIC_KEY_REUSED_SIZE )
@@ -239,7 +241,10 @@ bool IsCanonicalPubKey(const valtype &vchPubKey) {
     return true;
 }
 
-bool IsCanonicalSignature(const valtype &vchSig) {
+bool IsCanonicalSignature(const valtype &vchSig, unsigned int flags) {
+    if (!(flags & SCRIPT_VERIFY_STRICTENC))
+        return true;
+
     // See https://bitcointalk.org/index.php?topic=8392.msg127623#msg127623
     // A canonical signature exists of: <30> <total len> <02> <len R> <R> <02> <len S> <S> <hashtype>
     // Where R and S are not negative (their first byte has its highest bit not set), and not
@@ -255,20 +260,17 @@ bool IsCanonicalSignature(const valtype &vchSig) {
     if (nHashType < SIGHASH_ALL || nHashType > SIGHASH_SINGLE)
         return error("Non-canonical signature: unknown hashtype byte");
 
-    return true;
-}
-
-bool static CheckSignatureEncoding(const valtype &vchSig, unsigned int flags) {
     // Empty signature. Not strictly DER encoded, but allowed to provide a
     // compact way to provide an invalid signature for use with CHECK(MULTI)SIG
-    if (vchSig.size() == 0) {
-        return true;
-    }
-    if ((flags & SCRIPT_VERIFY_DERSIG) != 0 && !IsCanonicalSignature(vchSig)) {
+    // if (vchSig.size() == 0) {
+    //     return true;
+    // }
+    if ((flags & SCRIPT_VERIFY_DERSIG) != 0 ) {
         return false;
     }
     return true;
 }
+
 
 bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck)
 {
@@ -285,7 +287,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
     if (script.size() > 1000000)
         return false;
     int nOpCount = 0;
-    bool fStrictEncodings = flags & SCRIPT_VERIFY_STRICTENC;
 
     try
     {
@@ -836,9 +837,10 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
 
                     valtype& vchSig    = stacktop(-2);
                     valtype& vchPubKey = stacktop(-1);
-                    //// debug print
-                    // PrintHex(vchSig.begin(), vchSig.end(), "sig: %s\n");
-                    // PrintHex(vchPubKey.begin(), vchPubKey.end(), "pubkey: %s\n");
+
+                    ////// debug print
+                    //PrintHex(vchSig.begin(), vchSig.end(), "sig: %s\n");
+                    //PrintHex(vchPubKey.begin(), vchPubKey.end(), "pubkey: %s\n");
 
                     // Subset of script starting at the most recent codeseparator
                     CScript scriptCode(pbegincodehash, pend);
@@ -846,13 +848,8 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                     // Drop the signature, since there's no way for a signature to sign itself
                     scriptCode.FindAndDelete(CScript(vchSig));
 
-                    if (!CheckSignatureEncoding(vchSig, flags)) {
-                        return false;
-                    }
-
-                    bool fSuccess = (!fStrictEncodings || IsCanonicalPubKey(vchPubKey));
-                    if (fSuccess)
-                        fSuccess = CheckSig(vchSig, vchPubKey, scriptCode, txTo, nIn, nHashType, flags);
+                    bool fSuccess = IsCanonicalSignature(vchSig, flags) && IsCanonicalPubKey(vchPubKey, flags) &&
+                        CheckSig(vchSig, vchPubKey, scriptCode, txTo, nIn, nHashType, flags);
 
                     popstack(stack);
                     popstack(stack);
@@ -911,14 +908,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                         valtype& vchSig    = stacktop(-isig);
                         valtype& vchPubKey = stacktop(-ikey);
 
-                        if (!CheckSignatureEncoding(vchSig, flags)) {
-                            return false;
-                        }
-
                         // Check signature
-                        bool fOk = (!fStrictEncodings || IsCanonicalPubKey(vchPubKey));
-                        if (fOk)
-                            fOk = CheckSig(vchSig, vchPubKey, scriptCode, txTo, nIn, nHashType, flags);
+                        bool fOk = IsCanonicalSignature(vchSig, flags) && IsCanonicalPubKey(vchPubKey, flags) &&
+                            CheckSig(vchSig, vchPubKey, scriptCode, txTo, nIn, nHashType, flags);
 
                         if (fOk) {
                             isig++;
@@ -1099,9 +1091,10 @@ bool CheckSig(vector<unsigned char> vchSig, const vector<unsigned char> &vchPubK
 {
     static CSignatureCache signatureCache;
 
-    CPubKey pubkey(vchPubKey);
-    if (!pubkey.IsValid())
-        return false;
+    //TODO: abc pubkey
+    // CPubKey pubkey(vchPubKey);
+    // if (!pubkey.IsValid())
+    //     return false;
 
     // Hash type is one byte tacked on to the end of the signature
     if (vchSig.empty())
@@ -1114,10 +1107,13 @@ bool CheckSig(vector<unsigned char> vchSig, const vector<unsigned char> &vchPubK
 
     uint256 sighash = SignatureHash(scriptCode, txTo, nIn, nHashType);
 
-    if (signatureCache.Get(sighash, vchSig, pubkey.vchPubKey))
+
+    //TODO: abc pubkey
+    // if (signatureCache.Get(sighash, vchSig, pubkey.vchPubKey))
+    if (signatureCache.Get(sighash, vchSig, vchPubKey))
         return true;
 
-    // CPubKey pubkey;
+    CPubKey pubkey;
     if (vchPubKey.size() == RAINBOW_PUBLIC_KEY_REUSED_SIZE) {
         unsigned int cursor0 = ((unsigned char)vchPubKey[0]) & 0xff;
         unsigned int cursor1 = ((unsigned char)vchPubKey[1]) & 0xff;
@@ -1149,7 +1145,8 @@ bool CheckSig(vector<unsigned char> vchSig, const vector<unsigned char> &vchPubK
         return false;
 
     if (!(flags & SCRIPT_VERIFY_NOCACHE))
-        signatureCache.Set(sighash, vchSig, pubkey.vchPubKey);
+        signatureCache.Set(sighash, vchSig, vchPubKey);
+        // signatureCache.Set(sighash, vchSig, pubkey.vchPubKey);
 
     return true;
 }

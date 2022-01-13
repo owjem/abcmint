@@ -1,6 +1,6 @@
 // Copyright (c) 2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "leveldb.h"
 #include "util.h"
@@ -8,13 +8,14 @@
 #include <leveldb/env.h>
 #include <leveldb/cache.h>
 #include <leveldb/filter_policy.h>
-#include <memenv/memenv.h>
+#include <memenv.h>
 
 #include <boost/filesystem.hpp>
 
 void HandleError(const leveldb::Status &status) throw(leveldb_error) {
     if (status.ok())
         return;
+    LogPrintf("%s\n", status.ToString().c_str());
     if (status.IsCorruption())
         throw leveldb_error("Database corrupted");
     if (status.IsIOError())
@@ -47,16 +48,15 @@ CLevelDB::CLevelDB(const boost::filesystem::path &path, size_t nCacheSize, bool 
         options.env = penv;
     } else {
         if (fWipe) {
-            printf("Wiping LevelDB in %s\n", path.string().c_str());
+            LogPrintf("Wiping LevelDB in %s\n", path.string().c_str());
             leveldb::DestroyDB(path.string(), options);
         }
         boost::filesystem::create_directory(path);
-        printf("Opening LevelDB in %s\n", path.string().c_str());
+        LogPrintf("Opening LevelDB in %s\n", path.string().c_str());
     }
     leveldb::Status status = leveldb::DB::Open(options, path.string(), &pdb);
-    if (!status.ok())
-        throw std::runtime_error(strprintf("CLevelDB(): error opening database environment %s", status.ToString().c_str()));
-    printf("Opened LevelDB successfully\n");
+    HandleError(status);
+    LogPrintf("Opened LevelDB successfully\n");
 }
 
 CLevelDB::~CLevelDB() {
@@ -72,10 +72,6 @@ CLevelDB::~CLevelDB() {
 
 bool CLevelDB::WriteBatch(CLevelDBBatch &batch, bool fSync) throw(leveldb_error) {
     leveldb::Status status = pdb->Write(fSync ? syncoptions : writeoptions, &batch.batch);
-    if (!status.ok()) {
-        printf("LevelDB write failure: %s\n", status.ToString().c_str());
-        HandleError(status);
-        return false;
-    }
+    HandleError(status);
     return true;
 }

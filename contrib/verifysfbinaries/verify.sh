@@ -14,16 +14,16 @@ function clean_up {
    done
 }
 
-WORKINGDIR="/tmp/abcmint"
+WORKINGDIR="/tmp/bitcoin"
 TMPFILE="hashes.tmp"
 
 #this URL is used if a version number is not specified as an argument to the script
-SIGNATUREFILE="http://downloads.sourceforge.net/project/abcmint/Abcmint/abcmint-0.8.6/SHA256SUMS.asc"
+SIGNATUREFILE="http://downloads.sourceforge.net/project/bitcoin/Bitcoin/bitcoin-0.8.6/SHA256SUMS.asc"
 
 SIGNATUREFILENAME="SHA256SUMS.asc"
 RCSUBDIR="test/"
-BASEDIR="http://downloads.sourceforge.net/project/abcmint/Abcmint/"
-VERSIONPREFIX="abcmint-"
+BASEDIR="http://downloads.sourceforge.net/project/bitcoin/Bitcoin/"
+VERSIONPREFIX="bitcoin-"
 RCVERSIONSTRING="rc"
 
 if [ ! -d "$WORKINGDIR" ]; then
@@ -34,7 +34,7 @@ cd "$WORKINGDIR"
 
 #test if a version number has been passed as an argument
 if [ -n "$1" ]; then
-   #let's also check if the version number includes the prefix 'abcmint-',
+   #let's also check if the version number includes the prefix 'bitcoin-',
    #  and add this prefix if it doesn't
    if [[ $1 == "$VERSIONPREFIX"* ]]; then
       VERSION="$1"
@@ -62,7 +62,7 @@ WGETOUT=$(wget -N "$BASEDIR$SIGNATUREFILENAME" 2>&1)
 #and then see if wget completed successfully
 if [ $? -ne 0 ]; then
    echo "Error: couldn't fetch signature file. Have you specified the version number in the following format?"
-   echo "[abcmint-]<version>-[rc[0-9]] (example: abcmint-0.7.1-rc1)"
+   echo "[bitcoin-]<version>-[rc[0-9]] (example: bitcoin-0.7.1-rc1)"
    echo "wget output:"
    echo "$WGETOUT"|sed 's/^/\t/g'
    exit 2

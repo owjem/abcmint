@@ -1,15 +1,14 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <boost/assign/list_of.hpp>
 
 #include "base58.h"
-#include "abcmintrpc.h"
+#include "bitcoinrpc.h"
 #include "db.h"
 #include "init.h"
-#include "main.h"
 #include "net.h"
 #include "wallet.h"
 
@@ -18,47 +17,15 @@ using namespace boost;
 using namespace boost::assign;
 using namespace json_spirit;
 
-//
-// Utilities: convert hex-encoded Values
-// (throws error if not hex).
-//
-uint256 ParseHashV(const Value& v, string strName)
-{
-    string strHex;
-    if (v.type() == str_type)
-        strHex = v.get_str();
-    if (!IsHex(strHex)) // Note: IsHex("") is false
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strName+" must be hexadecimal string (not '"+strHex+"')");
-    uint256 result;
-    result.SetHex(strHex);
-    return result;
-}
-uint256 ParseHashO(const Object& o, string strKey)
-{
-    return ParseHashV(find_value(o, strKey), strKey);
-}
-vector<unsigned char> ParseHexV(const Value& v, string strName)
-{
-    string strHex;
-    if (v.type() == str_type)
-        strHex = v.get_str();
-    if (!IsHex(strHex))
-        throw JSONRPCError(RPC_INVALID_PARAMETER, strName+" must be hexadecimal string (not '"+strHex+"')");
-    return ParseHex(strHex);
-}
-vector<unsigned char> ParseHexO(const Object& o, string strKey)
-{
-    return ParseHexV(find_value(o, strKey), strKey);
-}
-
-void ScriptPubKeyToJSON(const CScript& scriptPubKey, Object& out)
+void ScriptPubKeyToJSON(const CScript& scriptPubKey, Object& out, bool fIncludeHex)
 {
     txnouttype type;
     vector<CTxDestination> addresses;
     int nRequired;
 
     out.push_back(Pair("asm", scriptPubKey.ToString()));
-    out.push_back(Pair("hex", HexStr(scriptPubKey.begin(), scriptPubKey.end())));
+    if (fIncludeHex)
+        out.push_back(Pair("hex", HexStr(scriptPubKey.begin(), scriptPubKey.end())));
 
     if (!ExtractDestinations(scriptPubKey, type, addresses, nRequired))
     {
@@ -71,7 +38,7 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, Object& out)
 
     Array a;
     BOOST_FOREACH(const CTxDestination& addr, addresses)
-        a.push_back(CAbcmintAddress(addr).ToString());
+        a.push_back(CBitcoinAddress(addr).ToString());
     out.push_back(Pair("addresses", a));
 }
 
@@ -107,7 +74,7 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, Object& entry)
         out.push_back(Pair("value", ValueFromAmount(txout.nValue)));
         out.push_back(Pair("n", (boost::int64_t)i));
         Object o;
-        ScriptPubKeyToJSON(txout.scriptPubKey, o);
+        ScriptPubKeyToJSON(txout.scriptPubKey, o, false);
         out.push_back(Pair("scriptPubKey", o));
         vout.push_back(out);
     }
@@ -187,15 +154,15 @@ Value listunspent(const Array& params, bool fHelp)
     if (params.size() > 1)
         nMaxDepth = params[1].get_int();
 
-    set<CAbcmintAddress> setAddress;
+    set<CBitcoinAddress> setAddress;
     if (params.size() > 2)
     {
         Array inputs = params[2].get_array();
         BOOST_FOREACH(Value& input, inputs)
         {
-            CAbcmintAddress address(input.get_str());
+            CBitcoinAddress address(input.get_str());
             if (!address.IsValid())
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Abcmint address: ")+input.get_str());
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Bitcoin address: ")+input.get_str());
             if (setAddress.count(address))
                 throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+input.get_str());
            setAddress.insert(address);
@@ -204,6 +171,7 @@ Value listunspent(const Array& params, bool fHelp)
 
     Array results;
     vector<COutput> vecOutputs;
+    assert(pwalletMain != NULL);
     pwalletMain->AvailableCoins(vecOutputs, false);
     BOOST_FOREACH(const COutput& out, vecOutputs)
     {
@@ -228,9 +196,9 @@ Value listunspent(const Array& params, bool fHelp)
         CTxDestination address;
         if (ExtractDestination(out.tx->vout[out.i].scriptPubKey, address))
         {
-            entry.push_back(Pair("address", CAbcmintAddress(address).ToString()));
+            entry.push_back(Pair("address", CBitcoinAddress(address).ToString()));
             if (pwalletMain->mapAddressBook.count(address))
-                entry.push_back(Pair("account", pwalletMain->mapAddressBook[address]));
+                entry.push_back(Pair("account", pwalletMain->mapAddressBook[address].name));
         }
         entry.push_back(Pair("scriptPubKey", HexStr(pk.begin(), pk.end())));
         if (pk.IsPayToScriptHash())
@@ -238,7 +206,7 @@ Value listunspent(const Array& params, bool fHelp)
             CTxDestination address;
             if (ExtractDestination(pk, address))
             {
-                const CScriptID& hash = boost::get<const CScriptID>(address);
+                const CScriptID& hash = boost::get<const CScriptID&>(address);
                 CScript redeemScript;
                 if (pwalletMain->GetCScript(hash, redeemScript))
                     entry.push_back(Pair("redeemScript", HexStr(redeemScript.begin(), redeemScript.end())));
@@ -288,12 +256,12 @@ Value createrawtransaction(const Array& params, bool fHelp)
         rawTx.vin.push_back(in);
     }
 
-    set<CAbcmintAddress> setAddress;
+    set<CBitcoinAddress> setAddress;
     BOOST_FOREACH(const Pair& s, sendTo)
     {
-        CAbcmintAddress address(s.name_);
+        CBitcoinAddress address(s.name_);
         if (!address.IsValid())
-            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Abcmint address: ")+s.name_);
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, string("Invalid Bitcoin address: ")+s.name_);
 
         if (setAddress.count(address))
             throw JSONRPCError(RPC_INVALID_PARAMETER, string("Invalid parameter, duplicated address: ")+s.name_);
@@ -333,6 +301,29 @@ Value decoderawtransaction(const Array& params, bool fHelp)
     TxToJSON(tx, 0, result);
 
     return result;
+}
+
+Value decodescript(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "decodescript <hex string>\n"
+            "Decode a hex-encoded script.");
+
+    RPCTypeCheck(params, list_of(str_type));
+
+    Object r;
+    CScript script;
+    if (params[0].get_str().size() > 0){
+        vector<unsigned char> scriptData(ParseHexV(params[0], "argument"));
+        script = CScript(scriptData.begin(), scriptData.end());
+    } else {
+        // Empty scripts are valid
+    }
+    ScriptPubKeyToJSON(script, r, false);
+
+    r.push_back(Pair("p2sh", CBitcoinAddress(script.GetID()).ToString()));
+    return r;
 }
 
 Value signrawtransaction(const Array& params, bool fHelp)
@@ -403,7 +394,7 @@ Value signrawtransaction(const Array& params, bool fHelp)
         Array keys = params[2].get_array();
         BOOST_FOREACH(Value k, keys)
         {
-            CAbcmintSecret vchSecret;
+            CBitcoinSecret vchSecret;
             bool fGood = vchSecret.SetString(k.get_str());
             if (!fGood)
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key");
@@ -470,7 +461,7 @@ Value signrawtransaction(const Array& params, bool fHelp)
         }
     }
 
-    const CKeyStore& keystore = (fGivenKeys ? tempKeystore : *pwalletMain);
+    const CKeyStore& keystore = ((fGivenKeys || !pwalletMain) ? tempKeystore : *pwalletMain);
 
     int nHashType = SIGHASH_ALL;
     if (params.size() > 3 && params[3].type() != null_type)
@@ -530,15 +521,19 @@ Value signrawtransaction(const Array& params, bool fHelp)
 
 Value sendrawtransaction(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 1 || params.size() > 1)
+    if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "sendrawtransaction <hex string>\n"
+            "sendrawtransaction <hex string> [allowhighfees=false]\n"
             "Submits raw transaction (serialized, hex-encoded) to local node and network.");
 
     // parse hex string from parameter
     vector<unsigned char> txData(ParseHexV(params[0], "parameter"));
     CDataStream ssData(txData, SER_NETWORK, PROTOCOL_VERSION);
     CTransaction tx;
+
+    bool fOverrideFees = false;
+    if (params.size() > 1)
+        fOverrideFees = params[1].get_bool();
 
     // deserialize binary data stream
     try {
@@ -557,7 +552,7 @@ Value sendrawtransaction(const Array& params, bool fHelp)
         if (!fHave) {
             // push to local node
             CValidationState state;
-            if (!tx.AcceptToMemoryPool(state, true, false))
+            if (!mempool.accept(state, tx, false, NULL, !fOverrideFees))
                 throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX rejected"); // TODO: report validation state
         }
     }

@@ -1,9 +1,9 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
-#ifndef ABCMINT_UI_INTERFACE_H
-#define ABCMINT_UI_INTERFACE_H
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifndef BITCOIN_UI_INTERFACE_H
+#define BITCOIN_UI_INTERFACE_H
 
 #include <string>
 #include "util.h" // for int64
@@ -23,7 +23,6 @@ enum ChangeType
 };
 
 /** Signals for UI communication. */
-/**UI tong xin xin hao */
 class CClientUIInterface
 {
 public:

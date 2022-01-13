@@ -1,8 +1,8 @@
 /* Defines the PQC_ARGCHK macro used within the library */
 /* ARGTYPE is defined in pqcrypt_cfg.h */
 
-#ifndef ABCMINT_PQCRYPT_ARGCHK_H
-#define ABCMINT_PQCRYPT_ARGCHK_H
+#ifndef BITCOIN_PQCRYPT_ARGCHK_H
+#define BITCOIN_PQCRYPT_ARGCHK_H
 
 #include <signal.h>
 
@@ -15,7 +15,7 @@
 #if defined(__clang__) || defined(__GNUC_MINOR__)
 #define NORETURN __attribute__ ((noreturn))
 #else
-#define NORETURN 
+#define NORETURN
 #endif
 
 void crypt_argchk(char *v, char *s, int d) NORETURN;
@@ -53,4 +53,3 @@ void crypt_argchk(char *v, char *s, int d) NORETURN;
 /* $Source$ */
 /* $Revision$ */
 /* $Date$ */
-

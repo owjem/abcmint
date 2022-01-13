@@ -1,17 +1,17 @@
-AbcmintCore 0.1.0 BETA
+Bitcoin 0.8.6 BETA
 ====================
 
-Copyright (c) 2018 AbcmintCore Developers
+Copyright (c) 2009-2013 Bitcoin Developers
 
-Abcmintcoie is released under the terms of the GNU GPL v. 3 license. 
-See https://www.gnu.org/licenses/gpl-3.0.en.html for more information.
+Distributed under the MIT/X11 software license, see the accompanying
+file COPYING or http://www.opensource.org/licenses/mit-license.php.
 This product includes software developed by the OpenSSL Project for use in the [OpenSSL Toolkit](http://www.openssl.org/). This product includes
 cryptographic software written by Eric Young ([eay@cryptsoft.com](mailto:eay@cryptsoft.com)), and UPnP software written by Thomas Bernard.
 
 
 Intro
 ---------------------
-Abcmint is a free open source peer-to-peer electronic cash system that is
+Bitcoin is a free open source peer-to-peer electronic cash system that is
 completely decentralized, without the need for a central server or trusted
 parties.  Users hold the crypto keys to their own money and transact directly
 with each other, with the help of a P2P network to check for double-spending.
@@ -19,17 +19,17 @@ with each other, with the help of a P2P network to check for double-spending.
 
 Setup
 ---------------------
-You need the Qt5 run-time libraries to run Abcmint-Qt. On Debian or Ubuntu:
-	`sudo apt-get install libqtgui5`
+You need the Qt4 run-time libraries to run Bitcoin-Qt. On Debian or Ubuntu:
+	`sudo apt-get install libqtgui4`
 
 Unpack the files into a directory and run:
 
-- bin/32/abcmint-qt (GUI, 32-bit)
-- bin/32/abcmint (headless, 32-bit)
-- bin/64/abcmint-qt (GUI, 64-bit)
-- bin/64/abcmint (headless, 64-bit)
+- bin/32/bitcoin-qt (GUI, 32-bit)
+- bin/32/bitcoind (headless, 32-bit)
+- bin/64/bitcoin-qt (GUI, 64-bit)
+- bin/64/bitcoind (headless, 64-bit)
 
-See the documentation at the [Abcmint Wiki](https://en.abcmint.it/wiki/Main_Page)
+See the documentation at the [Bitcoin Wiki](https://en.bitcoin.it/wiki/Main_Page)
 for help and more information.
 
 

@@ -2,7 +2,7 @@
 #include "ui_rpcconsole.h"
 
 #include "clientmodel.h"
-#include "abcmintrpc.h"
+#include "bitcoinrpc.h"
 #include "guiutil.h"
 
 #include <QTime>
@@ -196,7 +196,7 @@ RPCConsole::RPCConsole(QWidget *parent) :
     ui->messagesWidget->installEventFilter(this);
 
     connect(ui->clearButton, SIGNAL(clicked()), this, SLOT(clear()));
-	
+
     // set OpenSSL version label
     ui->openSSLVersion->setText(SSLeay_version(SSLEAY_VERSION));
 
@@ -306,7 +306,7 @@ void RPCConsole::clear()
                 "b { color: #006060; } "
                 );
 
-    message(CMD_REPLY, (tr("Welcome to the Abcmint RPC console.") + "<br>" +
+    message(CMD_REPLY, (tr("Welcome to the Bitcoin RPC console.") + "<br>" +
                         tr("Use up and down arrows to navigate history, and <b>Ctrl-L</b> to clear screen.") + "<br>" +
                         tr("Type <b>help</b> for an overview of available commands.")), true);
 }

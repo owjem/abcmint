@@ -1,5 +1,5 @@
-#ifndef ABCMINT_PQCRYPT_PRNG_H
-#define ABCMINT_PQCRYPT_PRNG_H
+#ifndef BITCOIN_PQCRYPT_PRNG_H
+#define BITCOIN_PQCRYPT_PRNG_H
 
 
 /* ---- PRNG Stuff ---- */
@@ -45,4 +45,3 @@ int rng_make_prng(int bits, prng_state *prng, void (*callback)(void));
 /* $Source$ */
 /* $Revision$ */
 /* $Date$ */
-

@@ -1,7 +1,7 @@
-// Copyright (c) 2018 The Abcmint developers
+// Copyright (c) 2018 The Bitcoin developers
 
-#ifndef ABCMINT_DISKPUBKEYPOS_H
-#define ABCMINT_DISKPUBKEYPOS_H
+#ifndef BITCOIN_DISKPUBKEYPOS_H
+#define BITCOIN_DISKPUBKEYPOS_H
 
 #include <vector>
 #include <boost/thread.hpp>
@@ -102,4 +102,3 @@ bool UpdatePubKeyPos(CPubKey& pubKey, const std::string& address);
 void SearchPubKeyPos(boost::thread_group& threadGroup);
 
 #endif
-

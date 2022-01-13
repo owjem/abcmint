@@ -1,5 +1,5 @@
-#ifndef ABCMINT_PQCRYPT_MACROS_H
-#define ABCMINT_PQCRYPT_MACROS_H
+#ifndef BITCOIN_PQCRYPT_MACROS_H
+#define BITCOIN_PQCRYPT_MACROS_H
 
 
 /* ---- HELPER MACROS ---- */
@@ -444,4 +444,3 @@ static inline ulong64 ROR64(ulong64 word, int i)
 /* $Source$ */
 /* $Revision$ */
 /* $Date$ */
-

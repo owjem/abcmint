@@ -1,5 +1,5 @@
-#ifndef ABCMINT_PQCRYPT_UTIL_H
-#define ABCMINT_PQCRYPT_UTIL_H
+#ifndef BITCOIN_PQCRYPT_UTIL_H
+#define BITCOIN_PQCRYPT_UTIL_H
 
 /* macros for various libc functions you can change for embedded targets */
 #ifndef XMALLOC
@@ -322,4 +322,3 @@ inline void burn_stack(unsigned long len) {
 /* $Source$ */
 /* $Revision$ */
 /* $Date$ */
-

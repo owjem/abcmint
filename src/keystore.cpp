@@ -1,6 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "keystore.h"
 #include "script.h"
@@ -14,6 +15,10 @@ bool CKeyStore::GetPubKey(const CKeyID &address, CPubKey &vchPubKeyOut) const
     return true;
 }
 
+bool CKeyStore::AddKey(const CKey &key) {
+    return AddKeyPubKey(key, key.GetPubKey());
+}
+
 bool CBasicKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
 {
     LOCK(cs_KeyStore);
@@ -21,55 +26,39 @@ bool CBasicKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
     return true;
 }
 
-bool CBasicKeyStore::AddKey(const CKey& key)
-{
-    return AddKeyPubKey(key, key.GetPubKey());
-}
-
 bool CBasicKeyStore::AddCScript(const CScript& redeemScript)
 {
-    {
-        LOCK(cs_KeyStore);
-        mapScripts[redeemScript.GetID()] = redeemScript;
-    }
+    LOCK(cs_KeyStore);
+    mapScripts[redeemScript.GetID()] = redeemScript;
     return true;
 }
 
 bool CBasicKeyStore::HaveCScript(const CScriptID& hash) const
 {
-    bool result;
-    {
-        LOCK(cs_KeyStore);
-        result = (mapScripts.count(hash) > 0);
-    }
-    return result;
+    LOCK(cs_KeyStore);
+    return mapScripts.count(hash) > 0;
 }
-
 
 bool CBasicKeyStore::GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const
 {
+    LOCK(cs_KeyStore);
+    ScriptMap::const_iterator mi = mapScripts.find(hash);
+    if (mi != mapScripts.end())
     {
-        LOCK(cs_KeyStore);
-        ScriptMap::const_iterator mi = mapScripts.find(hash);
-        if (mi != mapScripts.end())
-        {
-            redeemScriptOut = (*mi).second;
-            return true;
-        }
+        redeemScriptOut = (*mi).second;
+        return true;
     }
     return false;
 }
 
 bool CCryptoKeyStore::SetCrypted()
 {
-    {
-        LOCK(cs_KeyStore);
-        if (fUseCrypto)
-            return true;
-        if (!mapKeys.empty())
-            return false;
-        fUseCrypto = true;
-    }
+    LOCK(cs_KeyStore);
+    if (fUseCrypto)
+        return true;
+    if (!mapKeys.empty())
+        return false;
+    fUseCrypto = true;
     return true;
 }
 
@@ -86,6 +75,7 @@ bool CCryptoKeyStore::Lock()
     NotifyStatusChanged(this);
     return true;
 }
+
 bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
 {
     {
@@ -101,7 +91,7 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
             const CPubKey &vchPubKey = (*mi).second.first;
             const std::vector<unsigned char> &vchCryptedSecret = (*mi).second.second;
             CSecret vchSecret;
-            if (!DecryptSecret(vMasterKeyIn, vchCryptedSecret, vchPubKey.GetHash(), vchSecret))
+            if(!DecryptSecret(vMasterKeyIn, vchCryptedSecret, vchPubKey.GetHash(), vchSecret))
             {
                 keyFail = true;
                 break;
@@ -110,7 +100,7 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
         }
         if (keyPass && keyFail)
         {
-            printf("The wallet is probably corrupted: Some keys decrypt but not all.\n");
+            LogPrintf("The wallet is probably corrupted: Some keys decrypt but not all.\n");
             assert(false);
         }
         if (keyFail || !keyPass)
@@ -121,13 +111,12 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
     return true;
 }
 
-bool CCryptoKeyStore::AddKey(const CKey& key)
+bool CCryptoKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
 {
     {
         LOCK(cs_KeyStore);
         if (!IsCrypted())
-            return CBasicKeyStore::AddKey(key);
-
+            return CBasicKeyStore::AddKeyPubKey(key, pubkey);
         if (IsLocked())
             return false;
 
@@ -136,7 +125,7 @@ bool CCryptoKeyStore::AddKey(const CKey& key)
         if (!EncryptSecret(vMasterKey, key.GetPrivKey(), vchPubKey.GetHash(), vchCryptedSecret))
             return false;
 
-        if (!AddCryptedKey(key.GetPubKey(), vchCryptedSecret))
+        if (!AddCryptedKey(pubkey, vchCryptedSecret))
             return false;
     }
     return true;

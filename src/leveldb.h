@@ -1,10 +1,11 @@
 // Copyright (c) 2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
-#ifndef ABCMINT_LEVELDB_H
-#define ABCMINT_LEVELDB_H
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#ifndef BITCOIN_LEVELDB_H
+#define BITCOIN_LEVELDB_H
 
 #include "serialize.h"
+#include "util.h"
 
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
@@ -118,7 +119,7 @@ public:
         if (!status.ok()) {
             if (status.IsNotFound())
                 return false;
-            printf("LevelDB read failure: %s\n", status.ToString().c_str());
+            LogPrintf("LevelDB read failure: %s\n", status.ToString().c_str());
             HandleError(status);
         }
         try {
@@ -147,7 +148,7 @@ public:
         if (!status.ok()) {
             if (status.IsNotFound())
                 return false;
-            printf("LevelDB read failure: %s\n", status.ToString().c_str());
+            LogPrintf("LevelDB read failure: %s\n", status.ToString().c_str());
             HandleError(status);
         }
         return true;
@@ -177,4 +178,4 @@ public:
     }
 };
 
-#endif // ABCMINT_LEVELDB_H
+#endif // BITCOIN_LEVELDB_H

@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 # Jonas Schnelli, 2013
-# make sure the Abcmint-Qt.app contains the right plist (including the right version)
+# make sure the Bitcoin-Qt.app contains the right plist (including the right version)
 # fix made because of serval bugs in Qt mac deployment (https://bugreports.qt-project.org/browse/QTBUG-21267)
 
 from string import Template
 from datetime import date
 
-abcmintDir = "./";
+bitcoinDir = "./";
 
-inFile     = abcmintDir+"/share/qt/Info.plist"
-outFile    = "Abcmint-Qt.app/Contents/Info.plist"
+inFile     = bitcoinDir+"/share/qt/Info.plist"
+outFile    = "Bitcoin-Qt.app/Contents/Info.plist"
 version    = "unknown";
 
-fileForGrabbingVersion = abcmintDir+"abcmint-qt.pro"
+fileForGrabbingVersion = bitcoinDir+"bitcoin-qt.pro"
 for line in open(fileForGrabbingVersion):
 	lineArr = line.replace(" ", "").split("=");
 	if lineArr[0].startswith("VERSION"):

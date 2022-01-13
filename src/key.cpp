@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The Abcmint developers
+// Copyright (c) 2018 The Bitcoin developers
 
 
 #include <map>
@@ -26,7 +26,7 @@ CKey::CKey(const CKey& b) : pubKey() {
 
 CKey& CKey::operator=(const CKey& b) {
     if (b.privKey.size() == RAINBOW_PRIVATE_KEY_SIZE)
-        memcpy(privKey.data(), b.privKey.data(), RAINBOW_PRIVATE_KEY_SIZE);   
+        memcpy(privKey.data(), b.privKey.data(), RAINBOW_PRIVATE_KEY_SIZE);
     else
         throw key_error("CKey::CKey: invalid key size.");
     pubKey = b.pubKey;
@@ -92,4 +92,3 @@ bool CKey::Sign(uint256 hash, std::vector<unsigned char>& vchSig)
     }
     return true;
 }
-

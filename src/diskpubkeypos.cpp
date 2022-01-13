@@ -1,4 +1,4 @@
-// Copyright (c) 2018 The Abcmint developers
+// Copyright (c) 2018 The Bitcoin developers
 
 #include "diskpubkeypos.h"
 #include "util.h"
@@ -13,7 +13,7 @@ bool FindPubKeyPos(std::string& pubKeyIn, CDiskPubKeyPos& pubKeyPos)
     CBlockIndex* pBlockIndex = pindexGenesisBlock;
     while (pBlockIndex && pindexBest) {
         if (pindexBest->nHeight - pBlockIndex->nHeight + 1 < COINBASE_MATURITY+20) {
-            printf("%s: block not maturity, height:%u\n", __func__, pindexBest->nHeight - pBlockIndex->nHeight + 1);
+            LogPrintf("%s: block not maturity, height:%u\n", __func__, pindexBest->nHeight - pBlockIndex->nHeight + 1);
             return false;
         }
         FILE* file = OpenBlockFile(pBlockIndex->GetBlockPos(), true);
@@ -59,7 +59,7 @@ bool FindPubKeyPos(std::string& pubKeyIn, CDiskPubKeyPos& pubKeyPos)
                     offsetVin += GetSizeOfCompactSize(nScriptSigSize);
                     pubKeyPos.nPubKeyOffset = offset + offsetVin + found/2; // the offset in the current block, 2 hex char for one byte
                     unsigned int npubKeyLength = GetSizeOfCompactSize(pubKeyIn.length());
-                    printf("public key found: offset:%u, offsetVin:%u, found:%u, npubKeyLength:%u. \n",
+                    LogPrintf("public key found: offset:%u, offsetVin:%u, found:%lu, npubKeyLength:%u. \n",
                             offset, offsetVin, found, npubKeyLength);
                     pubKeyPos.nPubKeyOffset -= npubKeyLength;
                     return true;
@@ -71,7 +71,7 @@ bool FindPubKeyPos(std::string& pubKeyIn, CDiskPubKeyPos& pubKeyPos)
             offset += GetSerializeSize(tx, SER_DISK, CLIENT_VERSION); //CTransaction length
         }
 
-        pBlockIndex = pBlockIndex->pnext;
+        pBlockIndex = pBlockIndex->GetNextInMainChain();
     }
 
     //still no transation contain this pubkey in the block chain
@@ -87,7 +87,7 @@ bool GetPubKeyByPos(CDiskPubKeyPos pos, CPubKey& pubKey)
             bFindBlockByHeight = true;
             break;
         } else {
-            pblockindex = pblockindex->pnext;
+            pblockindex = pblockindex->GetNextInMainChain();
         }
     }
 
@@ -155,39 +155,39 @@ bool UpdatePubKeyPos(CPubKey& pubKey, const std::string& address)
 
     if (!pwalletMain->GetPubKeyPos(address, pos)) {
         if (!FindPubKeyPos(strPubKey, pos)) {
-            printf("public key %s not found in block chain! \n", address.c_str());
+            LogPrintf("public key %s not found in block chain! \n", address.c_str());
             found = false;
         } else {
-            printf("public key %s found at height=%d, offset=%u. \n", address.c_str(), pos.nHeight, pos.nPubKeyOffset);
+            LogPrintf("public key %s found at height=%d, offset=%u. \n", address.c_str(), pos.nHeight, pos.nPubKeyOffset);
             pwalletMain->AddPubKeyPos(address, pos);
             found = true;
         }
     } else {
         //read the public key by position and compare, if not match, find it again
         CPubKey diskPubKey;
-        printf("public key pos is not null, height=%u, offset=%u. checking! \n", pos.nHeight, pos.nPubKeyOffset);
+        LogPrintf("public key pos is not null, height=%u, offset=%u. checking! \n", pos.nHeight, pos.nPubKeyOffset);
         if (!GetPubKeyByPos(pos, diskPubKey)) {
-            printf("can't get public key %s at height=%u, offset=%u. will find again! \n",
+            LogPrintf("can't get public key %s at height=%u, offset=%u. will find again! \n",
                 address.c_str(), pos.nHeight, pos.nPubKeyOffset);
             pos.SetNull();
         } else if (diskPubKey != pubKey) {
-            printf("public key foud but not equal, will find again! \n");
+            LogPrintf("public key foud but not equal, will find again! \n");
             pos.SetNull();
         }
 
         if (pos.IsNull()) {
             //find again
             if (!FindPubKeyPos(strPubKey, pos)) {
-                printf("find again, public key %s not found in block chain! \n", address.c_str());
+                LogPrintf("find again, public key %s not found in block chain! \n", address.c_str());
                 found = false;
             } else {
-                printf("find again, public key %s found at height=%d, offset=%u. \n",
+                LogPrintf("find again, public key %s found at height=%d, offset=%u. \n",
                     address.c_str(), pos.nHeight, pos.nPubKeyOffset);
                 pwalletMain->AddPubKeyPos(address, pos);
                 found = true;
             }
         } else {
-            printf("public key %s found and match at height=%d, offset=%u. \n",
+            LogPrintf("public key %s found and match at height=%d, offset=%u. \n",
                 address.c_str(), pos.nHeight, pos.nPubKeyOffset);
             found = true;
         }
@@ -198,7 +198,7 @@ bool UpdatePubKeyPos(CPubKey& pubKey, const std::string& address)
 
 void PubKeyScanner(CWallet* pwalletMain)
 {
-    printf("PubKeyScanner started\n");
+    LogPrintf("PubKeyScanner started\n");
     RenameThread("PubKeyScanner");
     bool allPosFound = true;
     SetThreadPriority(THREAD_PRIORITY_NORMAL);
@@ -209,22 +209,22 @@ void PubKeyScanner(CWallet* pwalletMain)
             std::set<CKeyID> setAddress;
             pwalletMain->GetKeys(setAddress);
             for (std::set<CKeyID>::iterator it = setAddress.begin(); it != setAddress.end(); ++it) {
-                std::string address = CAbcmintAddress(*it).ToString();
+                std::string address = CBitcoinAddress(*it).ToString();
 
                 CPubKey pubKey;
                 if (!pwalletMain->GetPubKey(*it, pubKey)) {
-                    printf("address %s not found in wallet.\n", address.c_str());
+                    // LogPrintf("address %s not found in wallet.\n", address.c_str());
                     continue;
                 }
 
                 if(!UpdatePubKeyPos(pubKey, address)) {
-                    printf("address %s update public key position is not in active chain util you create a transaction.\n", address.c_str());
+                    // LogPrintf("address %s update public key position is not in active chain util you create a transaction.\n", address.c_str());
                     allPosFound = false;
                     continue;
                 } else {
-                    std::map<CTxDestination, std::string>::iterator mi = pwalletMain->mapAddressBook.find(*it);
+                    std::map<CTxDestination, CAddressBookData>::iterator mi = pwalletMain->mapAddressBook.find(*it);
                     if (mi != pwalletMain->mapAddressBook.end())
-                        pwalletMain->NotifyAddressBookChanged(pwalletMain, *it, mi->second, true, CT_UPDATED);
+                        pwalletMain->NotifyAddressBookChanged(pwalletMain, *it, "", true, mi->second.name, CT_UPDATED);
                 }
 
             }
@@ -239,7 +239,7 @@ void PubKeyScanner(CWallet* pwalletMain)
     }
     catch (boost::thread_interrupted)
     {
-        printf("PubKeyScanner terminated\n");
+        LogPrintf("PubKeyScanner terminated\n");
         throw;
     }
 }

@@ -4,8 +4,8 @@
  * the key formats in one union.  This makes the function prototypes easier to use.
  */
 
-#ifndef ABCMINT_PQCRYPT_CIPHER_H
-#define ABCMINT_PQCRYPT_CIPHER_H
+#ifndef BITCOIN_PQCRYPT_CIPHER_H
+#define BITCOIN_PQCRYPT_CIPHER_H
 
 
 struct rijndael_key {

@@ -1,18 +1,20 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
-
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #ifndef WIN32
 // for posix_fallocate
 #ifdef __linux__
 #define _POSIX_C_SOURCE 200112L
 #endif
+#include <algorithm>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
 #endif
 
+#include "chainparams.h"
 #include "util.h"
 #include "sync.h"
 #include "version.h"
@@ -37,10 +39,9 @@ namespace boost {
 #include <boost/filesystem/fstream.hpp>
 #include <boost/foreach.hpp>
 #include <boost/thread.hpp>
+#include <openssl/crypto.h>
+#include <openssl/rand.h>
 #include <stdarg.h>
-
-#include "pqcrypto/pqcrypto.h"
-#include "pqcrypto/random.h"
 
 #ifdef WIN32
 #ifdef _MSC_VER
@@ -79,13 +80,96 @@ bool fDaemon = false;
 bool fServer = false;
 bool fCommandLine = false;
 string strMiscWarning;
-bool fTestNet = false;
 bool fNoListen = false;
 bool fLogTimestamps = false;
 CMedianFilter<int64> vTimeOffsets(200,0);
 volatile bool fReopenDebugLog = false;
-bool fCachedPath[2] = {false, false};
+
+// Init OpenSSL library multithreading support
+static CCriticalSection** ppmutexOpenSSL;
+void locking_callback(int mode, int i, const char* file, int line)
+{
+    if (mode & CRYPTO_LOCK) {
+        ENTER_CRITICAL_SECTION(*ppmutexOpenSSL[i]);
+    } else {
+        LEAVE_CRITICAL_SECTION(*ppmutexOpenSSL[i]);
+    }
+}
+
 LockedPageManager LockedPageManager::instance;
+
+// Init
+class CInit
+{
+public:
+    CInit()
+    {
+        // Init OpenSSL library multithreading support
+        ppmutexOpenSSL = (CCriticalSection**)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(CCriticalSection*));
+        for (int i = 0; i < CRYPTO_num_locks(); i++)
+            ppmutexOpenSSL[i] = new CCriticalSection();
+        CRYPTO_set_locking_callback(locking_callback);
+
+#ifdef WIN32
+        // Seed random number generator with screen scrape and other hardware sources
+        RAND_screen();
+#endif
+
+        // Seed random number generator with performance counter
+        RandAddSeed();
+    }
+    ~CInit()
+    {
+        // Shutdown OpenSSL library multithreading support
+        CRYPTO_set_locking_callback(NULL);
+        for (int i = 0; i < CRYPTO_num_locks(); i++)
+            delete ppmutexOpenSSL[i];
+        OPENSSL_free(ppmutexOpenSSL);
+    }
+}
+instance_of_cinit;
+
+
+
+
+
+
+
+
+void RandAddSeed()
+{
+    // Seed with CPU performance counter
+    int64 nCounter = GetPerformanceCounter();
+    RAND_add(&nCounter, sizeof(nCounter), 1.5);
+    memset(&nCounter, 0, sizeof(nCounter));
+}
+
+void RandAddSeedPerfmon()
+{
+    RandAddSeed();
+
+    // This can take up to 2 seconds, so only do it every 10 minutes
+    static int64 nLastPerfmon;
+    if (GetTime() < nLastPerfmon + 10 * 60)
+        return;
+    nLastPerfmon = GetTime();
+
+#ifdef WIN32
+    // Don't need this on Linux, OpenSSL automatically uses /dev/urandom
+    // Seed with the entire set of perfmon data
+    unsigned char pdata[250000];
+    memset(pdata, 0, sizeof(pdata));
+    unsigned long nSize = sizeof(pdata);
+    long ret = RegQueryValueExA(HKEY_PERFORMANCE_DATA, "Global", NULL, NULL, pdata, &nSize);
+    RegCloseKey(HKEY_PERFORMANCE_DATA);
+    if (ret == ERROR_SUCCESS)
+    {
+        RAND_add(pdata, nSize, nSize/100.0);
+        OPENSSL_cleanse(pdata, nSize);
+        LogPrint("rand", "RandAddSeed() %lu bytes\n", nSize);
+    }
+#endif
+}
 
 uint64 GetRand(uint64 nMax)
 {
@@ -97,7 +181,7 @@ uint64 GetRand(uint64 nMax)
     uint64 nRange = (std::numeric_limits<uint64>::max() / nMax) * nMax;
     uint64 nRand = 0;
     do
-        getRandBytes((unsigned char*)&nRand, sizeof(nRand));
+        RAND_bytes((unsigned char*)&nRand, sizeof(nRand));
     while (nRand >= nRange);
     return (nRand % nMax);
 }
@@ -110,14 +194,11 @@ int GetRandInt(int nMax)
 uint256 GetRandHash()
 {
     uint256 hash;
-    getRandBytes((unsigned char*)&hash, sizeof(hash));
+    RAND_bytes((unsigned char*)&hash, sizeof(hash));
     return hash;
 }
 
-
-//
-// OutputDebugStringF (aka printf -- there is a #define that we really
-// should get rid of one day) has been broken a couple of times now
+// LogPrintf() has been broken a couple of times now
 // by well-meaning people adding mutexes in the most straightforward way.
 // It breaks because it may be called by global destructors during shutdown.
 // Since the order of destruction of static/global objects is undefined,
@@ -144,8 +225,16 @@ static void DebugPrintInit()
     mutexDebugLog = new boost::mutex();
 }
 
-int OutputDebugStringF(const char* pszFormat, ...)
+int LogPrint(const char* category, const char* pszFormat, ...)
 {
+    if (category != NULL)
+    {
+        if (!fDebug) return 0;
+        const vector<string>& categories = mapMultiArgs["-debug"];
+        if (find(categories.begin(), categories.end(), string(category)) == categories.end())
+            return 0;
+    }
+
     int ret = 0; // Returns total number of characters written
     if (fPrintToConsole)
     {
@@ -222,7 +311,7 @@ string vstrprintf(const char *format, va_list ap)
     char* p = buffer;
     int limit = sizeof(buffer);
     int ret;
-    while(true)
+    while (true)
     {
         va_list arg_ptr;
         va_copy(arg_ptr, ap);
@@ -271,7 +360,7 @@ bool error(const char *format, ...)
     va_start(arg_ptr, format);
     std::string str = vstrprintf(format, arg_ptr);
     va_end(arg_ptr);
-    printf("ERROR: %s\n", str.c_str());
+    LogPrintf("ERROR: %s\n", str.c_str());
     return false;
 }
 
@@ -282,7 +371,7 @@ void ParseString(const string& str, char c, vector<string>& v)
         return;
     string::size_type i1 = 0;
     string::size_type i2;
-    while(true)
+    while (true)
     {
         i2 = str.find(c, i1);
         if (i2 == str.npos)
@@ -303,7 +392,7 @@ string FormatMoney(int64 n, bool fPlus)
     int64 n_abs = (n > 0 ? n : -n);
     int64 quotient = n_abs/COIN;
     int64 remainder = n_abs%COIN;
-    string str = strprintf("%" PRI64d ".%08" PRI64d , quotient, remainder);
+    string str = strprintf("%"PRI64d".%08"PRI64d, quotient, remainder);
 
     // Right-trim excess zeros before the decimal point:
     int nTrim = 0;
@@ -365,19 +454,6 @@ bool ParseMoney(const char* pszIn, int64& nRet)
     return true;
 }
 
-// safeChars chosen to allow simple messages/URLs/email addresses, but avoid anything
-// even possibly remotely dangerous like & or >
-static string safeChars("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890 .,;_/:?@");
-string SanitizeString(const string& str)
-{
-    string strResult;
-    for (std::string::size_type i = 0; i < str.size(); i++)
-    {
-        if (safeChars.find(str[i]) != std::string::npos)
-            strResult.push_back(str[i]);
-    }
-    return strResult;
-}
 
 static const signed char phexdigit[256] =
 { -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
@@ -411,7 +487,7 @@ vector<unsigned char> ParseHex(const char* psz)
 {
     // convert hex dump to vector
     vector<unsigned char> vch;
-    while(true)
+    while (true)
     {
         while (isspace(*psz))
             psz++;
@@ -442,7 +518,7 @@ static void InterpretNegativeSetting(string name, map<string, string>& mapSettin
         positive.append(name.begin()+3, name.end());
         if (mapSettingsRet.count(positive) == 0)
         {
-            bool value = !GetBoolArg(name);
+            bool value = !GetBoolArg(name, false);
             mapSettingsRet[positive] = (value ? "1" : "0");
         }
     }
@@ -865,7 +941,7 @@ string DecodeBase32(const string& str)
 
 bool WildcardMatch(const char* psz, const char* mask)
 {
-    while(true)
+    while (true)
     {
         switch (*mask)
         {
@@ -905,7 +981,7 @@ static std::string FormatException(std::exception* pex, const char* pszThread)
     char pszModule[MAX_PATH] = "";
     GetModuleFileNameA(NULL, pszModule, sizeof(pszModule));
 #else
-    const char* pszModule = "abcmint";
+    const char* pszModule = "bitcoin";
 #endif
     if (pex)
         return strprintf(
@@ -918,13 +994,13 @@ static std::string FormatException(std::exception* pex, const char* pszThread)
 void LogException(std::exception* pex, const char* pszThread)
 {
     std::string message = FormatException(pex, pszThread);
-    printf("\n%s", message.c_str());
+    LogPrintf("\n%s", message.c_str());
 }
 
 void PrintException(std::exception* pex, const char* pszThread)
 {
     std::string message = FormatException(pex, pszThread);
-    printf("\n\n************************\n%s\n", message.c_str());
+    LogPrintf("\n\n************************\n%s\n", message.c_str());
     fprintf(stderr, "\n\n************************\n%s\n", message.c_str());
     strMiscWarning = message;
     throw;
@@ -933,7 +1009,7 @@ void PrintException(std::exception* pex, const char* pszThread)
 void PrintExceptionContinue(std::exception* pex, const char* pszThread)
 {
     std::string message = FormatException(pex, pszThread);
-    printf("\n\n************************\n%s\n", message.c_str());
+    LogPrintf("\n\n************************\n%s\n", message.c_str());
     fprintf(stderr, "\n\n************************\n%s\n", message.c_str());
     strMiscWarning = message;
 }
@@ -941,10 +1017,10 @@ void PrintExceptionContinue(std::exception* pex, const char* pszThread)
 boost::filesystem::path GetDefaultDataDir()
 {
     namespace fs = boost::filesystem;
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\abc
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\abc
-    // Mac: ~/Library/Application Support/Abcmint
-    // Unix: ~/.abcmint
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\Bitcoin
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\Bitcoin
+    // Mac: ~/Library/Application Support/Bitcoin
+    // Unix: ~/.bitcoin
 #ifdef WIN32
     // Windows
     return GetSpecialFolderPath(CSIDL_APPDATA) / "abc";
@@ -967,21 +1043,24 @@ boost::filesystem::path GetDefaultDataDir()
 #endif
 }
 
+static boost::filesystem::path pathCached[CChainParams::MAX_NETWORK_TYPES+1];
+static CCriticalSection csPathCached;
+
 const boost::filesystem::path &GetDataDir(bool fNetSpecific)
 {
     namespace fs = boost::filesystem;
 
-    static fs::path pathCached[2];
-    static CCriticalSection csPathCached;
-
-    fs::path &path = pathCached[fNetSpecific];
-
-    // This can be called during exceptions by printf, so we cache the
-    // value so we don't have to do memory allocations after that.
-    if (fCachedPath[fNetSpecific])
-        return path;
-
     LOCK(csPathCached);
+
+    int nNet = CChainParams::MAX_NETWORK_TYPES;
+    if (fNetSpecific) nNet = Params().NetworkID();
+
+    fs::path &path = pathCached[nNet];
+
+    // This can be called during exceptions by LogPrintf(), so we cache the
+    // value so we don't have to do memory allocations after that.
+    if (!path.empty())
+        return path;
 
     if (mapArgs.count("-datadir")) {
         path = fs::system_complete(mapArgs["-datadir"]);
@@ -992,18 +1071,23 @@ const boost::filesystem::path &GetDataDir(bool fNetSpecific)
     } else {
         path = GetDefaultDataDir();
     }
-    if (fNetSpecific && GetBoolArg("-testnet", false))
-        path /= "testnet3";
+    if (fNetSpecific)
+        path /= Params().DataDir();
 
     fs::create_directories(path);
 
-    fCachedPath[fNetSpecific] = true;
     return path;
+}
+
+void ClearDatadirCache()
+{
+    std::fill(&pathCached[0], &pathCached[CChainParams::MAX_NETWORK_TYPES+1],
+              boost::filesystem::path());
 }
 
 boost::filesystem::path GetConfigFile()
 {
-    boost::filesystem::path pathConfigFile(GetArg("-conf", "abcmint.conf"));
+    boost::filesystem::path pathConfigFile(GetArg("-conf", "bitcoin.conf"));
     if (!pathConfigFile.is_complete()) pathConfigFile = GetDataDir(false) / pathConfigFile;
     return pathConfigFile;
 }
@@ -1013,17 +1097,14 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
 {
     boost::filesystem::ifstream streamConfig(GetConfigFile());
     if (!streamConfig.good())
-        return; // No abcmint.conf file is OK
-
-    // clear path cache after loading config file
-    fCachedPath[0] = fCachedPath[1] = false;
+        return; // No bitcoin.conf file is OK
 
     set<string> setOptions;
     setOptions.insert("*");
 
     for (boost::program_options::detail::config_file_iterator it(streamConfig, setOptions), end; it != end; ++it)
     {
-        // Don't overwrite existing settings so command line settings override abcmint.conf
+        // Don't overwrite existing settings so command line settings override bitcoin.conf
         string strKey = string("-") + it->string_key;
         if (mapSettingsRet.count(strKey) == 0)
         {
@@ -1033,11 +1114,13 @@ void ReadConfigFile(map<string, string>& mapSettingsRet,
         }
         mapMultiSettingsRet[strKey].push_back(it->value[0]);
     }
+    // If datadir is changed in .conf file:
+    ClearDatadirCache();
 }
 
 boost::filesystem::path GetPidFile()
 {
-    boost::filesystem::path pathPidFile(GetArg("-pid", "abcmint.pid"));
+    boost::filesystem::path pathPidFile(GetArg("-pid", "bitcoind.pid"));
     if (!pathPidFile.is_complete()) pathPidFile = GetDataDir() / pathPidFile;
     return pathPidFile;
 }
@@ -1098,7 +1181,6 @@ bool TruncateFile(FILE *file, unsigned int length) {
     return ftruncate(fileno(file), length) == 0;
 #endif
 }
-
 
 // this function tries to raise the file descriptor limit to the requested number.
 // It returns the actual file descriptor limit (which may be more or less than nMinFD)
@@ -1185,8 +1267,8 @@ void ShrinkDebugFile()
             fclose(file);
         }
     }
-    else if(file != NULL)
-	     fclose(file);
+    else if (file != NULL)
+        fclose(file);
 }
 
 
@@ -1240,7 +1322,7 @@ void AddTimeData(const CNetAddr& ip, int64 nTime)
 
     // Add data
     vTimeOffsets.input(nOffsetSample);
-    printf("Added time data, samples %d, offset %+" PRI64d " (%+" PRI64d " minutes)\n", vTimeOffsets.size(), nOffsetSample, nOffsetSample/60);
+    LogPrintf("Added time data, samples %d, offset %+"PRI64d" (%+"PRI64d" minutes)\n", vTimeOffsets.size(), nOffsetSample, nOffsetSample/60);
     if (vTimeOffsets.size() >= 5 && vTimeOffsets.size() % 2 == 1)
     {
         int64 nMedian = vTimeOffsets.median();
@@ -1266,19 +1348,19 @@ void AddTimeData(const CNetAddr& ip, int64 nTime)
                 if (!fMatch)
                 {
                     fDone = true;
-                    string strMessage = _("Warning: Please check that your computer's date and time are correct! If your clock is wrong Abcmint will not work properly.");
+                    string strMessage = _("Warning: Please check that your computer's date and time are correct! If your clock is wrong Bitcoin will not work properly.");
                     strMiscWarning = strMessage;
-                    printf("*** %s\n", strMessage.c_str());
+                    LogPrintf("*** %s\n", strMessage.c_str());
                     uiInterface.ThreadSafeMessageBox(strMessage, "", CClientUIInterface::MSG_WARNING);
                 }
             }
         }
         if (fDebug) {
             BOOST_FOREACH(int64 n, vSorted)
-                printf("%+" PRI64d "  ", n);
-            printf("|  ");
+                LogPrintf("%+"PRI64d"  ", n);
+            LogPrintf("|  ");
         }
-        printf("nTimeOffset = %+" PRI64d "  (%+" PRI64d " minutes)\n", nTimeOffset, nTimeOffset/60);
+        LogPrintf("nTimeOffset = %+"PRI64d"  (%+"PRI64d" minutes)\n", nTimeOffset, nTimeOffset/60);
     }
 }
 
@@ -1293,11 +1375,11 @@ void seed_insecure_rand(bool fDeterministic)
     } else {
         uint32_t tmp;
         do {
-            getRandBytes((unsigned char*)&tmp, 4);
+            RAND_bytes((unsigned char*)&tmp, 4);
         } while(tmp == 0 || tmp == 0x9068ffffU);
         insecure_rand_Rz = tmp;
         do {
-            getRandBytes((unsigned char*)&tmp, 4);
+            RAND_bytes((unsigned char*)&tmp, 4);
         } while(tmp == 0 || tmp == 0x464fffffU);
         insecure_rand_Rw = tmp;
     }
@@ -1316,7 +1398,7 @@ string FormatFullVersion()
     return CLIENT_BUILD;
 }
 
-// Format the subversion field according to BIP 14 spec (https://en.abcmint.it/wiki/BIP_0014)
+// Format the subversion field according to BIP 14 spec (https://en.bitcoin.it/wiki/BIP_0014)
 std::string FormatSubVersion(const std::string& name, int nClientVersion, const std::vector<std::string>& comments)
 {
     std::ostringstream ss;
@@ -1340,7 +1422,7 @@ boost::filesystem::path GetSpecialFolderPath(int nFolder, bool fCreate)
         return fs::path(pszPath);
     }
 
-    printf("SHGetSpecialFolderPathA() failed, could not obtain requested path.\n");
+    LogPrintf("SHGetSpecialFolderPathA() failed, could not obtain requested path.\n");
     return fs::path("");
 }
 #endif
@@ -1360,7 +1442,7 @@ boost::filesystem::path GetTempPath() {
     path = boost::filesystem::path("/tmp");
 #endif
     if (path.empty() || !boost::filesystem::is_directory(path)) {
-        printf("GetTempPath(): failed to find temp path\n");
+        LogPrintf("GetTempPath(): failed to find temp path\n");
         return boost::filesystem::path("");
     }
     return path;
@@ -1371,7 +1453,7 @@ void runCommand(std::string strCommand)
 {
     int nErr = ::system(strCommand.c_str());
     if (nErr)
-        printf("runCommand error: system(%s) returned %d\n", strCommand.c_str(), nErr);
+        LogPrintf("runCommand error: system(%s) returned %d\n", strCommand.c_str(), nErr);
 }
 
 void RenameThread(const char* name)
@@ -1396,16 +1478,4 @@ void RenameThread(const char* name)
     // Prevent warnings for unused parameters...
     (void)name;
 #endif
-}
-
-bool NewThread(void(*pfn)(void*), void* parg)
-{
-    try
-    {
-        boost::thread(pfn, parg); // thread detaches when out of scope
-    } catch(boost::thread_resource_error &e) {
-        printf("Error creating thread: %s\n", e.what());
-        return false;
-    }
-    return true;
 }

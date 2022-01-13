@@ -1,13 +1,14 @@
 #include "random.h"
 
 #include "pqcrypto.h"
+#include "util.h"
 
 
 void getRandBytes(unsigned char *buf,int size) {
     int bits = 128;
 	prng_state prng;
 	if (rng_make_prng(bits, &prng, NULL) != PQCRYPT_OK) {
-        printf("rng_make_prng error \n");
+        LogPrintf("rng_make_prng error \n");
 	}
 	if (fortuna_read(buf,size,&prng) != (unsigned long)size) {
 		printf("fortuna_read error \n");
@@ -29,7 +30,7 @@ int getRandInt() {
 	for (i = 0; i < size; i++) {
         res |= (((int)buf[i])<<(i*8));
 	}
-	XFREE(buf);	
+	XFREE(buf);
     return res ;
 }
 
@@ -46,7 +47,7 @@ unsigned long random_uint32_t() {
 	int bits = 128,  size = 4, i = 0;
 	prng_state prng;
     if (rng_make_prng(bits, &prng, NULL) != PQCRYPT_OK) {
-        printf("rng_make_prng error \n");
+        LogPrintf("rng_make_prng error \n");
 	}
 	unsigned char *buf, mask;
 	buf  = (unsigned char *)XMALLOC(size);
@@ -62,7 +63,7 @@ unsigned long random_uint32_t() {
 	for (i = 0; i < size; i++) {
         res |= (((unsigned long)buf[i])<<(i*8));
 	}
-	XFREE(buf);	
+	XFREE(buf);
     return res;
 }
 
@@ -71,7 +72,7 @@ unsigned long long  random_uint64_t() {
 	int bits = 128,  size = 8, i = 0;
 	prng_state prng;
     if (rng_make_prng(bits, &prng, NULL) != PQCRYPT_OK) {
-        printf("rng_make_prng error \n");
+        LogPrintf("rng_make_prng error \n");
 	}
 	unsigned char *buf, mask;
 	buf  = (unsigned char *)XMALLOC(size);
@@ -87,7 +88,6 @@ unsigned long long  random_uint64_t() {
 	for (i = 0; i < size; i++) {
         res |= (((unsigned long long )buf[i])<<(i*8));
 	}
-	XFREE(buf);	
+	XFREE(buf);
     return res;
 }
-

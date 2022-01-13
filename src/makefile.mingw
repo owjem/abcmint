@@ -29,7 +29,7 @@ INCLUDEPATHS= \
  -I"/c/deps" \
  -I"/c/deps/db-5.1.29/build_unix" \
  -I"/c/deps/openssl-1.0.1l/include"
- 
+
 LIBPATHS= \
  -L"$(CURDIR)/leveldb" \
  -L"/c/deps/boost_1_57_0/stage/lib" \
@@ -93,7 +93,7 @@ OBJS= \
 	obj/diskpubkeypos.o \
     obj/net.o \
     obj/protocol.o \
-    obj/abcmintrpc.o \
+    obj/bitcoinrpc.o \
     obj/rpcdump.o \
     obj/rpcnet.o \
     obj/rpcmining.o \
@@ -110,14 +110,14 @@ OBJS= \
     obj/noui.o \
     obj/leveldb.o \
     obj/txdb.o \
-    obj/abcmint.o \
+    obj/bitcoin.o \
     obj/miner.o
 
 
-all: abcmint.exe
+all: bitcoin.exe
 
-test check: test_abcmint.exe FORCE
-	test_abcmint.exe
+test check: test_bitcoin.exe FORCE
+	test_bitcoin.exe
 
 #
 # LevelDB support
@@ -144,7 +144,7 @@ pqcrypto/libpqcrypto.a: $(PQCOBJS)
 obj/%.o: %.cpp $(HEADERS)
 	$(CXX) -c $(CFLAGS) -o $@ $<
 
-abcmint.exe: $(OBJS:obj/%=obj/%)
+bitcoin.exe: $(OBJS:obj/%=obj/%)
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
 
 TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
@@ -152,11 +152,11 @@ TESTOBJS := $(patsubst test/%.cpp,obj-test/%.o,$(wildcard test/*.cpp))
 obj-test/%.o: test/%.cpp $(HEADERS)
 	$(CXX) -c $(TESTDEFS) $(CFLAGS) -o $@ $<
 
-test_abcmint.exe: $(TESTOBJS) $(filter-out obj/init.o,$(OBJS:obj/%=obj/%))
+test_bitcoin.exe: $(TESTOBJS) $(filter-out obj/init.o,$(OBJS:obj/%=obj/%))
 	$(CXX) $(CFLAGS) $(LDFLAGS) -o $@ $(LIBPATHS) $^ -lboost_unit_test_framework$(BOOST_SUFFIX) $(LIBS)
 
 clean:
-	rm -f abcmint.exe test_abcmint.exe
+	rm -f bitcoin.exe test_bitcoin.exe
 	rm -f pqcrypto/*.o
 	rm -f pqcrypto/*.P
 	rm -f pqcrypto/*.a

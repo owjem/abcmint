@@ -1,16 +1,90 @@
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-
-#include "main.h"
+#include "chainparams.h"
 #include "db.h"
 #include "init.h"
-#include "abcmintrpc.h"
 #include "miner.h"
+#include "bitcoinrpc.h"
 
 using namespace json_spirit;
 using namespace std;
+
+// Key used by getwork/getblocktemplate miners.
+// Allocated in InitRPCMining, free'd in ShutdownRPCMining
+static CReserveKey* pMiningKey = NULL;
+
+void InitRPCMining()
+{
+    if (!pwalletMain)
+        return;
+
+    // getwork/getblocktemplate mining rewards paid here:
+    pMiningKey = new CReserveKey(pwalletMain);
+}
+
+void ShutdownRPCMining()
+{
+    if (!pMiningKey)
+        return;
+
+    delete pMiningKey; pMiningKey = NULL;
+}
+
+// Return average network hashes per second based on the last 'lookup' blocks,
+// or from the last difficulty change if 'lookup' is nonpositive.
+// If 'height' is nonnegative, compute the estimate at the time when a given block was found.
+Value GetNetworkHashPS(int lookup, int height) {
+    CBlockIndex *pb = pindexBest;
+
+    if (height >= 0 && height < nBestHeight)
+        pb = FindBlockByHeight(height);
+
+    if (pb == NULL || !pb->nHeight)
+        return 0;
+
+    // If lookup is -1, then use blocks since last difficulty change.
+    if (lookup <= 0)
+        lookup = pb->nHeight % 2016 + 1;
+
+    // If lookup is larger than chain, then set it to chain length.
+    if (lookup > pb->nHeight)
+        lookup = pb->nHeight;
+
+    CBlockIndex *pb0 = pb;
+    int64 minTime = pb0->GetBlockTime();
+    int64 maxTime = minTime;
+    for (int i = 0; i < lookup; i++) {
+        pb0 = pb0->pprev;
+        int64 time = pb0->GetBlockTime();
+        minTime = std::min(time, minTime);
+        maxTime = std::max(time, maxTime);
+    }
+
+    // In case there's a situation where minTime == maxTime, we don't want a divide by zero exception.
+    if (minTime == maxTime)
+        return 0;
+
+    uint256 workDiff = pb->nChainWork - pb0->nChainWork;
+    int64 timeDiff = maxTime - minTime;
+
+    return (boost::int64_t)(workDiff.getdouble() / timeDiff);
+}
+
+Value getnetworkhashps(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() > 2)
+        throw runtime_error(
+            "getnetworkhashps [blocks] [height]\n"
+            "Returns the estimated network hashes per second based on the last 120 blocks.\n"
+            "Pass in [blocks] to override # of blocks, -1 specifies since last difficulty change.\n"
+            "Pass in [height] to estimate the network speed at the time when a certain block was found.");
+
+    return GetNetworkHashPS(params.size() > 0 ? params[0].get_int() : 120, params.size() > 1 ? params[1].get_int() : -1);
+}
+
 
 Value getgenerate(const Array& params, bool fHelp)
 {
@@ -19,7 +93,10 @@ Value getgenerate(const Array& params, bool fHelp)
             "getgenerate\n"
             "Returns true or false.");
 
-    return GetBoolArg("-gen");
+    if (!pMiningKey)
+        return false;
+
+    return GetBoolArg("-gen", false);
 }
 
 
@@ -44,7 +121,8 @@ Value setgenerate(const Array& params, bool fHelp)
     }
     mapArgs["-gen"] = (fGenerate ? "1" : "0");
 
-    GenerateAbcmints(fGenerate, pwalletMain);
+    assert(pwalletMain != NULL);
+    GenerateBitcoins(fGenerate, pwalletMain);
     return Value::null;
 }
 
@@ -70,16 +148,17 @@ Value getmininginfo(const Array& params, bool fHelp)
             "Returns an object containing mining-related information.");
 
     Object obj;
-    obj.push_back(Pair("blocks",        (int)nBestHeight));
-    obj.push_back(Pair("currentblocksize",(uint64_t)nLastBlockSize));
-    obj.push_back(Pair("currentblocktx",(uint64_t)nLastBlockTx));
-    obj.push_back(Pair("difficulty",    (int)GetDifficulty()));
-    obj.push_back(Pair("errors",        GetWarnings("statusbar")));
-    obj.push_back(Pair("generate",      GetBoolArg("-gen")));
-    obj.push_back(Pair("genproclimit",  (int)GetArg("-genproclimit", -1)));
-    obj.push_back(Pair("hashespersec",  gethashespersec(params, false)));
-    obj.push_back(Pair("pooledtx",      (uint64_t)mempool.size()));
-    obj.push_back(Pair("testnet",       fTestNet));
+    obj.push_back(Pair("blocks",           (int)nBestHeight));
+    obj.push_back(Pair("currentblocksize", (uint64_t)nLastBlockSize));
+    obj.push_back(Pair("currentblocktx",   (uint64_t)nLastBlockTx));
+    obj.push_back(Pair("difficulty",       (int)GetDifficulty()));
+    obj.push_back(Pair("errors",           GetWarnings("statusbar")));
+    obj.push_back(Pair("generate",         getgenerate(params, false)));
+    obj.push_back(Pair("genproclimit",     (int)GetArg("-genproclimit", -1)));
+    obj.push_back(Pair("hashespersec",     gethashespersec(params, false)));
+    obj.push_back(Pair("networkhashps",    getnetworkhashps(params, false)));
+    obj.push_back(Pair("pooledtx",         (uint64_t)mempool.size()));
+    obj.push_back(Pair("testnet",          TestNet()));
     return obj;
 }
 
@@ -97,10 +176,10 @@ Value getwork(const Array& params, bool fHelp)
             "If [data] is specified, tries to solve the block and returns true if it was successful.");
 
     if (vNodes.empty())
-        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Abcmint is not connected!");
+        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Bitcoin is not connected!");
 
     if (IsInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Abcmint is downloading blocks...");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Bitcoin is downloading blocks...");
 
     typedef map<uint256, pair<CBlock*, CScript> > mapNewBlock_t;
     static mapNewBlock_t mapNewBlock;    // FIXME: thread safety
@@ -132,12 +211,9 @@ Value getwork(const Array& params, bool fHelp)
             nTransactionsUpdatedLast = nTransactionsUpdated;
             CBlockIndex* pindexPrevNew = pindexBest;
             nStart = GetTime();
-            
-            if(!pMiningKey)
-                throw JSONRPCError(RPC_INTERNAL_ERROR, "not in server mode");
 
             // Create new block
-            pblocktemplate = CreateNewBlock(*pMiningKey);
+            pblocktemplate = CreateNewBlockWithKey(*pMiningKey);
             if (!pblocktemplate)
                 throw JSONRPCError(RPC_OUT_OF_MEMORY, "Out of memory");
             vNewBlockTemplate.push_back(pblocktemplate);
@@ -148,7 +224,7 @@ Value getwork(const Array& params, bool fHelp)
         CBlock* pblock = &pblocktemplate->block; // pointer for convenience
 
         // Update nTime
-        pblock->UpdateTime(pindexPrev);
+        UpdateTime(*pblock, pindexPrev);
         pblock->nNonce = 0;
 
         // Update nExtraNonce
@@ -193,6 +269,7 @@ Value getwork(const Array& params, bool fHelp)
         pblock->vtx[0].vin[0].scriptSig = mapNewBlock[pdata->hashMerkleRoot].second;
         pblock->hashMerkleRoot = pblock->BuildMerkleTree();
 
+        assert(pwalletMain != NULL);
         return CheckWork(pblock, *pwalletMain, *pMiningKey);
     }
 }
@@ -207,6 +284,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
             "  \"version\" : block version\n"
             "  \"previousblockhash\" : hash of current highest block\n"
             "  \"transactions\" : contents of non-coinbase transactions that should be included in the next block\n"
+            "  \"coinbaseaux\" : data that should be included in coinbase\n"
             "  \"coinbasevalue\" : maximum allowable input to coinbase transaction, including the generation award and transaction fees\n"
             "  \"target\" : hash target\n"
             "  \"mintime\" : minimum timestamp appropriate for next block\n"
@@ -217,7 +295,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
             "  \"sizelimit\" : limit of block size\n"
             "  \"bits\" : compressed target of next block\n"
             "  \"height\" : height of the next block\n"
-            "See https://en.abcmint.it/wiki/BIP_0022 for full specification.");
+            "See https://en.bitcoin.it/wiki/BIP_0022 for full specification.");
 
     std::string strMode = "template";
     if (params.size() > 0)
@@ -238,10 +316,10 @@ Value getblocktemplate(const Array& params, bool fHelp)
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid mode");
 
     if (vNodes.empty())
-        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Abcmint is not connected!");
+        throw JSONRPCError(RPC_CLIENT_NOT_CONNECTED, "Bitcoin is not connected!");
 
     if (IsInitialBlockDownload())
-        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Abcmint is downloading blocks...");
+        throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Bitcoin is downloading blocks...");
 
     // Update block
     static unsigned int nTransactionsUpdatedLast;
@@ -266,10 +344,8 @@ Value getblocktemplate(const Array& params, bool fHelp)
             pblocktemplate = NULL;
         }
 
-        if(!pMiningKey)
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "not in server mode");
 
-        pblocktemplate = CreateNewBlock(*pMiningKey);
+        pblocktemplate = CreateNewBlockWithKey(*pMiningKey);
         if (!pblocktemplate)
             throw JSONRPCError(RPC_OUT_OF_MEMORY, "Out of memory");
 
@@ -279,7 +355,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
     CBlock* pblock = &pblocktemplate->block; // pointer for convenience
 
     // Update nTime
-    pblock->UpdateTime(pindexPrev);
+    UpdateTime(*pblock, pindexPrev);
     pblock->nNonce = 0;
 
     Array transactions;
@@ -316,6 +392,11 @@ Value getblocktemplate(const Array& params, bool fHelp)
         transactions.push_back(entry);
     }
 
+    Object aux;
+    aux.push_back(Pair("flags", HexStr(COINBASE_FLAGS.begin(), COINBASE_FLAGS.end())));
+
+    //uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
+
     static Array aMutable;
     if (aMutable.empty())
     {
@@ -328,6 +409,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
     result.push_back(Pair("version", pblock->nVersion));
     result.push_back(Pair("previousblockhash", pblock->hashPrevBlock.GetHex()));
     result.push_back(Pair("transactions", transactions));
+    result.push_back(Pair("coinbaseaux", aux));
     result.push_back(Pair("coinbasevalue", (int64_t)pblock->vtx[0].vout[0].nValue));
     result.push_back(Pair("target", (int)pblock->nBits));
     result.push_back(Pair("mintime", (int64_t)pindexPrev->GetMedianTimePast()+1));
@@ -349,7 +431,7 @@ Value submitblock(const Array& params, bool fHelp)
             "submitblock <hex data> [optional-params-obj]\n"
             "[optional-params-obj] parameter is currently ignored.\n"
             "Attempts to submit new block to network.\n"
-            "See https://en.abcmint.it/wiki/BIP_0022 for full specification.");
+            "See https://en.bitcoin.it/wiki/BIP_0022 for full specification.");
 
     vector<unsigned char> blockData(ParseHex(params[0].get_str()));
     CDataStream ssBlock(blockData, SER_NETWORK, PROTOCOL_VERSION);

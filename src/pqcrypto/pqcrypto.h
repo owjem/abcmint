@@ -1,5 +1,5 @@
-#ifndef ABCMINT_PQCRYPT_H
-#define ABCMINT_PQCRYPT_H
+#ifndef BITCOIN_PQCRYPT_H
+#define BITCOIN_PQCRYPT_H
 
 #include <assert.h>
 #include <stdio.h>
@@ -105,4 +105,3 @@ enum {
 /* $Source$ */
 /* $Revision$ */
 /* $Date$ */
-

@@ -1,11 +1,11 @@
 /*
- * Qt4 abcmint GUI.
+ * Qt4 bitcoin GUI.
  *
  * W.J. van der Laan 2011-2012
  * The Bitcoin Developers 2011-2013
  */
 #include "walletframe.h"
-#include "abcmintgui.h"
+#include "bitcoingui.h"
 #include "walletstack.h"
 
 #include <QVBoxLayout>
@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 
-WalletFrame::WalletFrame(AbcmintGUI *_gui) :
+WalletFrame::WalletFrame(BitcoinGUI *_gui) :
     QFrame(_gui),
     gui(_gui),
     clientModel(0)
@@ -22,7 +22,7 @@ WalletFrame::WalletFrame(AbcmintGUI *_gui) :
     QHBoxLayout *walletFrameLayout = new QHBoxLayout(this);
     setContentsMargins(0,0,0,0);
     walletStack = new WalletStack(this);
-    walletStack->setAbcmintGUI(gui);
+    walletStack->setBitcoinGUI(gui);
     walletFrameLayout->setContentsMargins(0,0,0,0);
     walletFrameLayout->addWidget(walletStack);
 }

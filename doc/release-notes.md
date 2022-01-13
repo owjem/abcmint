@@ -1,7 +1,7 @@
 (note: this is a temporary file, to be added-to by anybody, and deleted at
 release time)
 
-0.1.0 changes
+0.8.6 changes
 =============
 
 - Default block size increase for miners
@@ -25,7 +25,7 @@ release time)
 
 - Additional debug.log logging for diagnosis of network problems, log timestamps by default
 
-- Fix Abcmint-Qt startup crash when clicking dock icon on OSX 
+- Fix Bitcoin-Qt startup crash when clicking dock icon on OSX 
 
 - Fix memory leaks in CKey::SetCompactSignature() and Key::SignCompact()
 

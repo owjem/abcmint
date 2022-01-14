@@ -76,7 +76,7 @@ pck_vector_t packed_eval(LUT_t LUT, int n, int d, pck_vector_t F[], uint64_t i)
 void BFS(pck_vector_t* A, int start, int n, CBlockIndex* pindexPrev)
 {
     for (int i = 0; i < n; i++) {
-        if (pindexPrev != pindexBest) {
+        if (pindexPrev != chainActive.Tip()) {
             return;
         }
         int Sz = 1 << i;
@@ -86,7 +86,7 @@ void BFS(pck_vector_t* A, int start, int n, CBlockIndex* pindexPrev)
             for (int j = 0; j < Sz; j++)
                 A[Pos + Sz + j] ^= A[Pos + j];
             Pos += 2 * Sz;
-            if (pindexPrev != pindexBest) {
+            if (pindexPrev != chainActive.Tip()) {
                 return;
             }
         }
@@ -97,7 +97,7 @@ void hybrid_DFS_BFS(pck_vector_t* A, int from, int to, CBlockIndex* pindexPrev)
 {
     if (from >= to - 1)
         return;
-    if (pindexPrev != pindexBest) {
+    if (pindexPrev != chainActive.Tip()) {
         return;
     }
     int center = (to + from) / 2;
@@ -212,7 +212,7 @@ void exhaustive_ia32_deg_2(LUT_t LUT, int n, pck_vector_t F[],
     }
 
     uint64_t init_start_time = rdtsc();
-    if (pindexPrev != pindexBest) {
+    if (pindexPrev != chainActive.Tip()) {
         QUIT();
     }
 
@@ -266,7 +266,7 @@ void exhaustive_ia32_deg_2(LUT_t LUT, int n, pck_vector_t F[],
 
     // from now on, hamming weight is >= 1
     for (int idx_0 = 0; idx_0 < n; idx_0++) {
-        if (pindexPrev != pindexBest) {
+        if (pindexPrev != chainActive.Tip()) {
             QUIT();
         }
         // special case when i has hamming weight exactly 1
@@ -281,7 +281,7 @@ void exhaustive_ia32_deg_2(LUT_t LUT, int n, pck_vector_t F[],
 
         const uint64_t rolled_end = weight_1_start + (1ll << min(9, idx_0));
         for (uint64_t i = 1 + weight_1_start; i < rolled_end; i++) {
-            if (pindexPrev != pindexBest) {
+            if (pindexPrev != chainActive.Tip()) {
                 QUIT();
             }
             int pos = 0;
@@ -308,7 +308,7 @@ void exhaustive_ia32_deg_2(LUT_t LUT, int n, pck_vector_t F[],
 
         // unrolled critical section where the hamming weight is >= 2
         for (uint64_t j = 512; j < (1ull << idx_0); j += 512) {
-            if (pindexPrev != pindexBest) {
+            if (pindexPrev != chainActive.Tip()) {
                 QUIT();
             }
             const uint64_t i = j + weight_1_start;
@@ -1012,7 +1012,7 @@ void enumeration_wrapper(LUT_t LUT, int n, int d,
 {
 
     // TODO : this should probably also include a run-time check that SSE2 instructions are actually there
-    if (pindexPrev != pindexBest) {
+    if (pindexPrev != chainActive.Tip()) {
         return;
     }
     // if ( !settings->algo_enum_use_sse ) {
@@ -1057,7 +1057,7 @@ int exhaustive_search_wrapper(const int n, int n_eqs, const int degree,
     wrapper_settings_t settings[1];
     init_settings(settings);
     choose_settings(settings, n, n_eqs, degree);
-    if (pindexPrev != pindexBest) {
+    if (pindexPrev != chainActive.Tip()) {
         return -5;
     }
 
@@ -1285,7 +1285,7 @@ void exfes(int m, int n, int e, uint64_t* Mask, uint64_t maxsol, int*** Eqs, uin
     int npartial;
     int fixvalue;
     for (exfes_ctx.solm = 0; exfes_ctx.solm < (uint64_t)1 << m; exfes_ctx.solm++) {
-        if (pindexPrev != pindexBest)
+        if (pindexPrev != chainActive.Tip())
             break;
         // Initialize npartial and EqsCopy.
         npartial = n;

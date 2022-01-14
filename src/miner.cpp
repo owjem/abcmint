@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -92,7 +92,7 @@ static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 
     LogPrintf("[%s] =============> newNumVariables: %d, newNumEquations: %d, newNumTerms: %d  \n", threadname, newNumVariables, newNumEquations, newNumTerms);
     // int searchTimes = 0;
     for (solm = downBound; solm < (uint64_t)upBound; solm++) {
-        if (pindexPrev != pindexBest)
+        if (pindexPrev != chainActive.Tip())
             break;
         npartial = nUnknowns;
         for (int i = 0; i < mEquations; i++)
@@ -328,7 +328,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
     int64 nFees = 0;
     {
         LOCK2(cs_main, mempool.cs);
-        CBlockIndex* pindexPrev = pindexBest;
+        CBlockIndex* pindexPrev = chainActive.Tip();
         CCoinsViewCache view(*pcoinsTip, true);
 
         // Priority order to process transactions
@@ -390,9 +390,21 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             }
             if (fMissingInputs) continue;
 
-            // Priority is sum(valuein * age) / txsize
+            // Priority is sum(valuein * age) / modified_txsize
             unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-            dPriority /= nTxSize;
+            unsigned int nTxSizeMod = nTxSize;
+            // In order to avoid disincentivizing cleaning up the UTXO set we don't count
+            // the constant overhead for each txin and up to 110 bytes of scriptSig (which
+            // is enough to cover a compressed pubkey p2sh redemption) for priority.
+            // Providing any more cleanup incentive than making additional inputs free would
+            // risk encouraging people to create junk outputs to redeem later.
+            BOOST_FOREACH(const CTxIn& txin, tx.vin)
+            {
+                unsigned int offset = 41U + min(110U, (unsigned int)txin.scriptSig.size());
+                if (nTxSizeMod > offset)
+                    nTxSizeMod -= offset;
+            }
+            dPriority /= nTxSizeMod;
 
             // This is a more accurate fee-per-kilobyte than is used by the client code, because the
             // client code rounds up the size to the nearest 1K. That's good, because it gives an
@@ -537,6 +549,7 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
     if (!reservekey.GetReservedKey(pubkey))
         return NULL;
 
+    // CScript scriptPubKey = CScript() << pubkey << OP_CHECKSIG;
     CScript scriptPubKey ;
     scriptPubKey.SetDestination(pubkey.GetID());
     return CreateNewBlock(scriptPubKey);
@@ -553,6 +566,7 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
     }
     ++nExtraNonce;
     unsigned int nHeight = pindexPrev->nHeight+1; // Height first in coinbase required for block.version=2
+    // pblock->vtx[0].vin[0].scriptSig = (CScript() << nHeight << CBigNum(nExtraNonce)) + COINBASE_FLAGS;
     pblock->vtx[0].vin[0].scriptSig = (CScript() << nHeight << CBigNum(nExtraNonce));
     assert(pblock->vtx[0].vin[0].scriptSig.size() <= 200 * 1024);
 
@@ -608,7 +622,7 @@ void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash
 
 bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
 {
-    if (pblock->hashPrevBlock != hashBestChain)
+    if (pblock->hashPrevBlock != chainActive.Tip()->GetBlockHash())
         return false;
 
     //// debug print
@@ -619,8 +633,8 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
     // Found a solution
     {
         LOCK(cs_main);
-        if (pblock->hashPrevBlock != hashBestChain) {
-            LogPrintf("\n\n ***********hashBestChain****************** %s \n\n", hashBestChain.ToString().c_str());
+        if (pblock->hashPrevBlock != chainActive.Tip()->GetBlockHash()) {
+            LogPrintf("\n\n ***********hashBestChain****************** %s \n\n", chainActive.Tip()->GetBlockHash().ToString().c_str());
             LogPrintf("\n\n ***********pblock->hashPrevBlock****************** %s \n\n", pblock->hashPrevBlock.ToString().c_str());
             return error("BitcoinMiner : generated block is stale");
         }
@@ -672,7 +686,7 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
         // Create new block
         //
         unsigned int nTransactionsUpdatedLast = nTransactionsUpdated;
-        CBlockIndex* pindexPrev = pindexBest;
+        CBlockIndex* pindexPrev = chainActive.Tip();
 
         auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlockWithKey(reservekey));
         if (!pblocktemplate.get())
@@ -701,7 +715,7 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
         uint256 tempHash = pblock->hashPrevBlock ^ pblock->hashMerkleRoot;
         uint256 seedHash = Hash(BEGIN(tempHash), END(tempHash));
         uint256 prevblockhash = 0;
-        if (pindexBest->GetBlockHash() == Params().HashGenesisBlock()|| pindexPrev->pprev->GetBlockHash() == Params().HashGenesisBlock()) {
+        if (chainActive.Tip()->GetBlockHash() == Params().HashGenesisBlock()|| pindexPrev->pprev->GetBlockHash() == Params().HashGenesisBlock()) {
             prevblockhash = 0;
         } else {
             prevblockhash = pindexPrev->GetBlockHash();
@@ -744,12 +758,18 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
                 break;
             if (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 60)
                 break;
-            if (pindexPrev != pindexBest)
+            if (pindexPrev != chainActive.Tip())
                 break;
 
             // Update nTime every few seconds
             UpdateTime(*pblock, pindexPrev);
-
+            // nBlockTime = ByteReverse(pblock->nTime);
+            if (TestNet())
+            {
+                // Changing pblock->nTime can change work required on testnet:
+                // nBlockBits = ByteReverse(pblock->nBits);
+                // hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
+            }
         }
     } }
     catch (boost::thread_interrupted)

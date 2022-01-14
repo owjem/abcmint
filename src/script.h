@@ -34,9 +34,9 @@ enum
 enum
 {
     SCRIPT_VERIFY_NONE      = 0,
-    SCRIPT_VERIFY_P2SH      = (1U << 0),
-    SCRIPT_VERIFY_STRICTENC = (1U << 1),
-    SCRIPT_VERIFY_NOCACHE   = (1U << 2),
+    SCRIPT_VERIFY_P2SH      = (1U << 0), // evaluate P2SH (BIP16) subscripts
+    SCRIPT_VERIFY_STRICTENC = (1U << 1), // enforce strict conformance to DER and SEC2 for signatures and pubkeys
+    SCRIPT_VERIFY_NOCACHE   = (1U << 2), // do not store results in signature cache (but do query it)
     SCRIPT_VERIFY_DERSIG    = (1U << 3), // enforce signature encodings as defined by BIP 66 (which is a softfork, while STRICTENC is not)
 };
 
@@ -48,6 +48,7 @@ enum txnouttype
     TX_PUBKEYHASH,
     TX_SCRIPTHASH,
     TX_MULTISIG,
+    TX_NULL_DATA,
 };
 
 class CNoDestination {
@@ -204,6 +205,7 @@ enum opcodetype
 
 
     // template matching params
+    OP_SMALLDATA = 0xf9,
     OP_SMALLINTEGER = 0xfa,
     OP_PUBKEYS = 0xfb,
     OP_PUBKEYHASH = 0xfd,
@@ -678,7 +680,7 @@ bool IsCanonicalSignature(const std::vector<unsigned char> &vchSig, unsigned int
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck = false);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);
 int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned char> >& vSolutions);
-bool IsStandard(const CScript& scriptPubKey);
+bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
 bool IsMine(const CKeyStore& keystore, const CScript& scriptPubKey);
 bool IsMine(const CKeyStore& keystore, const CTxDestination &dest);
 void ExtractAffectedKeys(const CKeyStore &keystore, const CScript& scriptPubKey, std::vector<CKeyID> &vKeys);

@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2012 Bitcoin Developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -17,6 +17,24 @@ Value getconnectioncount(const Array& params, bool fHelp)
 
     LOCK(cs_vNodes);
     return (int)vNodes.size();
+}
+
+Value ping(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "ping\n"
+            "Requests that a ping be sent to all other nodes, to measure ping time.\n"
+            "Results provided in getpeerinfo, pingtime and pingwait fields are decimal seconds.\n"
+            "Ping command is handled in queue with all other commands, so it measures processing backlog, not just network ping.");
+
+    // Request that each node send a ping during next message processing pass
+    LOCK(cs_vNodes);
+    BOOST_FOREACH(CNode* pNode, vNodes) {
+        pNode->fPingQueued = true;
+    }
+
+    return Value::null;
 }
 
 static void CopyNodeStats(std::vector<CNodeStats>& vstats)
@@ -48,12 +66,17 @@ Value getpeerinfo(const Array& params, bool fHelp)
         Object obj;
 
         obj.push_back(Pair("addr", stats.addrName));
+        if (!(stats.addrLocal.empty()))
+            obj.push_back(Pair("addrlocal", stats.addrLocal));
         obj.push_back(Pair("services", strprintf("%08"PRI64x, stats.nServices)));
         obj.push_back(Pair("lastsend", (boost::int64_t)stats.nLastSend));
         obj.push_back(Pair("lastrecv", (boost::int64_t)stats.nLastRecv));
         obj.push_back(Pair("bytessent", (boost::int64_t)stats.nSendBytes));
         obj.push_back(Pair("bytesrecv", (boost::int64_t)stats.nRecvBytes));
         obj.push_back(Pair("conntime", (boost::int64_t)stats.nTimeConnected));
+        obj.push_back(Pair("pingtime", stats.dPingTime));
+        if (stats.dPingWait > 0.0)
+            obj.push_back(Pair("pingwait", stats.dPingWait));
         obj.push_back(Pair("version", stats.nVersion));
         obj.push_back(Pair("subver", stats.strSubVer));
         obj.push_back(Pair("inbound", stats.fInbound));
@@ -97,13 +120,13 @@ Value addnode(const Array& params, bool fHelp)
     if (strCommand == "add")
     {
         if (it != vAddedNodes.end())
-            throw JSONRPCError(-23, "Error: Node already added");
+            throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: Node already added");
         vAddedNodes.push_back(strNode);
     }
     else if(strCommand == "remove")
     {
         if (it == vAddedNodes.end())
-            throw JSONRPCError(-24, "Error: Node has not been added.");
+            throw JSONRPCError(RPC_CLIENT_NODE_NOT_ADDED, "Error: Node has not been added.");
         vAddedNodes.erase(it);
     }
 
@@ -140,7 +163,7 @@ Value getaddednodeinfo(const Array& params, bool fHelp)
                 break;
             }
         if (laddedNodes.size() == 0)
-            throw JSONRPCError(-24, "Error: Node has not been added.");
+            throw JSONRPCError(RPC_CLIENT_NODE_NOT_ADDED, "Error: Node has not been added.");
     }
 
     if (!fDns)
@@ -202,3 +225,17 @@ Value getaddednodeinfo(const Array& params, bool fHelp)
     return ret;
 }
 
+Value getnettotals(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() > 0)
+        throw runtime_error(
+            "getnettotals\n"
+            "Returns information about network traffic, including bytes in, bytes out,\n"
+            "and current time.");
+
+    Object obj;
+    obj.push_back(Pair("totalbytesrecv", static_cast< boost::uint64_t>(CNode::GetTotalBytesRecv())));
+    obj.push_back(Pair("totalbytessent", static_cast<boost::uint64_t>(CNode::GetTotalBytesSent())));
+    obj.push_back(Pair("timemillis", static_cast<boost::int64_t>(GetTimeMillis())));
+    return obj;
+}

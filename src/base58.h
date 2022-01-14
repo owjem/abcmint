@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin Developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -365,8 +365,8 @@ public:
     bool IsValid() const
     {
         bool fExpectedFormat = vchData.size() == RAINBOW_PRIVATE_KEY_SIZE;
-		bool fCorrectVersion = vchVersion == Params().Base58Prefix(CChainParams::SECRET_KEY);
-		return fExpectedFormat && fCorrectVersion;
+        bool fCorrectVersion = vchVersion == Params().Base58Prefix(CChainParams::SECRET_KEY);
+        return fExpectedFormat && fCorrectVersion;
     }
 
     bool SetString(const char* pszSecret)

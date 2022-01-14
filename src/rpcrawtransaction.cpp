@@ -87,9 +87,9 @@ void TxToJSON(const CTransaction& tx, const uint256 hashBlock, Object& entry)
         if (mi != mapBlockIndex.end() && (*mi).second)
         {
             CBlockIndex* pindex = (*mi).second;
-            if (pindex->IsInMainChain())
+            if (chainActive.Contains(pindex))
             {
-                entry.push_back(Pair("confirmations", 1 + nBestHeight - pindex->nHeight));
+                entry.push_back(Pair("confirmations", 1 + chainActive.Height() - pindex->nHeight));
                 entry.push_back(Pair("time", (boost::int64_t)pindex->nTime));
                 entry.push_back(Pair("blocktime", (boost::int64_t)pindex->nTime));
             }
@@ -562,7 +562,7 @@ Value sendrawtransaction(const Array& params, bool fHelp)
         // Not in block, but already in the memory pool; will drop
         // through to re-relay it.
     } else {
-        SyncWithWallets(hashTx, tx, NULL, true);
+        SyncWithWallets(hashTx, tx, NULL);
     }
     RelayTransaction(tx, hashTx);
 

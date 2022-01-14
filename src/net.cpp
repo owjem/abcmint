@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -426,8 +426,10 @@ void AddressCurrentlyConnected(const CService& addr)
 
 
 
-
-
+uint64 CNode::nTotalBytesRecv = 0;
+uint64 CNode::nTotalBytesSent = 0;
+CCriticalSection CNode::cs_totalBytesRecv;
+CCriticalSection CNode::cs_totalBytesSent;
 
 CNode* FindNode(const CNetAddr& ip)
 {
@@ -540,6 +542,8 @@ void CNode::Cleanup()
 
 void CNode::PushVersion()
 {
+    int nBestHeight = g_signals.GetHeight().get_value_or(0);
+
     /// when NTP implemented, change to just nTime = GetAdjustedTime()
     int64 nTime = (fInbound ? GetAdjustedTime() : GetTime());
     CAddress addrYou = (addr.IsRoutable() && !IsProxy(addr) ? addr : CAddress(CService("0.0.0.0",0)));
@@ -622,6 +626,24 @@ void CNode::copyStats(CNodeStats &stats)
     X(nSendBytes);
     X(nRecvBytes);
     stats.fSyncNode = (this == pnodeSync);
+    
+    // It is common for nodes with good ping times to suddenly become lagged,
+    // due to a new block arriving or other large transfer.
+    // Merely reporting pingtime might fool the caller into thinking the node was still responsive,
+    // since pingtime does not update until the ping is complete, which might take a while.
+    // So, if a ping is taking an unusually long time in flight,
+    // the caller can immediately detect that this is happening.
+    int64 nPingUsecWait = 0;
+    if ((0 != nPingNonceSent) && (0 != nPingUsecStart)) {
+        nPingUsecWait = GetTimeMicros() - nPingUsecStart;
+    }
+    
+    // Raw ping time is in microseconds, but show it to user as whole seconds (Bitcoin users should be well used to small numbers with many decimal places by now :)
+    stats.dPingTime = (((double)nPingUsecTime) / 1e6);
+    stats.dPingWait = (((double)nPingUsecWait) / 1e6);
+    
+    // Leave string empty if addrLocal invalid (not filled in yet)
+    stats.addrLocal = addrLocal.IsValid() ? addrLocal.ToString() : "";
 }
 #undef X
 
@@ -718,6 +740,7 @@ void SocketSendData(CNode *pnode)
             pnode->nLastSend = GetTime();
             pnode->nSendBytes += nBytes;
             pnode->nSendOffset += nBytes;
+            pnode->RecordBytesSent(nBytes);
             if (pnode->nSendOffset == data.size()) {
                 pnode->nSendOffset = 0;
                 pnode->nSendSize -= data.size();
@@ -783,7 +806,8 @@ void ThreadSocketHandler()
                     vNodesDisconnected.push_back(pnode);
                 }
             }
-
+        }
+        {
             // Delete disconnected nodes
             list<CNode*> vNodesDisconnectedCopy = vNodesDisconnected;
             BOOST_FOREACH(CNode* pnode, vNodesDisconnectedCopy)
@@ -813,10 +837,9 @@ void ThreadSocketHandler()
                 }
             }
         }
-        if (vNodes.size() != nPrevNodeCount)
-        {
+        if(vNodes.size() != nPrevNodeCount) {
             nPrevNodeCount = vNodes.size();
-            uiInterface.NotifyNumConnectionsChanged(vNodes.size());
+            uiInterface.NotifyNumConnectionsChanged(nPrevNodeCount);
         }
 
 
@@ -995,6 +1018,7 @@ void ThreadSocketHandler()
                                 pnode->CloseSocketDisconnect();
                             pnode->nLastRecv = GetTime();
                             pnode->nRecvBytes += nBytes;
+                            pnode->RecordBytesRecv(nBytes);
                         }
                         else if (nBytes == 0)
                         {
@@ -1473,6 +1497,8 @@ void static StartSync(const vector<CNode*> &vNodes) {
     CNode *pnodeNewSync = NULL;
     double dBestScore = 0;
 
+    int nBestHeight = g_signals.GetHeight().get_value_or(0);
+
     // Iterate over all nodes
     BOOST_FOREACH(CNode* pnode, vNodes) {
         // check preconditions for allowing a sync
@@ -1848,4 +1874,28 @@ void RelayTransaction(const CTransaction& tx, const uint256& hash, const CDataSt
         } else
             pnode->PushInventory(inv);
     }
+}
+
+void CNode::RecordBytesRecv(uint64 bytes)
+{
+    LOCK(cs_totalBytesRecv);
+    nTotalBytesRecv += bytes;
+}
+
+void CNode::RecordBytesSent(uint64 bytes)
+{
+    LOCK(cs_totalBytesSent);
+    nTotalBytesSent += bytes;
+}
+
+uint64 CNode::GetTotalBytesRecv()
+{
+    LOCK(cs_totalBytesRecv);
+    return nTotalBytesRecv;
+}
+
+uint64 CNode::GetTotalBytesSent()
+{
+    LOCK(cs_totalBytesSent);
+    return nTotalBytesSent;
 }

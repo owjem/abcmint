@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -492,25 +492,6 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn)
             if (!wtx.WriteToDisk())
                 return false;
 
-        if (!fHaveGUI) {
-            // If default receiving address gets used, replace it with a new one
-            if (vchDefaultKey.IsValid()) {
-                CScript scriptDefaultKey;
-                scriptDefaultKey.SetDestination(vchDefaultKey.GetID());
-                BOOST_FOREACH(const CTxOut& txout, wtx.vout)
-                {
-                    if (txout.scriptPubKey == scriptDefaultKey)
-                    {
-                        CPubKey newDefaultKey;
-                        if (GetKeyFromPool(newDefaultKey))
-                        {
-                            SetDefaultKey(newDefaultKey);
-                            SetAddressBook(vchDefaultKey.GetID(), "", "receive");
-                        }
-                    }
-                }
-            }
-        }
         // since AddToWallet is called directly for self-originating transactions, check for consumption of own coins
         WalletUpdateSpent(wtx);
 
@@ -533,7 +514,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn)
 // Add a transaction to the wallet, or update it.
 // pblock is optional, but should be provided if the transaction is known to be in a block.
 // If fUpdate is true, existing transactions will be updated.
-bool CWallet::AddToWalletIfInvolvingMe(const uint256 &hash, const CTransaction& tx, const CBlock* pblock, bool fUpdate, bool fFindBlock)
+bool CWallet::AddToWalletIfInvolvingMe(const uint256 &hash, const CTransaction& tx, const CBlock* pblock, bool fUpdate)
 {
     {
         LOCK(cs_wallet);
@@ -553,16 +534,20 @@ bool CWallet::AddToWalletIfInvolvingMe(const uint256 &hash, const CTransaction& 
     return false;
 }
 
-bool CWallet::EraseFromWallet(uint256 hash)
+void CWallet::SyncTransaction(const uint256 &hash, const CTransaction& tx, const CBlock* pblock) {
+    AddToWalletIfInvolvingMe(hash, tx, pblock, true);
+}
+
+void CWallet::EraseFromWallet(const uint256 &hash)
 {
     if (!fFileBacked)
-        return false;
+        return;
     {
         LOCK(cs_wallet);
         if (mapWallet.erase(hash))
             CWalletDB(strWalletFile).EraseTx(hash);
     }
-    return true;
+    return;
 }
 
 
@@ -682,22 +667,35 @@ void CWalletTx::GetAmounts(list<pair<CTxDestination, int64> >& listReceived,
     // Sent/received.
     BOOST_FOREACH(const CTxOut& txout, vout)
     {
+        bool fIsMine;
+        // Only need to handle txouts if AT LEAST one of these is true:
+        //   1) they debit from us (sent)
+        //   2) the output is to us (received)
+        if (nDebit > 0)
+        {
+            // Don't report 'change' txouts
+            if (pwallet->IsChange(txout))
+                continue;
+            fIsMine = pwallet->IsMine(txout);
+        }
+        else if (!(fIsMine = pwallet->IsMine(txout)))
+            continue;
+
+        // In either case, we need to get the destination address
         CTxDestination address;
-        vector<unsigned char> vchPubKey;
         if (!ExtractDestination(txout.scriptPubKey, address))
         {
             LogPrintf("CWalletTx::GetAmounts: Unknown transaction type found, txid %s\n",
                      this->GetHash().ToString().c_str());
+            address = CNoDestination();
         }
 
-        // Don't report 'change' txouts
-        if (nDebit > 0 && pwallet->IsChange(txout))
-            continue;
-
+        // If we are debited by the transaction, add the output as a "sent" entry
         if (nDebit > 0)
             listSent.push_back(make_pair(address, txout.nValue));
 
-        if (pwallet->IsMine(txout))
+        // If we are receiving the output, add it as a "received" entry
+        if (fIsMine)
             listReceived.push_back(make_pair(address, txout.nValue));
     }
 
@@ -788,6 +786,25 @@ void CWalletTx::AddSupportingTransactions()
     reverse(vtxPrev.begin(), vtxPrev.end());
 }
 
+bool CWalletTx::AcceptWalletTransaction()
+{
+    {
+        LOCK(mempool.cs);
+        // Add previous supporting transactions first
+        BOOST_FOREACH(CMerkleTx& tx, vtxPrev)
+        {
+            if (!tx.IsCoinBase())
+            {
+                uint256 hash = tx.GetHash();
+                if (!mempool.exists(hash) && pcoinsTip->HaveCoins(hash))
+                    tx.AcceptToMemoryPool(false);
+            }
+        }
+        return AcceptToMemoryPool(false);
+    }
+    return false;
+}
+
 bool CWalletTx::WriteToDisk()
 {
     return CWalletDB(pwallet->strWalletFile).WriteTx(GetHash(), *this);
@@ -808,7 +825,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             // no need to read and scan block, if block was created before
             // our wallet birthday (as adjusted for block time variability)
             if (nTimeFirstKey && (pindex->nTime < (nTimeFirstKey - 7200))) {
-                pindex = pindex->GetNextInMainChain();
+                pindex = chainActive.Next(pindex);
                 continue;
             }
 
@@ -819,7 +836,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 if (AddToWalletIfInvolvingMe(tx.GetHash(), tx, &block, fUpdate))
                     ret++;
             }
-            pindex = pindex->GetNextInMainChain();
+            pindex = chainActive.Next(pindex);
         }
     }
     return ret;
@@ -873,7 +890,7 @@ void CWallet::ReacceptWalletTransactions()
         if (fMissing)
         {
             // TODO: optimize this to scan just part of the block chain?
-            if (ScanForWalletTransactions(pindexGenesisBlock))
+            if (ScanForWalletTransactions(chainActive.Genesis()))
                 fRepeat = true;  // Found missing transactions: re-do re-accept.
         }
     }
@@ -1242,9 +1259,10 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64> >& vecSend,
                 }
 
                 int64 nChange = nValueIn - nValue - nFeeRet;
-                // if sub-cent change is required, the fee must be raised to at least nMinTxFee
-                // or until nChange becomes zero
-                // NOTE: this depends on the exact behaviour of GetMinFee
+                // The following if statement should be removed once enough miners
+                // have upgraded to the 0.9 GetMinFee() rules. Until then, this avoids
+                // creating free transactions that have change outputs less than
+                // CENT bitcoins.
                 if (nFeeRet < CTransaction::nMinTxFee && nChange > 0 && nChange < CENT)
                 {
                     int64 nMoveToFee = min(nChange, CTransaction::nMinTxFee - nFeeRet);
@@ -1310,7 +1328,15 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64> >& vecSend,
                     strFailReason = _("Transaction too large");
                     return false;
                 }
-                dPriority /= nBytes;
+                unsigned int nTxSizeMod = nBytes;
+                // See miner.c's dPriority logic for the matching network-node side code.
+                BOOST_FOREACH(const CTxIn& txin, (*(CTransaction*)&wtxNew).vin)
+                {
+                    unsigned int offset = 41U + min(110U, (unsigned int)txin.scriptSig.size());
+                    if (nTxSizeMod > offset)
+                        nTxSizeMod -= offset;
+                }
+                dPriority /= nTxSizeMod;
 
                 // Check that enough fee is included
                 int64 nPayFee = nTransactionFee * (1 + (int64)nBytes / 1000);
@@ -1493,33 +1519,6 @@ bool CWallet::DelAddressBook(const CTxDestination& address)
     return CWalletDB(strWalletFile).EraseName(CBitcoinAddress(address).ToString());
 }
 
-void CWallet::PrintWallet(const CBlock& block)
-{
-    {
-        LOCK(cs_wallet);
-        if (mapWallet.count(block.vtx[0].GetHash()))
-        {
-            CWalletTx& wtx = mapWallet[block.vtx[0].GetHash()];
-            LogPrintf("    mine:  %d  %d  %"PRI64d"", wtx.GetDepthInMainChain(), wtx.GetBlocksToMaturity(), wtx.GetCredit());
-        }
-    }
-    LogPrintf("\n");
-}
-
-bool CWallet::GetTransaction(const uint256 &hashTx, CWalletTx& wtx)
-{
-    {
-        LOCK(cs_wallet);
-        map<uint256, CWalletTx>::iterator mi = mapWallet.find(hashTx);
-        if (mi != mapWallet.end())
-        {
-            wtx = (*mi).second;
-            return true;
-        }
-    }
-    return false;
-}
-
 bool CWallet::SetDefaultKey(const CPubKey &vchPubKey)
 {
     if (fFileBacked)
@@ -1528,14 +1527,6 @@ bool CWallet::SetDefaultKey(const CPubKey &vchPubKey)
             return false;
     }
     vchDefaultKey = vchPubKey;
-    return true;
-}
-
-bool GetWalletFile(CWallet* pwallet, string &strWalletFileOut)
-{
-    if (!pwallet->fFileBacked)
-        return false;
-    strWalletFileOut = pwallet->strWalletFile;
     return true;
 }
 
@@ -1945,7 +1936,7 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64> &mapKeyBirth) const {
             mapKeyBirth[it->first] = it->second.nCreateTime;
 
     // map in which we'll infer heights of other keys
-    CBlockIndex *pindexMax = FindBlockByHeight(std::max(0, nBestHeight - 144)); // the tip can be reorganised; use a 144-block safety margin
+    CBlockIndex *pindexMax = chainActive[std::max(0, chainActive.Height() - 144)]; // the tip can be reorganised; use a 144-block safety margin
     std::map<CKeyID, CBlockIndex*> mapKeyFirstBlock;
     std::set<CKeyID> setKeys;
     GetKeys(setKeys);
@@ -1965,7 +1956,7 @@ void CWallet::GetKeyBirthTimes(std::map<CKeyID, int64> &mapKeyBirth) const {
         // iterate over all wallet transactions...
         const CWalletTx &wtx = (*it).second;
         std::map<uint256, CBlockIndex*>::const_iterator blit = mapBlockIndex.find(wtx.hashBlock);
-        if (blit != mapBlockIndex.end() && blit->second->IsInMainChain()) {
+        if (blit != mapBlockIndex.end() && chainActive.Contains(blit->second)) {
             // ... which are already in a block
             int nHeight = blit->second->nHeight;
             BOOST_FOREACH(const CTxOut &txout, wtx.vout) {

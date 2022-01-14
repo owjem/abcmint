@@ -1,9 +1,12 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "ui_interface.h"
 #include "init.h"
+#include "util.h"
+#include "main.h"
 #include "bitcoinrpc.h"
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -57,12 +60,13 @@ bool AppInit(int argc, char* argv[])
             // First part of help message is specific to bitcoind / RPC client
             std::string strUsage = _("Bitcoin version") + " " + FormatFullVersion() + "\n\n" +
                 _("Usage:") + "\n" +
-                  "  bitcoind [options]                     " + "\n" +
-                  "  bitcoind [options] <command> [params]  " + _("Send command to -server or bitcoind") + "\n" +
+                  "  bitcoind [options]                     " + _("Start Bitcoin server") + "\n" +
+                _("Usage (deprecated, use bitcoin-cli):") + "\n" +
+                  "  bitcoind [options] <command> [params]  " + _("Send command to Bitcoin server") + "\n" +
                   "  bitcoind [options] help                " + _("List commands") + "\n" +
                   "  bitcoind [options] help <command>      " + _("Get help for a command") + "\n";
 
-            strUsage += "\n" + HelpMessage();
+            strUsage += "\n" + HelpMessage(HMM_BITCOIND);
 
             fprintf(stdout, "%s", strUsage.c_str());
             return false;

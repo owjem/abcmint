@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef BITCOIN_WALLETDB_H
@@ -94,7 +94,13 @@ public:
                    keyMeta))
             return false;
 
-        return Write(std::make_pair(std::string("key"), vchPubKey), vchPrivKey, false);
+        // hash pubkey/privkey to accelerate wallet load
+        std::vector<unsigned char> vchKey;
+        // vchKey.reserve(vchPubKey.size() + vchPrivKey.size());
+        // vchKey.insert(vchKey.end(), vchPubKey.begin(), vchPubKey.end());
+        vchKey.insert(vchKey.end(), vchPrivKey.begin(), vchPrivKey.end());
+
+        return Write(std::make_pair(std::string("key"), vchPubKey), std::make_pair(vchPrivKey, Hash(vchKey.begin(), vchKey.end())), false);
     }
 
     bool WritePos(const std::string& address, const CDiskPubKeyPos& pos)

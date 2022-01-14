@@ -69,7 +69,7 @@ public:
     virtual const vector<CAddress>& FixedSeeds() const = 0;
     int RPCPort() const { return nRPCPort; }
 protected:
-    CChainParams() {};
+    CChainParams() {}
 
     uint256 hashGenesisBlock;
     MessageStartChars pchMessageStart;

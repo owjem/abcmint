@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -37,10 +37,7 @@ void ShutdownRPCMining()
 // or from the last difficulty change if 'lookup' is nonpositive.
 // If 'height' is nonnegative, compute the estimate at the time when a given block was found.
 Value GetNetworkHashPS(int lookup, int height) {
-    CBlockIndex *pb = pindexBest;
-
-    if (height >= 0 && height < nBestHeight)
-        pb = FindBlockByHeight(height);
+    CBlockIndex *pb = chainActive[height];
 
     if (pb == NULL || !pb->nHeight)
         return 0;
@@ -148,7 +145,7 @@ Value getmininginfo(const Array& params, bool fHelp)
             "Returns an object containing mining-related information.");
 
     Object obj;
-    obj.push_back(Pair("blocks",           (int)nBestHeight));
+    obj.push_back(Pair("blocks",           (int)chainActive.Height()));
     obj.push_back(Pair("currentblocksize", (uint64_t)nLastBlockSize));
     obj.push_back(Pair("currentblocktx",   (uint64_t)nLastBlockTx));
     obj.push_back(Pair("difficulty",       (int)GetDifficulty()));
@@ -192,10 +189,10 @@ Value getwork(const Array& params, bool fHelp)
         static CBlockIndex* pindexPrev;
         static int64 nStart;
         static CBlockTemplate* pblocktemplate;
-        if (pindexPrev != pindexBest ||
+        if (pindexPrev != chainActive.Tip() ||
             (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 60))
         {
-            if (pindexPrev != pindexBest)
+            if (pindexPrev != chainActive.Tip())
             {
                 // Deallocate old blocks since they're obsolete now
                 mapNewBlock.clear();
@@ -209,7 +206,7 @@ Value getwork(const Array& params, bool fHelp)
 
             // Store the pindexBest used before CreateNewBlock, to avoid races
             nTransactionsUpdatedLast = nTransactionsUpdated;
-            CBlockIndex* pindexPrevNew = pindexBest;
+            CBlockIndex* pindexPrevNew = chainActive.Tip();
             nStart = GetTime();
 
             // Create new block
@@ -326,7 +323,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
     static CBlockIndex* pindexPrev;
     static int64 nStart;
     static CBlockTemplate* pblocktemplate;
-    if (pindexPrev != pindexBest ||
+    if (pindexPrev != chainActive.Tip() ||
         (nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 5))
     {
         // Clear pindexPrev so future calls make a new block, despite any failures from here on
@@ -334,7 +331,7 @@ Value getblocktemplate(const Array& params, bool fHelp)
 
         // Store the pindexBest used before CreateNewBlock, to avoid races
         nTransactionsUpdatedLast = nTransactionsUpdated;
-        CBlockIndex* pindexPrevNew = pindexBest;
+        CBlockIndex* pindexPrevNew = chainActive.Tip();
         nStart = GetTime();
 
         // Create new block
@@ -343,6 +340,8 @@ Value getblocktemplate(const Array& params, bool fHelp)
             delete pblocktemplate;
             pblocktemplate = NULL;
         }
+        // CScript scriptDummy = CScript() << OP_TRUE;
+        // pblocktemplate = CreateNewBlock(scriptDummy);
 
 
         pblocktemplate = CreateNewBlockWithKey(*pMiningKey);

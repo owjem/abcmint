@@ -43,7 +43,7 @@ BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
 
 bin_PROGRAMS =
 TESTS =
-  bin_PROGRAMS += bitcoind
+  bin_PROGRAMS += bitcoind bitcoin-cli
 
 # SUBDIRS = . $(BUILD_QT) $(BUILD_TEST)
 # DIST_SUBDIRS = . qt
@@ -283,6 +283,21 @@ bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPN
 libbitcoin_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 bitcoind_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)  $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 
+# bitcoin-cli binary #
+bitcoin_cli_LDADD = \
+  $(LIBBITCOIN) \
+  $(LIBLEVELDB) \
+  $(LIBMEMENV) \
+  $(LIBMINER) \
+  $(LIBPQCRYPTO)
+
+bitcoin_cli_SOURCES = bitcoin-cli.cpp
+#
+
+if TARGET_WINDOWS
+bitcoin_cli_SOURCES += bitcoin-cli-res.rc
+endif
+bitcoin_cli_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS)
 
 if USE_GPU
 bitcoind_LDADD += obj/gpumining.o

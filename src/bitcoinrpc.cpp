@@ -1,9 +1,11 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "chainparams.h"
+#include "main.h"
+#include "wallet.h"
 #include "init.h"
 #include "util.h"
 #include "sync.h"
@@ -229,8 +231,10 @@ static const CRPCCommand vRPCCommands[] =
     { "getbestblockhash",       &getbestblockhash,       true,      false,      false },
     { "getconnectioncount",     &getconnectioncount,     true,      false,      false },
     { "getpeerinfo",            &getpeerinfo,            true,      false,      false },
+    { "ping",                   &ping,                   true,      false,      false },
     { "addnode",                &addnode,                true,      true,       false },
     { "getaddednodeinfo",       &getaddednodeinfo,       true,      true,       false },
+    { "getnettotals",           &getnettotals,           true,      true,       false },
     { "getdifficulty",          &getdifficulty,          true,      false,      false },
     { "getnetworkhashps",       &getnetworkhashps,       true,      false,      false },
     { "getgenerate",            &getgenerate,            true,      false,      false },
@@ -810,7 +814,7 @@ void StartRPCThreads()
         if (filesystem::exists(pathPKFile)) rpc_ssl_context->use_private_key_file(pathPKFile.string(), ssl::context::pem);
         else LogPrintf("ThreadRPCServer ERROR: missing server private key file %s\n", pathPKFile.string().c_str());
 
-        string strCiphers = GetArg("-rpcsslciphers", "TLSv1+HIGH:!SSLv2:!aNULL:!eNULL:!AH:!3DES:@STRENGTH");
+        string strCiphers = GetArg("-rpcsslciphers", "TLSv1.2+HIGH:TLSv1+HIGH:!SSLv2:!aNULL:!eNULL:!3DES:@STRENGTH");
         SSL_CTX_set_cipher_list(rpc_ssl_context->impl(), strCiphers.c_str());
     }
 
@@ -883,7 +887,8 @@ void StopRPCThreads()
 
     deadlineTimers.clear();
     rpc_io_service->stop();
-    rpc_worker_group->join_all();
+    if (rpc_worker_group != NULL)
+        rpc_worker_group->join_all();
     delete rpc_worker_group; rpc_worker_group = NULL;
     delete rpc_ssl_context; rpc_ssl_context = NULL;
     delete rpc_io_service; rpc_io_service = NULL;

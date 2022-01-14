@@ -10,10 +10,10 @@
 bool FindPubKeyPos(std::string& pubKeyIn, CDiskPubKeyPos& pubKeyPos)
 {
 
-    CBlockIndex* pBlockIndex = pindexGenesisBlock;
-    while (pBlockIndex && pindexBest) {
-        if (pindexBest->nHeight - pBlockIndex->nHeight + 1 < COINBASE_MATURITY+20) {
-            LogPrintf("%s: block not maturity, height:%u\n", __func__, pindexBest->nHeight - pBlockIndex->nHeight + 1);
+    CBlockIndex* pBlockIndex = chainActive.Genesis();
+    while (pBlockIndex && chainActive.Tip()) {
+        if (chainActive.Tip()->nHeight - pBlockIndex->nHeight + 1 < COINBASE_MATURITY+20) {
+            LogPrintf("%s: block not maturity, height:%u\n", __func__, chainActive.Tip()->nHeight - pBlockIndex->nHeight + 1);
             return false;
         }
         FILE* file = OpenBlockFile(pBlockIndex->GetBlockPos(), true);
@@ -71,7 +71,7 @@ bool FindPubKeyPos(std::string& pubKeyIn, CDiskPubKeyPos& pubKeyPos)
             offset += GetSerializeSize(tx, SER_DISK, CLIENT_VERSION); //CTransaction length
         }
 
-        pBlockIndex = pBlockIndex->GetNextInMainChain();
+        pBlockIndex = chainActive.Next(pBlockIndex);
     }
 
     //still no transation contain this pubkey in the block chain
@@ -80,14 +80,14 @@ bool FindPubKeyPos(std::string& pubKeyIn, CDiskPubKeyPos& pubKeyPos)
 
 bool GetPubKeyByPos(CDiskPubKeyPos pos, CPubKey& pubKey)
 {
-    CBlockIndex* pblockindex = pindexGenesisBlock;
+    CBlockIndex* pblockindex = chainActive.Genesis();
     bool bFindBlockByHeight = false;
     while (pblockindex) {
         if ((unsigned int)(pblockindex->nHeight) == pos.nHeight) {
             bFindBlockByHeight = true;
             break;
         } else {
-            pblockindex = pblockindex->GetNextInMainChain();
+            pblockindex = chainActive.Next(pblockindex);
         }
     }
 

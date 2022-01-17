@@ -33,7 +33,7 @@ CPubKey CWallet::GenerateNewKey()
 
     RandAddSeedPerfmon();
     CKey secret;
-    secret.MakeNewKey();
+    secret.MakeNewKey(fCompressed);
 
     // Compressed public keys were introduced in version 0.6.0
     if (fCompressed)
@@ -1487,6 +1487,8 @@ DBErrors CWallet::LoadWallet(bool& fFirstRunRet)
 
     if (nLoadWalletRet != DB_LOAD_OK)
         return nLoadWalletRet;
+
+
     fFirstRunRet = !vchDefaultKey.IsValid();
 
     return DB_LOAD_OK;
@@ -1612,6 +1614,8 @@ void CWallet::ReserveKeyFromKeyPool(int64& nIndex, CKeyPool& keypool)
             throw runtime_error("ReserveKeyFromKeyPool() : read failed");
         if (!HaveKey(keypool.vchPubKey.GetID()))
             throw runtime_error("ReserveKeyFromKeyPool() : unknown key in key pool");
+
+        if(fDebug) LogPrintf(" ===> vchPubKey  [%d] \n", keypool.vchPubKey.IsValid());
         assert(keypool.vchPubKey.IsValid());
         LogPrintf("keypool reserve %"PRI64d"\n", nIndex);
     }

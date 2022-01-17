@@ -135,8 +135,9 @@ bool GetPubKeyByPos(CDiskPubKeyPos pos, CPubKey& pubKey)
         while (i < nSize)
         {
             unsigned int blk = std::min(nSize - i, (unsigned int)(1 + 4999999 / sizeof(unsigned char)));
-            pubKey.vchPubKey.resize(i + blk);
-            file.read((char*)&pubKey.vchPubKey[i], blk * sizeof(unsigned char));
+
+            // pubKey.vchPubKey.resize(i + blk);
+            file.read((char*)&pubKey[i], blk * sizeof(unsigned char));
             i += blk;
         }
 
@@ -151,7 +152,7 @@ bool UpdatePubKeyPos(CPubKey& pubKey, const std::string& address)
 {
     CDiskPubKeyPos pos;
     bool found = false;
-    std::string strPubKey = HexStr(pubKey.vchPubKey);
+    std::string strPubKey = HexStr(pubKey.begin(),pubKey.end());
 
     if (!pwalletMain->GetPubKeyPos(address, pos)) {
         if (!FindPubKeyPos(strPubKey, pos)) {

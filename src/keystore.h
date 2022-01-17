@@ -35,7 +35,7 @@ public:
     virtual bool AddCScript(const CScript& redeemScript) =0;
     virtual bool HaveCScript(const CScriptID &hash) const =0;
     virtual bool GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const =0;
-    virtual bool GetSecret(const CKeyID &address, CSecret& vchSecret) const
+    virtual bool GetSecret(const CKeyID &address, CPrivKey& vchSecret) const
     {
         CKey key;
         if (!GetKey(address, key))
@@ -90,7 +90,7 @@ public:
             if (mi != mapKeys.end())
             {
                 const CKey* pKey = &(mi->second);
-                keyOut.SetPubKey(pKey->GetPubKey());
+                keyOut.pubKey = pKey->GetPubKey();
                 keyOut.SetPrivKey(pKey->GetPrivKey());
                 return true;
             }

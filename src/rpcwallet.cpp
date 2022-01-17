@@ -1451,7 +1451,7 @@ public:
         CPubKey vchPubKey;
         pwalletMain->GetPubKey(keyID, vchPubKey);
         obj.push_back(Pair("isscript", false));
-        obj.push_back(Pair("pubkey", HexStr(vchPubKey.Raw())));
+        obj.push_back(Pair("pubkey", HexStr(vchPubKey.begin(), vchPubKey.end())));
         return obj;
     }
 
@@ -1575,4 +1575,3 @@ Value listlockunspent(const Array& params, bool fHelp)
 
     return ret;
 }
-

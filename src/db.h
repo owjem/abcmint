@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #ifndef BITCOIN_DB_H
@@ -114,7 +114,7 @@ protected:
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        ssKey.reserve(512*1024);
+        ssKey.reserve(256*1024);
         ssKey << key;
         Dbt datKey(&ssKey[0], ssKey.size());
 
@@ -151,13 +151,13 @@ protected:
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        ssKey.reserve(512*1024);
+        ssKey.reserve(256*1024);
         ssKey << key;
         Dbt datKey(&ssKey[0], ssKey.size());
 
         // Value
         CDataStream ssValue(SER_DISK, CLIENT_VERSION);
-        ssValue.reserve(512*1024);
+        ssValue.reserve(256*1024);
         ssValue << value;
         Dbt datValue(&ssValue[0], ssValue.size());
 
@@ -180,7 +180,7 @@ protected:
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        ssKey.reserve(512*1024);
+        ssKey.reserve(256*1024);
         ssKey << key;
         Dbt datKey(&ssKey[0], ssKey.size());
 
@@ -200,7 +200,7 @@ protected:
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        ssKey.reserve(512*1024);
+        ssKey.reserve(256*1024);
         ssKey << key;
         Dbt datKey(&ssKey[0], ssKey.size());
 

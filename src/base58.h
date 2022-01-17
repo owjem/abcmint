@@ -348,18 +348,17 @@ bool inline CBitcoinAddressVisitor::operator()(const CNoDestination &id) const {
 class CBitcoinSecret : public CBase58Data
 {
 public:
-    void SetSecret(const CSecret& vchSecret)
+    void SetKey(const CKey& vchSecret)
     {
-      //  assert(vchSecret.size() == RAINBOW_PRIVATE_KEY_SIZE);
-        SetData(Params().Base58Prefix(CChainParams::SECRET_KEY), &vchSecret[0], vchSecret.size());
+        assert(vchSecret.IsValid());
+        SetData(Params().Base58Prefix(CChainParams::SECRET_KEY), vchSecret.begin(), vchSecret.size());
     }
 
-    CSecret GetSecret()
+    CKey GetKey()
     {
-        CSecret vchSecret;
-        vchSecret.resize(RAINBOW_PRIVATE_KEY_SIZE);
-        memcpy(&vchSecret[0], &vchData[0], RAINBOW_PRIVATE_KEY_SIZE);
-        return vchSecret;
+        CKey ret;
+        ret.Set(&vchData[0], &vchData[RAINBOW_PRIVATE_KEY_SIZE]);
+        return ret;
     }
 
     bool IsValid() const
@@ -379,9 +378,9 @@ public:
         return SetString(strSecret.c_str());
     }
 
-    CBitcoinSecret(const CSecret& vchSecret)
+    CBitcoinSecret(const CKey& vchSecret)
     {
-        SetSecret(vchSecret);
+        SetKey(vchSecret);
     }
 
     CBitcoinSecret()

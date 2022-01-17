@@ -1,5 +1,5 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -83,28 +83,25 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
         if (!SetCrypted())
             return false;
 
-        bool keyPass = false;
-        bool keyFail = false;
         CryptedKeyMap::const_iterator mi = mapCryptedKeys.begin();
         for (; mi != mapCryptedKeys.end(); ++mi)
         {
             const CPubKey &vchPubKey = (*mi).second.first;
             const std::vector<unsigned char> &vchCryptedSecret = (*mi).second.second;
-            CSecret vchSecret;
+            CKeyingMaterial vchSecret;
             if(!DecryptSecret(vMasterKeyIn, vchCryptedSecret, vchPubKey.GetHash(), vchSecret))
-            {
-                keyFail = true;
+                return false;
+
+
+            LogPrintf(" ===> vchSecret.size[%ld] ", vchSecret.size() );
+            // if (vchSecret.size() != RAINBOW_PRIVATE_KEY_SIZE)
+            //     return false;
+            CKey key;
+            key.Set(vchSecret.begin(), vchSecret.end(), vchPubKey.IsCompressed());
+            if (key.GetPubKey() == vchPubKey)
                 break;
-            }
-            keyPass = true;
-        }
-        if (keyPass && keyFail)
-        {
-            LogPrintf("The wallet is probably corrupted: Some keys decrypt but not all.\n");
-            assert(false);
-        }
-        if (keyFail || !keyPass)
             return false;
+        }
         vMasterKey = vMasterKeyIn;
     }
     NotifyStatusChanged(this);
@@ -121,8 +118,8 @@ bool CCryptoKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
             return false;
 
         std::vector<unsigned char> vchCryptedSecret;
-        CPubKey vchPubKey = key.GetPubKey();
-        if (!EncryptSecret(vMasterKey, key.GetPrivKey(), vchPubKey.GetHash(), vchCryptedSecret))
+        CKeyingMaterial vchSecret(key.begin(), key.end());
+        if (!EncryptSecret(vMasterKey, vchSecret, pubkey.GetHash(), vchCryptedSecret))
             return false;
 
         if (!AddCryptedKey(pubkey, vchCryptedSecret))
@@ -156,9 +153,11 @@ bool CCryptoKeyStore::GetKey(const CKeyID &address, CKey& keyOut) const
         {
             const CPubKey &vchPubKey = (*mi).second.first;
             const std::vector<unsigned char> &vchCryptedSecret = (*mi).second.second;
-            CSecret vchSecret;
+            CKeyingMaterial vchSecret;
             if (!DecryptSecret(vMasterKey, vchCryptedSecret, vchPubKey.GetHash(), vchSecret))
                 return false;
+
+            LogPrintf(" ===> GetKey vchSecret.size[%ld] ", vchSecret.size() );
             if (vchSecret.size() != RAINBOW_PRIVATE_KEY_SIZE)
                 return false;
             keyOut.SetPubKey(vchPubKey);
@@ -196,12 +195,11 @@ bool CCryptoKeyStore::EncryptKeys(CKeyingMaterial& vMasterKeyIn)
         fUseCrypto = true;
         BOOST_FOREACH(KeyMap::value_type& mKey, mapKeys)
         {
-            CKey key;
-            if (!key.SetPrivKey(mKey.second.GetPrivKey()))
-                return false;
-            const CPubKey vchPubKey = mKey.second.pubKey;
+            const CKey &key = mKey.second;
+            CPubKey vchPubKey = key.GetPubKey();
+            CKeyingMaterial vchSecret(key.begin(), key.end());
             std::vector<unsigned char> vchCryptedSecret;
-            if (!EncryptSecret(vMasterKeyIn, key.GetPrivKey(), vchPubKey.GetHash(), vchCryptedSecret))
+            if (!EncryptSecret(vMasterKeyIn, vchSecret, vchPubKey.GetHash(), vchCryptedSecret))
                 return false;
             if (!AddCryptedKey(vchPubKey, vchCryptedSecret))
                 return false;

@@ -301,6 +301,8 @@ bitcoin_cli_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINI
 
 if USE_GPU
 bitcoind_LDADD += obj/gpumining.o
+bitcoin_cli_LDADD += obj/gpumining.o
+bitcoin_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)  $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 endif
 
 

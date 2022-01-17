@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2012 Bitcoin Developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -86,9 +86,11 @@ Value importprivkey(const Array& params, bool fHelp)
 
     if (!fGood) throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key");
 
-    CKey key;
-    CSecret secret = vchSecret.GetSecret();
-    key.SetPrivKey(secret);
+    // CKey key;
+    // CSecret secret = vchSecret.GetSecret();
+    // key.SetPrivKey(secret);
+
+    CKey key = vchSecret.GetKey();
 
     // CPubKey pubKey;
     // if(!DecodeBase58(vArgs[1], pubKey.vchPubKey))
@@ -151,9 +153,10 @@ Value importwallet(const Array& params, bool fHelp)
         if (!vchSecret.SetString(vstr[0]))
             continue;
 
-        CKey key;
-        CSecret secret = vchSecret.GetSecret();
-        key.SetPrivKey(secret);
+        // CKey key;
+        // CSecret secret = vchSecret.GetSecret();
+        // key.SetPrivKey(secret);
+        CKey key = vchSecret.GetKey();
 
         CPubKey pubkey = key.GetPubKey();
         CKeyID keyid = pubkey.GetID();
@@ -219,9 +222,9 @@ Value dumpprivkey(const Array& params, bool fHelp)
     CKeyID keyID;
     if (!address.GetKeyID(keyID))
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to a key");
-    CSecret vchSecret;
+    CKey vchSecret;
     // bool fCompressed;
-    if (!pwalletMain->GetSecret(keyID, vchSecret))
+    if (!pwalletMain->GetKey(keyID, vchSecret))
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key for address " + strAddress + " is not known");
     return CBitcoinSecret(vchSecret).ToString();
 }
@@ -314,9 +317,11 @@ Value importkey(const Array& params, bool fHelp)
 
     if (!fGood) throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid private key");
 
-    CKey key;
-    CSecret secret = vchSecret.GetSecret();
-    key.SetPrivKey(secret);
+    // CKey key;
+    // CSecret secret = vchSecret.GetSecret();
+    // key.SetPrivKey(secret);
+
+    CKey key = vchSecret.GetKey();
 
     std::vector<unsigned char> vchRet;
     if(!DecodeBase58(vArgs[1], vchRet))
@@ -369,18 +374,19 @@ Value dumpkey(const Array& params, bool fHelp)
     CKeyID keyID;
     if (!address.GetKeyID(keyID))
         throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to a key");
-    CSecret vchSecret;
-    if (!pwalletMain->GetSecret(keyID, vchSecret))
+    CKey vchSecret;
+    if (!pwalletMain->GetKey(keyID, vchSecret))
         throw JSONRPCError(RPC_WALLET_ERROR, "Private key for address " + strAddress + " is not known");
 
     CPubKey pubKey;
     if (!pwalletMain->GetPubKey(keyID, pubKey))
         throw JSONRPCError(RPC_WALLET_ERROR, "Address does not refer to a public key");
 
+
     CDiskPubKeyPos pos;
     if (pwalletMain->GetPubKeyPos(strAddress, pos))
-        return CBitcoinSecret(vchSecret).ToString()+"|" + EncodeBase58(pubKey.Raw()) + "|" + HexStr(pos.ToVector());
+        return CBitcoinSecret(vchSecret).ToString()+"|" + EncodeBase58(pubKey.begin(), pubKey.end()) + "|" + HexStr(pos.ToVector());
     else
-        return CBitcoinSecret(vchSecret).ToString()+"|" + EncodeBase58(pubKey.Raw());
+        return CBitcoinSecret(vchSecret).ToString()+"|" + EncodeBase58(pubKey.begin(), pubKey.end());
 
 }

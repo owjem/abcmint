@@ -797,7 +797,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                             CDiskPubKeyPos pos;
                             pos << vch;
                             if (GetPubKeyByPos(pos, pubKey)) {
-                                vch = pubKey.vchPubKey;
+                                vch = pubKey.Raw();
                             } else {
                                 LogPrintf("signature can't find public key at height=%u, offset=%u, maybe not public key position\n", pos.nHeight, pos.nPubKeyOffset);
                                 return false;
@@ -1178,7 +1178,7 @@ bool CheckSig(vector<unsigned char> vchSig, const vector<unsigned char> &vchPubK
         unsigned int index = cursor0 + (cursor1<<8) + (cursor2<<16) + (cursor3<<24);
 
         if (txTo.vPubKeys.size() > index) {
-            pubkey.vchPubKey = txTo.vPubKeys.at(index);
+            pubkey = txTo.vPubKeys.at(index);
         } else {
             LogPrintf("CheckSig can't find public key in vPubKeys, index=%u\n", index);
             return false;
@@ -1190,7 +1190,7 @@ bool CheckSig(vector<unsigned char> vchSig, const vector<unsigned char> &vchPubK
             return false;
         }
     } else if (vchPubKey.size() == RAINBOW_PUBLIC_KEY_SIZE) {
-        pubkey.vchPubKey = vchPubKey;
+        pubkey = vchPubKey;
     } else
         return false;
 
@@ -1411,8 +1411,8 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
         else
         {
 
-            CPubKey vch;
-            keystore.GetPubKey(keyID, vch);
+            CPubKey vchPubKey;
+            keystore.GetPubKey(keyID, vchPubKey);
             // scriptSigRet << vch;
             //TODO:: abc pubkey
             if(fDebug) LogPrintf(" ===> Solver  %s ", keyID.GetHex().c_str());
@@ -1420,7 +1420,7 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
             bool reused = false;
             for (std::vector< std::vector<unsigned char> >::iterator it = vPubKeys.begin() ; it != vPubKeys.end(); ++it) {
                 const vector<unsigned char> vPubKey = *it;
-                if (vPubKey == vch.vchPubKey) {
+                if (vPubKey == vchPubKey) {
                     reused = true;
                     break;
                 }
@@ -1441,10 +1441,10 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
                 CDiskPubKeyPos pos;
                 string address = CBitcoinAddress(keyID).ToString();
                 if (!pwalletMain->GetPubKeyPos(address, pos)) {
-                    scriptSigRet << vch.vchPubKey;
+                    scriptSigRet << vchPubKey;
 
                     //only push for P2PKH, vch is the public key，don't push public key position
-                    vPubKeys.push_back(vch.vchPubKey);
+                    vPubKeys.push_back(vchPubKey.Raw());
                 } else {
                     scriptSigRet << pos.ToVector();
                 }

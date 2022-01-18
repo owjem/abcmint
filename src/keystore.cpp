@@ -4,7 +4,12 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "keystore.h"
+
+#include "crypter.h"
+#include "key.h"
 #include "script.h"
+
+#include <boost/foreach.hpp>
 
 bool CKeyStore::GetPubKey(const CKeyID &address, CPubKey &vchPubKeyOut) const
 {
@@ -94,8 +99,8 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
 
 
             LogPrintf(" ===> vchSecret.size[%ld] ", vchSecret.size() );
-            // if (vchSecret.size() != RAINBOW_PRIVATE_KEY_SIZE)
-            //     return false;
+            if (vchSecret.size() != RAINBOW_PRIVATE_KEY_SIZE)
+                return false;
             CKey key;
             key.Set(vchSecret.begin(), vchSecret.end(), vchPubKey.IsCompressed());
             if (key.GetPubKey() == vchPubKey)
@@ -114,6 +119,7 @@ bool CCryptoKeyStore::AddKeyPubKey(const CKey& key, const CPubKey &pubkey)
         LOCK(cs_KeyStore);
         if (!IsCrypted())
             return CBasicKeyStore::AddKeyPubKey(key, pubkey);
+
         if (IsLocked())
             return false;
 

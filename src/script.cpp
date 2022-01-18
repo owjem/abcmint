@@ -1,28 +1,31 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #include "script.h"
-#include "core.h"
-#include "keystore.h"
+
+#include "base58.h"
 #include "bignum.h"
+#include "core.h"
+#include "hash.h"
+#include "init.h"
 #include "key.h"
-#include "main.h"
+#include "keystore.h"
 #include "sync.h"
+#include "uint256.h"
 #include "util.h"
+
+#include <stdint.h>
 
 #include <boost/foreach.hpp>
 #include <boost/tuple/tuple.hpp>
-#include "base58.h"
+#include <boost/tuple/tuple_comparison.hpp>
+
 #include "init.h"
-#include "wallet.h"
 
 using namespace std;
 using namespace boost;
-
-bool CheckSig(vector<unsigned char> vchSig, const vector<unsigned char> &vchPubKey, const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, int flags);
-
-
 
 typedef vector<unsigned char> valtype;
 static const valtype vchFalse(0);
@@ -34,6 +37,7 @@ static const CBigNum bnFalse(0);
 static const CBigNum bnTrue(1);
 static const size_t nMaxNumSize = 4;
 
+bool CheckSig(vector<unsigned char> vchSig, const vector<unsigned char> &vchPubKey, const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType, int flags);
 
 CBigNum CastToBigNum(const valtype& vch)
 {
@@ -1094,13 +1098,13 @@ class CSignatureCache
 {
 private:
      // sigdata_type is (signature hash, signature, public key):
-    typedef boost::tuple<uint256, std::vector<unsigned char>, std::vector<unsigned char> > sigdata_type;
+    typedef boost::tuple<uint256, std::vector<unsigned char>, CPubKey> sigdata_type;
     std::set< sigdata_type> setValid;
     boost::shared_mutex cs_sigcache;
 
 public:
     bool
-    Get(uint256 hash, const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& pubKey)
+    Get(const uint256 &hash, const std::vector<unsigned char>& vchSig, const CPubKey& pubKey)
     {
         boost::shared_lock<boost::shared_mutex> lock(cs_sigcache);
 
@@ -1111,18 +1115,18 @@ public:
         return false;
     }
 
-    void Set(uint256 hash, const std::vector<unsigned char>& vchSig, const std::vector<unsigned char>& pubKey)
+    void Set(const uint256 &hash, const std::vector<unsigned char>& vchSig, const CPubKey& pubKey)
     {
         // DoS prevention: limit cache size to less than 10MB
         // (~200 bytes per cache entry times 50,000 entries)
         // Since there are a maximum of 20,000 signature operations per block
         // 50,000 is a reasonable default.
-        int64 nMaxCacheSize = GetArg("-maxsigcachesize", 500000);
+        int64_t nMaxCacheSize = GetArg("-maxsigcachesize", 500000);
         if (nMaxCacheSize <= 0) return;
 
         boost::unique_lock<boost::shared_mutex> lock(cs_sigcache);
 
-        while (static_cast<int64>(setValid.size()) > nMaxCacheSize)
+        while (static_cast<int64_t>(setValid.size()) > nMaxCacheSize)
         {
             // Evict a random entry. Random because that helps
             // foil would-be DoS attackers who might try to pre-generate
@@ -1221,7 +1225,7 @@ bool CheckSig(vector<unsigned char> vchSig, const vector<unsigned char> &vchPubK
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet)
 {
     // Templates
-    static map<txnouttype, CScript> mTemplates;
+    static multimap<txnouttype, CScript> mTemplates;
     if (mTemplates.empty())
     {
         // Standard tx, sender provides pubkey, receiver adds signature
@@ -1235,6 +1239,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
         // Empty, provably prunable, data-carrying output
         mTemplates.insert(make_pair(TX_NULL_DATA, CScript() << OP_RETURN << OP_SMALLDATA));
+        mTemplates.insert(make_pair(TX_NULL_DATA, CScript() << OP_RETURN));
     }
 
     // Shortcut for pay-to-script-hash, which are more constrained than the other types:
@@ -1415,7 +1420,8 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
             keystore.GetPubKey(keyID, vchPubKey);
             // scriptSigRet << vch;
             //TODO:: abc pubkey
-            if(fDebug) LogPrintf(" ===> Solver  %s ", keyID.GetHex().c_str());
+             LogPrintf(" ===> Solver  %s ", keyID.GetHex().c_str());
+
             unsigned int index = 0;
             bool reused = false;
             for (std::vector< std::vector<unsigned char> >::iterator it = vPubKeys.begin() ; it != vPubKeys.end(); ++it) {
@@ -1440,14 +1446,16 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
             } else {
                 CDiskPubKeyPos pos;
                 string address = CBitcoinAddress(keyID).ToString();
-                if (!pwalletMain->GetPubKeyPos(address, pos)) {
-                    scriptSigRet << vchPubKey;
 
-                    //only push for P2PKH, vch is the public key，don't push public key position
-                    vPubKeys.push_back(vchPubKey.Raw());
-                } else {
-                    scriptSigRet << pos.ToVector();
-                }
+                LogPrintf(" ===> address  %s ", address.c_str());
+                // if (!keystore.GetPubKeyPos(address, pos)) {
+                //     scriptSigRet << vchPubKey;
+
+                //     //only push for P2PKH, vch is the public key，don't push public key position
+                //     vPubKeys.push_back(vchPubKey.Raw());
+                // } else {
+                //     scriptSigRet << pos.ToVector();
+                // }
             }
             return true;
         }
@@ -1466,9 +1474,8 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
     switch (t)
     {
     case TX_NONSTANDARD:
-        return -1;
     case TX_NULL_DATA:
-        return 1;
+        return -1;
     case TX_PUBKEY:
         return 1;
     case TX_PUBKEYHASH:
@@ -1606,8 +1613,10 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
     vector<valtype> vSolutions;
     if (!Solver(scriptPubKey, typeRet, vSolutions))
         return false;
-    if (typeRet == TX_NULL_DATA)
-        return true;
+    if (typeRet == TX_NULL_DATA){
+        // This is data, not addresses
+        return false;
+    }
 
     if (typeRet == TX_MULTISIG)
     {
@@ -2003,11 +2012,10 @@ bool CScriptCompressor::IsToScriptID(CScriptID &hash) const
     return false;
 }
 
-bool CScriptCompressor::IsToPubKey(std::vector<unsigned char> &pubkey) const
+bool CScriptCompressor::IsToPubKey(CPubKey &pubkey) const
 {
     if (script.size() == (RAINBOW_PUBLIC_KEY_SIZE+1) && script[RAINBOW_PUBLIC_KEY_SIZE] == OP_CHECKSIG) {
-        pubkey.resize(RAINBOW_PUBLIC_KEY_SIZE);
-        memcpy(&pubkey[0], &script[0], RAINBOW_PUBLIC_KEY_SIZE);
+        pubkey.Set(&script[0],&script[RAINBOW_PUBLIC_KEY_SIZE]);
         return true;
     }
     return false;
@@ -2029,7 +2037,7 @@ bool CScriptCompressor::Compress(std::vector<unsigned char> &out) const
         memcpy(&out[1], &scriptID, HASH_LEN_BYTES);
         return true;
     }
-    std::vector<unsigned char> pubkey;
+    CPubKey pubkey;
     if (IsToPubKey(pubkey)) {
         out.resize(RAINBOW_PUBLIC_KEY_SIZE+1);
 		out[0] = 0x02;

@@ -4,7 +4,10 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "core.h"
+
 #include "util.h"
+
+#include <stdint.h>
 
 std::string COutPoint::ToString() const
 {
@@ -50,7 +53,7 @@ void CTxIn::print() const
     LogPrintf("%s\n", ToString().c_str());
 }
 
-CTxOut::CTxOut(int64 nValueIn, CScript scriptPubKeyIn)
+CTxOut::CTxOut(int64_t nValueIn, CScript scriptPubKeyIn)
 {
     nValue = nValueIn;
     scriptPubKey = scriptPubKeyIn;
@@ -63,9 +66,7 @@ uint256 CTxOut::GetHash() const
 
 std::string CTxOut::ToString() const
 {
-    if (scriptPubKey.size() < 6)
-        return "CTxOut(error)";
-    return strprintf("CTxOut(nValue=%"PRI64d".%08"PRI64d", scriptPubKey=%s)", nValue / COIN, nValue % COIN, scriptPubKey.ToString().substr(0,30).c_str());
+    return strprintf("CTxOut(nValue=%" PRId64".%08"PRId64", scriptPubKey=%s)", nValue / COIN, nValue % COIN, scriptPubKey.ToString().substr(0,30).c_str());
 }
 
 void CTxOut::print() const
@@ -110,7 +111,7 @@ bool CTransaction::IsNewerThan(const CTransaction& old) const
 std::string CTransaction::ToString() const
 {
     std::string str;
-    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%"PRIszu", vout.size=%"PRIszu", nLockTime=%u)\n",
+    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%" PRIszu", vout.size=%" PRIszu", nLockTime=%u)\n",
         GetHash().ToString().substr(0,10).c_str(),
         nVersion,
         vin.size(),
@@ -137,7 +138,7 @@ void CTransaction::print() const
 // * if e==9, we only know the resulting number is not zero, so output 1 + 10*(n - 1) + 9
 // (this is decodable, as d is in [1-9] and e is in [0-9])
 
-uint64 CTxOutCompressor::CompressAmount(uint64 n)
+uint64_t CTxOutCompressor::CompressAmount(uint64_t n)
 {
     if (n == 0)
         return 0;
@@ -156,7 +157,7 @@ uint64 CTxOutCompressor::CompressAmount(uint64 n)
     }
 }
 
-uint64 CTxOutCompressor::DecompressAmount(uint64 x)
+uint64_t CTxOutCompressor::DecompressAmount(uint64_t x)
 {
     // x = 0  OR  x = 1+10*(9*n + d - 1) + e  OR  x = 1+10*(n - 1) + 9
     if (x == 0)
@@ -165,7 +166,7 @@ uint64 CTxOutCompressor::DecompressAmount(uint64 x)
     // x = 10*(9*n + d - 1) + e
     int e = x % 10;
     x /= 10;
-    uint64 n = 0;
+    uint64_t n = 0;
     if (e < 9) {
         // x = 9*n + d - 1
         int d = (x % 9) + 1;
@@ -180,49 +181,6 @@ uint64 CTxOutCompressor::DecompressAmount(uint64 x)
         e--;
     }
     return n;
-}
-
-// calculate number of bytes for the bitmask, and its number of non-zero bytes
-// each bit in the bitmask represents the availability of one output, but the
-// availabilities of the first two outputs are encoded separately
-void CCoins::CalcMaskSize(unsigned int &nBytes, unsigned int &nNonzeroBytes) const {
-    unsigned int nLastUsedByte = 0;
-    for (unsigned int b = 0; 2+b*8 < vout.size(); b++) {
-        bool fZero = true;
-        for (unsigned int i = 0; i < 8 && 2+b*8+i < vout.size(); i++) {
-            if (!vout[2+b*8+i].IsNull()) {
-                fZero = false;
-                continue;
-            }
-        }
-        if (!fZero) {
-            nLastUsedByte = b + 1;
-            nNonzeroBytes++;
-        }
-    }
-    nBytes += nLastUsedByte;
-}
-
-bool CCoins::Spend(const COutPoint &out, CTxInUndo &undo) {
-    if (out.n >= vout.size())
-        return false;
-    if (vout[out.n].IsNull())
-        return false;
-    undo = CTxInUndo(vout[out.n]);
-    vout[out.n].SetNull();
-    Cleanup();
-    if (vout.size() == 0) {
-        undo.nHeight = nHeight;
-        undo.fCoinBase = fCoinBase;
-        undo.nVersion = this->nVersion;
-    }
-    return true;
-}
-
-bool CCoins::Spend(int nPos) {
-    CTxInUndo undo;
-    COutPoint out(0, nPos);
-    return Spend(out, undo);
 }
 
 uint256 CBlockHeader::GetHash() const
@@ -282,7 +240,7 @@ uint256 CBlock::CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMer
 
 void CBlock::print() const
 {
-    LogPrintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%"PRIszu")\n",
+    LogPrintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%" PRIszu")\n",
         GetHash().ToString().c_str(),
         nVersion,
         hashPrevBlock.ToString().c_str(),

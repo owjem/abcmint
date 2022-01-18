@@ -62,6 +62,7 @@ BITCOIN_CORE_H = \
   checkqueue.h \
   clientversion.h \
   compat.h \
+  coins.h \
   core.h \
   crypter.h \
   db.h \
@@ -69,19 +70,21 @@ BITCOIN_CORE_H = \
   init.h \
   key.h \
   keystore.h \
-  leveldb.h \
+  leveldbwrapper.h \
   limitedmap.h \
   main.h \
   miner.h \
   mruset.h \
   netbase.h \
   net.h \
+  noui.h \
   protocol.h \
   script.h \
   serialize.h \
   sync.h \
   threadsafety.h \
   txdb.h \
+  txmempool.h \
   ui_interface.h \
   uint256.h \
   util.h \
@@ -152,6 +155,7 @@ libbitcoin_a_SOURCES = \
   bloom.cpp \
   chainparams.cpp \
   checkpoints.cpp \
+  coins.cpp \
   core.cpp \
   crypter.cpp \
   db.cpp \
@@ -159,7 +163,7 @@ libbitcoin_a_SOURCES = \
   init.cpp \
   key.cpp \
   keystore.cpp \
-  leveldb.cpp \
+  leveldbwrapper.cpp \
   main.cpp \
   netbase.cpp \
   net.cpp \
@@ -174,6 +178,7 @@ libbitcoin_a_SOURCES = \
   script.cpp \
   sync.cpp \
   txdb.cpp \
+  txmempool.cpp \
   util.cpp \
   version.cpp \
   wallet.cpp \

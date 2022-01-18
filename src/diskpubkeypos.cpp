@@ -1,6 +1,7 @@
 // Copyright (c) 2018 The Bitcoin developers
 
 #include "diskpubkeypos.h"
+#include "base58.h"
 #include "util.h"
 #include "init.h"
 #include "main.h"

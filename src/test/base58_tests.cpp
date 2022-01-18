@@ -138,9 +138,9 @@ BOOST_AUTO_TEST_CASE(base58_public_key_address)
 	//std::string longstr = HexStr(sk);
 	//std::vector<unsigned char> skhex = ParseHex(longstr);
 
-	//int64 nStart = GetTimeMicros();
+	//int64_t nStart = GetTimeMicros();
 	//std::string encodedata = EncodeBase58Check(sk);
-    //int64 nTime = GetTimeMicros() - nStart;
+    //int64_t nTime = GetTimeMicros() - nStart;
 	//std::cout<<"encodeTime: "<<nTime<<std::endl;
 	//std::vector<unsigned char> result;
 	//nStart = GetTimeMicros();

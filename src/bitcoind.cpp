@@ -3,12 +3,15 @@
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "ui_interface.h"
-#include "init.h"
-#include "util.h"
-#include "main.h"
 #include "bitcoinrpc.h"
+#include "init.h"
+#include "main.h"
+#include "noui.h"
+#include "ui_interface.h"
+#include "util.h"
+
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem.hpp>
 
 void DetectShutdownThread(boost::thread_group* threadGroup)
 {
@@ -108,7 +111,7 @@ bool AppInit(int argc, char* argv[])
 #endif
 
         detectShutdownThread = new boost::thread(boost::bind(&DetectShutdownThread, &threadGroup));
-        fRet = AppInit2(threadGroup);
+        fRet = AppInit2(threadGroup, true);
     }
     catch (std::exception& e) {
         PrintExceptionContinue(&e, "AppInit()");
@@ -138,11 +141,9 @@ bool AppInit(int argc, char* argv[])
     return fRet;
 }
 
-extern void noui_connect();
 int main(int argc, char* argv[])
 {
     bool fRet = false;
-    fHaveGUI = false;
 
     // Connect bitcoind signal handlers
     noui_connect();

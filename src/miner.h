@@ -8,17 +8,24 @@
 #include "core.h"
 #include "wallet.h"
 #include "miner/idxlut.h"
+#include <stdint.h>
 //#include "main.h"
 
+class CBlock;
+class CBlockIndex;
+struct CBlockTemplate;
+class CReserveKey;
+class CScript;
+class CWallet;
 
 
-extern uint64 nLastBlockTx;
-extern uint64 nLastBlockSize;
+extern uint64_t nLastBlockTx;
+extern uint64_t nLastBlockSize;
 
-int64 GetBlockValue(int nHeight, int64 nFees);
+int64_t GetBlockValue(int nHeight, int64_t nFees);
 
 /** Calculate the minimum amount of work a received block needs, without knowing its direct parent */
-// unsigned int ComputeMinWork(unsigned int nBase, int64 nTime);
+// unsigned int ComputeMinWork(unsigned int nBase, int64_t nTime);
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock);
 
@@ -44,6 +51,6 @@ void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash
 bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey);
 
 extern double dHashesPerSec;
-extern int64 nHPSTimerStart;
+extern int64_t nHPSTimerStart;
 
 #endif // BITCOIN_MINER_H

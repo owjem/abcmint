@@ -5,13 +5,14 @@
 #ifndef BITCOIN_KEY_H
 #define BITCOIN_KEY_H
 
+#include "allocators.h"
+#include "hash.h"
+#include "serialize.h"
+#include "uint256.h"
+
 #include <stdexcept>
 #include <vector>
 
-#include "allocators.h"
-#include "serialize.h"
-#include "uint256.h"
-#include "hash.h"
 
 /**
  * RAINBOW signature:
@@ -213,7 +214,8 @@ public:
     }
 
     friend bool operator==(const CKey &a, const CKey &b) {
-        return a.fCompressed == b.fCompressed && memcmp(&a.vch[0], &b.vch[0], RAINBOW_PRIVATE_KEY_SIZE);
+        return a.fCompressed == b.fCompressed && a.size() == b.size() &&
+               memcmp(&a.vch[0], &b.vch[0], a.size()) == 0;
     }
 
     // Initialize using begin and end iterators to byte data.

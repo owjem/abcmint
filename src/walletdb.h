@@ -89,7 +89,6 @@ public:
     bool EraseTx(uint256 hash);
 
     bool WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata &keyMeta);
-    bool WritePos(const std::string& address, const CDiskPubKeyPos& pos);
 
     bool WriteCryptedKey(const CPubKey& vchPubKey, const std::vector<unsigned char>& vchCryptedSecret, const CKeyMetadata &keyMeta);
     bool WriteMasterKey(unsigned int nID, const CMasterKey& kMasterKey);
@@ -102,6 +101,9 @@ public:
     bool WriteOrderPosNext(int64_t nOrderPosNext);
 
     bool WriteDefaultKey(const CPubKey& vchPubKey);
+
+    bool WritePos(const CKeyID& address, const CDiskPubKeyPos& pos);
+    bool ReadPos(const CKeyID& address, CDiskPubKeyPos& posOut);
 
     bool ReadPool(int64_t nPool, CKeyPool& keypool);
     bool WritePool(int64_t nPool, const CKeyPool& keypool);

@@ -37,20 +37,13 @@ public:
     virtual bool AddCScript(const CScript& redeemScript) =0;
     virtual bool HaveCScript(const CScriptID &hash) const =0;
     virtual bool GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const =0;
-    // virtual bool GetSecret(const CKeyID &address, CPrivKey& vchSecret) const
-    // {
-    //     CKey key;
-    //     if (!GetKey(address, key))
-    //         return false;
-    //     vchSecret = key.GetPrivKey();
-    //     return true;
-    // }
 
+    virtual bool GetPubKeyPos(const CKeyID &address, CDiskPubKeyPos& posOut) const =0;
 };
 
 typedef std::map<CKeyID, CKey> KeyMap;
 typedef std::map<CScriptID, CScript > ScriptMap;
-typedef std::map<std::string, CDiskPubKeyPos> PubKeyPosMap;
+typedef std::map<CKeyID, CDiskPubKeyPos> PubKeyPosMap;
 
 /** Basic key store, that keeps keys in an address->secret map */
 class CBasicKeyStore : public CKeyStore
@@ -100,30 +93,30 @@ public:
         return false;
     }
 
-    bool AddPubKeyPos2Map(const std::string& address, const CDiskPubKeyPos& pos)
+    bool AddPubKeyPos2Map(const CKeyID &keyID, const CDiskPubKeyPos& pos)
     {
     	{
             LOCK(cs_KeyStore);
-            mapPubKeyPos[address] = pos;
+            mapPubKeyPos[keyID] = pos;
     	}
         return true;
     }
 
-    bool GetPubKeyPos(const std::string& address, CDiskPubKeyPos& posOut)
+    bool GetPubKeyPos(const CKeyID &keyID, CDiskPubKeyPos& posOut) const
     {
-      {
-        LOCK(cs_KeyStore);
-        PubKeyPosMap::const_iterator mi = mapPubKeyPos.find(address);
-        if (mi != mapPubKeyPos.end())
         {
-            const CDiskPubKeyPos* pos = &(mi->second);
-            posOut.nHeight = pos->nHeight;
-            posOut.nPubKeyOffset = pos->nPubKeyOffset;
-            return true;
+            LOCK(cs_KeyStore);
+            PubKeyPosMap::const_iterator mi = mapPubKeyPos.find(keyID);
+            if (mi != mapPubKeyPos.end()) {
+                const CDiskPubKeyPos* pos = &(mi->second);
+                posOut.nHeight = pos->nHeight;
+                posOut.nPubKeyOffset = pos->nPubKeyOffset;
+                return true;
+            }
         }
-      }
         return false;
     }
+
     virtual bool AddCScript(const CScript& redeemScript);
     virtual bool HaveCScript(const CScriptID &hash) const;
     virtual bool GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const;

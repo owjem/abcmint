@@ -2032,8 +2032,8 @@ bool SetBestChain(CValidationState &state, CBlockIndex* pindexNew)
     //nBestChainWork = pindexNew->nChainWork;
     nTimeBestReceived = GetTime();
     mempool.AddTransactionsUpdated(1);
-    LogPrintf("SetBestChain: new best=%s  height=%d log2_work=%ld  log2_work=%.8g  tx=%lu  date=%s progress=%f\n",
-      chainActive.Tip()->GetBlockHash().ToString().c_str(), chainActive.Height(), chainActive.Tip()->nChainWork, log(chainActive.Tip()->nChainWork)/log(2.0), (unsigned long)pindexNew->nChainTx,
+    LogPrintf("SetBestChain: new best=%s  height=%d  log2_work=%.8g  tx=%lu  date=%s progress=%f\n",
+      chainActive.Tip()->GetBlockHash().ToString().c_str(), chainActive.Height(), log(chainActive.Tip()->nChainWork)/log(2.0), (unsigned long)pindexNew->nChainTx,
       DateTimeStrFormat("%Y-%m-%d %H:%M:%S", chainActive.Tip()->GetBlockTime()).c_str(),
       Checkpoints::GuessVerificationProgress(chainActive.Tip()));
 
@@ -2332,7 +2332,7 @@ bool AcceptBlock(CBlock& block, CValidationState& state, CDiskBlockPos* dbp)
             }
         }
 
-        LogPrintf(" ===> block.nVersion[%d] v2[%d] v3[%d] \n", block.nVersion, CBlockIndex::IsSuperMajority(2, pindexPrev, 750, 1000) , CBlockIndex::IsSuperMajority(3, pindexPrev, 750, 1000));
+        // LogPrintf(" ===> block.nVersion[%d] v2[%d] v3[%d] \n", block.nVersion, CBlockIndex::IsSuperMajority(2, pindexPrev, 750, 1000) , CBlockIndex::IsSuperMajority(3, pindexPrev, 750, 1000));
         // Reject block.nVersion=2 blocks when 95% (75% on testnet) of the network has upgraded:
         if (block.nVersion < 3)
         {

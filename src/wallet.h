@@ -174,7 +174,8 @@ public:
     // bool AddKey(const CKey& key);
     // Adds a key to the store, and saves it to disk.
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey);
-    bool AddPubKeyPos(const std::string& address, const CDiskPubKeyPos& pos);
+    bool AddPubKeyPos(const CKeyID& address, const CDiskPubKeyPos& pos);
+    bool GetPubKeyPosOut(const CKeyID& address, CDiskPubKeyPos& posOut);
     // Adds a key to the store, without saving it to disk (used by LoadWallet)
     // bool LoadKey(const CKey& key) { return CCryptoKeyStore::AddKey(key); }
     bool LoadKey(const CKey& key, const CPubKey &pubkey) { return CCryptoKeyStore::AddKeyPubKey(key, pubkey); }

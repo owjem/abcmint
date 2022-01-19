@@ -82,10 +82,15 @@ bool CWalletDB::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, c
     return Write(std::make_pair(std::string("key"), vchPubKey), std::make_pair(vchPrivKey, Hash(vchKey.begin(), vchKey.end())), false);
 }
 
-bool CWalletDB::WritePos(const std::string& address, const CDiskPubKeyPos& pos)
+bool CWalletDB::WritePos(const CKeyID& address, const CDiskPubKeyPos& pos)
 {
     nWalletDBUpdated++;
     return Write(std::make_pair(std::string("pos"), address), pos, true);
+}
+
+bool CWalletDB::ReadPos(const CKeyID& address, CDiskPubKeyPos& pos)
+{
+    return Read(std::make_pair(std::string("pos"), address), pos);
 }
 
 bool CWalletDB::WriteCryptedKey(const CPubKey& vchPubKey,

@@ -780,38 +780,46 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                         return false;
                     valtype& vch = stacktop(-1);
                     CPubKey pubKey;
+                    unsigned int vchsize = vch.size();
+                    switch(vchsize){
+                        case RAINBOW_PUBLIC_KEY_REUSED_SIZE:
+                        {
+                            unsigned int cursor0 = ((unsigned char)vch[0]) & 0xff;
+                            unsigned int cursor1 = ((unsigned char)vch[1]) & 0xff;
+                            unsigned int cursor2 = ((unsigned char)vch[2]) & 0xff;
+                            unsigned int cursor3 = ((unsigned char)vch[3]) & 0xff;
+                            unsigned int index = cursor0 + (cursor1<<8) + (cursor2<<16) + (cursor3<<24);
 
-                    if (vch.size() == RAINBOW_PUBLIC_KEY_REUSED_SIZE) {
-                        unsigned int cursor0 = ((unsigned char)vch[0]) & 0xff;
-                        unsigned int cursor1 = ((unsigned char)vch[1]) & 0xff;
-                        unsigned int cursor2 = ((unsigned char)vch[2]) & 0xff;
-                        unsigned int cursor3 = ((unsigned char)vch[3]) & 0xff;
-                        unsigned int index = cursor0 + (cursor1<<8) + (cursor2<<16) + (cursor3<<24);
-
-
-
-                        if (txTo.vPubKeys.size() > index) {
-                            vch = txTo.vPubKeys.at(index);
-                        } else {
-                            LogPrintf("signature can't find public key in vPubKeys, index=%u\n", index);
-                            return true;
+                            if (txTo.vPubKeys.size() > index) {
+                                vch = txTo.vPubKeys.at(index);
+                            } else {
+                                LogPrintf("[%s][%d]signature can't find public key in vPubKeys, index=%u\n", __func__, nIn, index);
+                                return true;
+                            }
                         }
-                    } else {
-                        if (vch.size() == RAINBOW_PUBLIC_KEY_POS_SIZE) {
+                        break;
+                        case RAINBOW_PUBLIC_KEY_POS_SIZE:
+                        {
                             CDiskPubKeyPos pos;
                             pos << vch;
                             if (GetPubKeyByPos(pos, pubKey)) {
                                 vch = pubKey.Raw();
                             } else {
-                                LogPrintf("signature can't find public key at height=%u, offset=%u, maybe not public key position\n", pos.nHeight, pos.nPubKeyOffset);
+                                LogPrintf("[%s][%d]signature can't find public key at height=%u, offset=%u, maybe not public key position\n", __func__, nIn, pos.nHeight, pos.nPubKeyOffset);
                                 return false;
                             }
-                        } else if (!isSignCheck) {
+                        }
+                        break;
+                        case RAINBOW_PUBLIC_KEY_SIZE:
+                        {
+                            LogPrintf("[%s][%d] push_back public key \n", __func__, nIn);
                             //only push for P2PKH, vch is the public key，don't push public key position
                             //for signature check by oneself, the transaction already has the public keys when solver
                             txTo.vPubKeys.push_back(vch);
                         }
+                        break;
                     }
+
                     valtype vchHash(32);
                     if (opcode == OP_SHA256)
                         SHA256(&vch[0], vch.size(), &vchHash[0]);
@@ -1445,17 +1453,16 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
                 scriptSigRet<<v;
             } else {
                 CDiskPubKeyPos pos;
-                string address = CBitcoinAddress(keyID).ToString();
+                // string address = CBitcoinAddress(keyID).ToString();
 
-                LogPrintf(" ===> address  %s ", address.c_str());
-                // if (!keystore.GetPubKeyPos(address, pos)) {
-                //     scriptSigRet << vchPubKey;
+                if (!keystore.GetPubKeyPos(keyID, pos)) {
+                    scriptSigRet << vchPubKey;
 
-                //     //only push for P2PKH, vch is the public key，don't push public key position
-                //     vPubKeys.push_back(vchPubKey.Raw());
-                // } else {
-                //     scriptSigRet << pos.ToVector();
-                // }
+                    //only push for P2PKH, vch is the public key，don't push public key position
+                    vPubKeys.push_back(vchPubKey.Raw());
+                } else {
+                    scriptSigRet << pos.ToVector();
+                }
             }
             return true;
         }

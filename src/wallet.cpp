@@ -70,13 +70,22 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
     return true;
 }
 
-bool CWallet::AddPubKeyPos(const string& address, const CDiskPubKeyPos& pos)
+bool CWallet::AddPubKeyPos(const CKeyID &keyID, const CDiskPubKeyPos& pos)
 {
     LOCK(cs_wallet);
-    if (!CBasicKeyStore::AddPubKeyPos2Map(address, pos))
+    if (!CBasicKeyStore::AddPubKeyPos2Map(keyID, pos))
         return false;
 
-    return CWalletDB(strWalletFile).WritePos(address, pos);
+    return CWalletDB(strWalletFile).WritePos(keyID, pos);
+}
+
+bool CWallet::GetPubKeyPosOut(const CKeyID &keyID, CDiskPubKeyPos& posOut)
+{
+    LOCK(cs_wallet);
+    if (!CBasicKeyStore::GetPubKeyPos(keyID, posOut))
+        return false;
+
+    return CWalletDB(strWalletFile).ReadPos(keyID, posOut);
 }
 
 bool CWallet::AddCryptedKey(const CPubKey &vchPubKey,
@@ -1615,8 +1624,6 @@ void CWallet::ReserveKeyFromKeyPool(int64_t& nIndex, CKeyPool& keypool)
             throw runtime_error("ReserveKeyFromKeyPool() : read failed");
         if (!HaveKey(keypool.vchPubKey.GetID()))
             throw runtime_error("ReserveKeyFromKeyPool() : unknown key in key pool");
-
-        LogPrintf(" ===> vchPubKey  [%d] \n", keypool.vchPubKey.IsValid());
         assert(keypool.vchPubKey.IsValid());
         LogPrintf("keypool reserve %" PRId64"\n", nIndex);
     }

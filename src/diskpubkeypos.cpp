@@ -2,9 +2,9 @@
 
 #include "diskpubkeypos.h"
 #include "base58.h"
+#include "main.h"
 #include "util.h"
 #include "init.h"
-#include "main.h"
 #include "wallet.h"
 
 

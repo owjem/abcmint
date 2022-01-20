@@ -15,9 +15,6 @@
 #include "db.h"
 #include "ui_interface.h"
 
-#include <inttypes.h>
-#include <stdint.h>
-
 #ifdef WIN32
 #include <string.h>
 #else
@@ -621,7 +618,7 @@ void CNode::copyStats(CNodeStats &stats)
     X(nTimeConnected);
     X(addrName);
     X(nVersion);
-    X(strSubVer);
+    X(cleanSubVer);
     X(fInbound);
     X(nStartingHeight);
     X(nMisbehavior);
@@ -1265,7 +1262,7 @@ void DumpAddresses()
     CAddrDB adb;
     adb.Write(addrman);
 
-    LogPrint("net", "Flushed %d addresses to peers.dat  %" PRId64"ms\n",
+    LogPrint("net", "Flushed %d addresses to peers.dat  %"PRId64"ms\n",
            addrman.size(), GetTimeMillis() - nStart);
 }
 

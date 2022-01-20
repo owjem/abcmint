@@ -12,9 +12,7 @@
 #include "uint256.h"
 #include "version.h"
 
-#include <inttypes.h>
 #include <stdarg.h>
-#include <stdint.h>
 
 #ifndef WIN32
 // for posix_fallocate
@@ -97,6 +95,7 @@ string strMiscWarning;
 bool fNoListen = false;
 bool fLogTimestamps = false;
 volatile bool fReopenDebugLog = false;
+CClientUIInterface uiInterface;
 
 // Init OpenSSL library multithreading support
 static CCriticalSection** ppmutexOpenSSL;
@@ -206,6 +205,12 @@ uint256 GetRandHash()
 {
     uint256 hash;
     RAND_bytes((unsigned char*)&hash, sizeof(hash));
+    return hash;
+}
+uint256 GetRandHash(int len)
+{
+    uint256 hash;
+    RAND_bytes((unsigned char*)&hash, len);
     return hash;
 }
 
@@ -336,11 +341,7 @@ string vstrprintf(const char *format, va_list ap)
     {
         va_list arg_ptr;
         va_copy(arg_ptr, ap);
-#ifdef WIN32
-        ret = _vsnprintf(p, limit, format, arg_ptr);
-#else
         ret = vsnprintf(p, limit, format, arg_ptr);
-#endif
         va_end(arg_ptr);
         if (ret >= 0 && ret < limit)
             break;
@@ -413,7 +414,7 @@ string FormatMoney(int64_t n, bool fPlus)
     int64_t n_abs = (n > 0 ? n : -n);
     int64_t quotient = n_abs/COIN;
     int64_t remainder = n_abs%COIN;
-    string str = strprintf("%" PRId64".%08"PRId64, quotient, remainder);
+    string str = strprintf("%"PRId64".%08"PRId64, quotient, remainder);
 
     // Right-trim excess zeros before the decimal point:
     int nTrim = 0;

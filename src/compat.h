@@ -11,7 +11,9 @@
 #undef _WIN32_WINNT
 #endif
 #define _WIN32_WINNT 0x0501
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN 1
+#endif
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -26,6 +28,7 @@
 #include <windows.h>
 #include <ws2tcpip.h>
 #else
+#include <sys/types.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <limits.h>
@@ -35,7 +38,6 @@
 #include <sys/fcntl.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 #endif
 

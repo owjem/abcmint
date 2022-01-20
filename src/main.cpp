@@ -19,7 +19,6 @@
 
 #include <inttypes.h>
 #include <sstream>
-#include <stdint.h>
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
@@ -28,6 +27,10 @@
 
 using namespace std;
 using namespace boost;
+
+#if defined(NDEBUG)
+# error "Bitcoin cannot be compiled without assertions."
+#endif
 
 //
 // Global state
@@ -262,7 +265,7 @@ bool AddOrphanTx(const CTransaction& tx)
     BOOST_FOREACH(const CTxIn& txin, tx.vin)
         mapOrphanTransactionsByPrev[txin.prevout.hash].insert(hash);
 
-    LogPrint("mempool", "stored orphan tx %s (mapsz %" PRIszu")\n", hash.ToString().c_str(),
+    LogPrint("mempool", "stored orphan tx %s (mapsz %"PRIszu")\n", hash.ToString().c_str(),
         mapOrphanTransactions.size());
     return true;
 }
@@ -379,21 +382,6 @@ bool IsFinalTx(const CTransaction &tx, int nBlockHeight, int64_t nBlockTime)
         if (!txin.IsFinal())
             return false;
     return true;
-}
-
-/** Amount of bitcoins spent by the transaction.
-    @return sum of all outputs (note: does not include fees)
- */
-int64_t GetValueOut(const CTransaction& tx)
-{
-    int64_t nValueOut = 0;
-    BOOST_FOREACH(const CTxOut& txout, tx.vout)
-    {
-        nValueOut += txout.nValue;
-        if (!MoneyRange(txout.nValue) || !MoneyRange(nValueOut))
-            throw std::runtime_error("GetValueOut() : value out of range");
-    }
-    return nValueOut;
 }
 
 //
@@ -556,7 +544,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
                          REJECT_INVALID, "vout empty");
     // Size limits
     if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > MAX_BLOCK_SIZE)
-        return state.DoS(100, error("CTransaction::CheckTransaction() : size limits failed"),
+        return state.DoS(100, error("CheckTransaction() : size limits failed"),
                          REJECT_INVALID, "oversize");
 
     // Check for negative or overflow output values
@@ -571,7 +559,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
                              REJECT_INVALID, "vout too large");
         nValueOut += txout.nValue;
         if (!MoneyRange(nValueOut))
-            return state.DoS(100, error("CTransaction::CheckTransaction() : txout total out of range"),
+            return state.DoS(100, error("CheckTransaction() : txout total out of range"),
                              REJECT_INVALID, "txout total too large");
     }
 
@@ -580,7 +568,7 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
     BOOST_FOREACH(const CTxIn& txin, tx.vin)
     {
         if (vInOutPoints.count(txin.prevout))
-            return state.DoS(100, error("CTransaction::CheckTransaction() : duplicate inputs"),
+            return state.DoS(100, error("CheckTransaction() : duplicate inputs"),
                              REJECT_INVALID, "duplicate inputs");
         vInOutPoints.insert(txin.prevout);
     }
@@ -602,12 +590,11 @@ bool CheckTransaction(const CTransaction& tx, CValidationState &state)
     return true;
 }
 
-int64_t GetMinFee(const CTransaction& tx, bool fAllowFree, enum GetMinFee_mode mode)
+int64_t GetMinFee(const CTransaction& tx, unsigned int nBytes, bool fAllowFree, enum GetMinFee_mode mode)
 {
     // Base fee is either nMinTxFee or nMinRelayTxFee
     int64_t nBaseFee = (mode == GMF_RELAY) ? tx.nMinRelayTxFee : tx.nMinTxFee;
 
-    unsigned int nBytes = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
     int64_t nMinFee = (1 + (int64_t)nBytes / 1000) * nBaseFee;
 
     if (fAllowFree)
@@ -666,7 +653,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state,  CTransaction
         return false;
 
     // Check for conflicts with in-memory transactions
-    CTransaction* ptxOld = NULL;
     {
     LOCK(pool.cs); // protect pool.mapNextTx
     for (unsigned int i = 0; i < tx.vin.size(); i++)
@@ -676,22 +662,6 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state,  CTransaction
         {
             // Disable replacement feature for now
             return false;
-
-            // Allow replacing with a newer version of the same transaction
-            if (i != 0)
-                return false;
-            ptxOld = pool.mapNextTx[outpoint].ptx;
-            if (IsFinalTx(*ptxOld))
-                return false;
-            if (!tx.IsNewerThan(*ptxOld))
-                return false;
-            for (unsigned int i = 0; i < tx.vin.size(); i++)
-            {
-                COutPoint outpoint = tx.vin[i].prevout;
-                if (!pool.mapNextTx.count(outpoint) || pool.mapNextTx[outpoint].ptx != ptxOld)
-                    return false;
-            }
-            break;
         }
     }
     }
@@ -740,13 +710,18 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state,  CTransaction
         // you should add code here to check that the transaction does a
         // reasonable number of ECDSA signature verifications.
 
-        int64_t nFees = view.GetValueIn(tx)-GetValueOut(tx);
-        unsigned int nSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+        int64_t nValueIn = view.GetValueIn(tx);
+        int64_t nValueOut = tx.GetValueOut();
+        int64_t nFees = nValueIn-nValueOut;
+        double dPriority = view.GetPriority(tx, chainActive.Height());
+
+        CTxMemPoolEntry entry(tx, nFees, GetTime(), dPriority, chainActive.Height());
+        unsigned int nSize = entry.GetTxSize();
 
         // Don't accept it if it can't get into a block
-        int64_t txMinFee = GetMinFee(tx, true, GMF_RELAY);
+        int64_t txMinFee = GetMinFee(tx, nSize, true, GMF_RELAY);
         if (fLimitFree && nFees < txMinFee)
-            return state.DoS(0, error("AcceptToMemoryPool : not enough fees %s, %" PRId64" < %" PRId64,
+            return state.DoS(0, error("AcceptToMemoryPool : not enough fees %s, %"PRId64" < %"PRId64,
                                       hash.ToString().c_str(), nFees, txMinFee),
                              REJECT_INSUFFICIENTFEE, "insufficient fee");
 
@@ -775,7 +750,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state,  CTransaction
         }
 
         if (fRejectInsaneFee && nFees > CTransaction::nMinRelayTxFee * 10000)
-            return error("AcceptToMemoryPool: : insane fees %s, %" PRId64" > %" PRId64,
+            return error("AcceptToMemoryPool: : insane fees %s, %"PRId64" > %"PRId64,
                          hash.ToString().c_str(),
                          nFees, CTransaction::nMinRelayTxFee * 10000);
 
@@ -787,22 +762,10 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state,  CTransaction
         {
             return error("AcceptToMemoryPool: : ConnectInputs failed %s", hash.ToString().c_str());
         }
+        // Store transaction in memory
+        pool.addUnchecked(hash, entry);
     }
 
-    // Store transaction in memory
-    {
-        if (ptxOld)
-        {
-            LogPrint("mempool", "AcceptToMemoryPool: : replacing tx %s with new version\n", ptxOld->GetHash().ToString().c_str());
-            pool.remove(*ptxOld);
-        }
-        pool.addUnchecked(hash, tx);
-    }
-
-    ///// are we sure this is ok when loading transactions or restoring block txes
-    // If updated, erase old tx from wallet
-    if (ptxOld)
-        g_signals.EraseTransaction(ptxOld->GetHash());
     g_signals.SyncTransaction(hash, tx, NULL);
 
     LogPrint("mempool", "AcceptToMemoryPool: : accepted %s (poolsz %" PRIszu")\n",
@@ -1482,18 +1445,21 @@ void UpdateTime(CBlockHeader& block, const CBlockIndex* pindexPrev)
 
 void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, CTxUndo &txundo, int nHeight, const uint256 &txhash)
 {
+    bool ret;
     // mark inputs spent
     if (!tx.IsCoinBase()) {
         BOOST_FOREACH(const CTxIn &txin, tx.vin) {
             CCoins &coins = inputs.GetCoins(txin.prevout.hash);
             CTxInUndo undo;
-            assert(coins.Spend(txin.prevout, undo));
+            ret = coins.Spend(txin.prevout, undo);
+            assert(ret);
             txundo.vprevout.push_back(undo);
         }
     }
 
     // add outputs
-    assert(inputs.SetCoins(txhash, CCoins(tx, nHeight)));
+    ret = inputs.SetCoins(txhash, CCoins(tx, nHeight));
+    assert(ret);
 }
 
 bool CScriptCheck::operator()() const {
@@ -1549,12 +1515,12 @@ bool CheckInputs(CTransaction& tx, CValidationState &state, CCoinsViewCache &inp
 
         }
 
-        if (nValueIn < GetValueOut(tx))
+        if (nValueIn < tx.GetValueOut())
             return state.DoS(100, error("CheckInputs() : %s value in < value out", tx.GetHash().ToString().c_str()),
                              REJECT_INVALID, "in < out");
 
         // Tally transaction fees
-        int64_t nTxFee = nValueIn - GetValueOut(tx);
+        int64_t nTxFee = nValueIn - tx.GetValueOut();
         if (nTxFee < 0)
             return state.DoS(100, error("CheckInputs() : %s nTxFee < 0", tx.GetHash().ToString().c_str()),
                              REJECT_INVALID, "fee < 0");
@@ -1820,7 +1786,7 @@ bool ConnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, C
                                      REJECT_INVALID, "too many sigops");
             }
 
-            nFees += view.GetValueIn(tx)-GetValueOut(tx);
+            nFees += view.GetValueIn(tx)-tx.GetValueOut();
 
             std::vector<CScriptCheck> vChecks;
             if (!CheckInputs(tx, state, view, fScriptChecks, flags, nScriptCheckThreads ? &vChecks : NULL))
@@ -1840,10 +1806,10 @@ bool ConnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, C
     if (fBenchmark)
         LogPrintf("- Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin)\n", (unsigned)block.vtx.size(), 0.001 * nTime, 0.001 * nTime / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * nTime / (nInputs-1));
 
-    if (GetValueOut(block.vtx[0]) > GetBlockValue(pindex->nHeight, nFees))
+    if (block.vtx[0].GetValueOut() > GetBlockValue(pindex->nHeight, nFees))
         return state.DoS(100,
-                         error("ConnectBlock() : coinbase pays too much (actual=%" PRId64" vs limit=%" PRId64")",
-                               GetValueOut(block.vtx[0]), GetBlockValue(pindex->nHeight, nFees)),
+                         error("ConnectBlock() : coinbase pays too much (actual=%"PRId64" vs limit=%"PRId64")",
+                               block.vtx[0].GetValueOut(), GetBlockValue(pindex->nHeight, nFees)),
                          REJECT_INVALID, "coinbase too large");
 
     if (!control.Wait())
@@ -1882,7 +1848,9 @@ bool ConnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex, C
             return state.Abort(_("Failed to write transaction index"));
 
     // add this block to the view's block chain
-    assert(view.SetBestBlock(pindex->GetBlockHash()));
+    bool ret;
+    ret = view.SetBestBlock(pindex->GetBlockHash());
+    assert(ret);
 
     // Watch for transactions paying to me
     for (unsigned int i = 0; i < block.vtx.size(); i++)
@@ -1928,8 +1896,8 @@ bool SetBestChain(CValidationState &state, CBlockIndex* pindexNew)
     reverse(vConnect.begin(), vConnect.end());
 
     if (vDisconnect.size() > 0) {
-        LogPrintf("REORGANIZE: Disconnect %" PRIszu" blocks; %s...\n", vDisconnect.size(), pfork->GetBlockHash().ToString().c_str());
-        LogPrintf("REORGANIZE: Connect %" PRIszu" blocks; ...%s\n", vConnect.size(), pindexNew->GetBlockHash().ToString().c_str());
+        LogPrintf("REORGANIZE: Disconnect %"PRIszu" blocks; %s...\n", vDisconnect.size(), pfork->GetBlockHash().ToString().c_str());
+        LogPrintf("REORGANIZE: Connect %"PRIszu" blocks; ...%s\n", vConnect.size(), pindexNew->GetBlockHash().ToString().c_str());
     }
 
     // Disconnect shorter branch
@@ -1977,7 +1945,9 @@ bool SetBestChain(CValidationState &state, CBlockIndex* pindexNew)
     // Flush changes to global coin state
     int64_t nStart = GetTimeMicros();
     int nModified = view.GetCacheSize();
-    assert(view.Flush());
+    bool ret;
+    ret = view.Flush();
+    assert(ret);
     int64_t nTime = GetTimeMicros() - nStart;
     if (fBenchmark)
         LogPrintf("- Flush %i transactions: %.2fms (%.4fms/tx)\n", nModified, 0.001 * nTime, 0.001 * nTime / nModified);
@@ -2025,11 +1995,6 @@ bool SetBestChain(CValidationState &state, CBlockIndex* pindexNew)
         g_signals.SetBestChain(chainActive.GetLocator(pindexNew));
 
     // New best block
-    //hashBestChain = pindexNew->GetBlockHash();
-    //pindexBest = pindexNew;
-    //pblockindexFBBHLast = NULL;
-    //nBestHeight = pindexBest->nHeight;
-    //nBestChainWork = pindexNew->nChainWork;
     nTimeBestReceived = GetTime();
     mempool.AddTransactionsUpdated(1);
     LogPrintf("SetBestChain: new best=%s  height=%d  log2_work=%.8g  tx=%lu  date=%s progress=%f\n",
@@ -2425,6 +2390,8 @@ void PushGetBlocks(CNode* pnode, CBlockIndex* pindexBegin, uint256 hashEnd)
 
 bool ProcessBlock(CValidationState &state, CNode* pfrom, CBlock* pblock, CDiskBlockPos *dbp)
 {
+    AssertLockHeld("cs_main");
+
     // Check for duplicate
     uint256 hash = pblock->GetHash();
     if (mapBlockIndex.count(hash))
@@ -3047,7 +3014,7 @@ bool LoadExternalBlockFile(FILE* fileIn, CDiskBlockPos *dbp)
         AbortNode(_("Error: system error: ") + e.what());
     }
     if (nLoaded > 0)
-        LogPrintf("Loaded %i blocks from external file in %" PRId64"ms\n", nLoaded, GetTimeMillis() - nStart);
+        LogPrintf("Loaded %i blocks from external file in %"PRId64"ms\n", nLoaded, GetTimeMillis() - nStart);
     return nLoaded > 0;
 }
 
@@ -3266,7 +3233,7 @@ void static ProcessGetData(CNode* pfrom)
 bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 {
     RandAddSeedPerfmon();
-    LogPrint("net", "received: %s (%" PRIszu" bytes)\n", strCommand.c_str(), vRecv.size());
+    LogPrint("net", "received: %s (%"PRIszu" bytes)\n", strCommand.c_str(), vRecv.size());
     if (mapArgs.count("-dropmessagestest") && GetRand(atoi(mapArgs["-dropmessagestest"])) == 0)
     {
         LogPrintf("dropmessagestest DROPPING RECV MESSAGE\n");
@@ -3306,8 +3273,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             pfrom->nVersion = 300;
         if (!vRecv.empty())
             vRecv >> addrFrom >> nNonce;
-        if (!vRecv.empty())
+        if (!vRecv.empty()) {
             vRecv >> pfrom->strSubVer;
+            pfrom->cleanSubVer = SanitizeString(pfrom->strSubVer);
+        }
         if (!vRecv.empty())
             vRecv >> pfrom->nStartingHeight;
         if (!vRecv.empty())
@@ -3374,7 +3343,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 
         pfrom->fSuccessfullyConnected = true;
 
-        LogPrintf("receive version message: %s: version %d, blocks=%d, us=%s, them=%s, peer=%s\n", pfrom->strSubVer.c_str(), pfrom->nVersion, pfrom->nStartingHeight, addrMe.ToString().c_str(), addrFrom.ToString().c_str(), pfrom->addr.ToString().c_str());
+        LogPrintf("receive version message: %s: version %d, blocks=%d, us=%s, them=%s, peer=%s\n", pfrom->cleanSubVer.c_str(), pfrom->nVersion, pfrom->nStartingHeight, addrMe.ToString().c_str(), addrFrom.ToString().c_str(), pfrom->addr.ToString().c_str());
 
         AddTimeData(pfrom->addr, nTime);
 
@@ -3408,7 +3377,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         if (vAddr.size() > 1000)
         {
             pfrom->Misbehaving(20);
-            return error("message addr size() = %" PRIszu"", vAddr.size());
+            return error("message addr size() = %"PRIszu"", vAddr.size());
         }
 
         // Store the new addresses
@@ -3471,7 +3440,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         if (vInv.size() > MAX_INV_SZ)
         {
             pfrom->Misbehaving(20);
-            return error("message inv size() = %" PRIszu"", vInv.size());
+            return error("message inv size() = %"PRIszu"", vInv.size());
         }
 
         // find last block in inv vector
@@ -3522,11 +3491,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         if (vInv.size() > MAX_INV_SZ)
         {
             pfrom->Misbehaving(20);
-            return error("message getdata size() = %" PRIszu"", vInv.size());
+            return error("message getdata size() = %"PRIszu"", vInv.size());
         }
 
         if (fDebug || (vInv.size() != 1))
-            LogPrint("net", "received getdata (%" PRIszu" invsz)\n", vInv.size());
+            LogPrint("net", "received getdata (%"PRIszu" invsz)\n", vInv.size());
 
         if ((fDebug && vInv.size() > 0) || (vInv.size() == 1))
             LogPrint("net", "received getdata for: %s\n", vInv[0].ToString().c_str());
@@ -3633,8 +3602,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             vWorkQueue.push_back(inv.hash);
             vEraseQueue.push_back(inv.hash);
 
-            LogPrintf("AcceptToMemoryPool: %s %s : accepted %s (poolsz %" PRIszu ")\n",
-                pfrom->addr.ToString().c_str(), pfrom->strSubVer.c_str(),
+
+            LogPrint("mempool", "AcceptToMemoryPool: %s %s : accepted %s (poolsz %"PRIszu")\n",
+                pfrom->addr.ToString().c_str(), pfrom->cleanSubVer.c_str(),
                 tx.GetHash().ToString().c_str(),
                 mempool.mapTx.size());
 
@@ -3687,7 +3657,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         }
         int nDoS = 0;
         if (state.IsInvalid(nDoS))
-        {
+        { 
+            LogPrint("mempool", "%s from %s %s was not accepted into the memory pool: %s\n", tx.GetHash().ToString().c_str(), 
+                pfrom->addr.ToString().c_str(), pfrom->cleanSubVer.c_str(),
+                state.GetRejectReason().c_str());
             pfrom->PushMessage("reject", strCommand, state.GetRejectCode(),
                                state.GetRejectReason(), inv.hash);
             if (nDoS > 0)
@@ -3822,9 +3795,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         }
 
         if (!(sProblem.empty())) {
-            LogPrint("net", "pong %s %s: %s, %" PRIx64" expected, %" PRIx64" received, %" PRIszu" bytes\n",
+            LogPrint("net", "pong %s %s: %s, %"PRIx64" expected, %"PRIx64" received, %"PRIszu" bytes\n",
                 pfrom->addr.ToString().c_str(),
-                pfrom->strSubVer.c_str(),
+                pfrom->cleanSubVer.c_str(),
                 sProblem.c_str(),
                 pfrom->nPingNonceSent,
                 nonce,
@@ -3957,7 +3930,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 bool ProcessMessages(CNode* pfrom)
 {
     //if (fDebug)
-    //    LogPrintf("ProcessMessages(%" PRIszu" messages)\n", pfrom->vRecvMsg.size());
+    //    LogPrintf("ProcessMessages(%"PRIszu" messages)\n", pfrom->vRecvMsg.size());
 
     //
     // Message format
@@ -3985,7 +3958,7 @@ bool ProcessMessages(CNode* pfrom)
         CNetMessage& msg = *it;
 
         //if (fDebug)
-        //    LogPrintf("ProcessMessages(message %u msgsz, %" PRIszu" bytes, complete:%s)\n",
+        //    LogPrintf("ProcessMessages(message %u msgsz, %"PRIszu" bytes, complete:%s)\n",
         //            msg.hdr.nMessageSize, msg.vRecv.size(),
         //            msg.complete() ? "Y" : "N");
 

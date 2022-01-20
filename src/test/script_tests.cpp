@@ -1,27 +1,37 @@
-#include <iostream>
+#include "script.h"
+
+#include "data/script_invalid.json.h"
+#include "data/script_valid.json.h"
+
+#include "key.h"
+#include "keystore.h"
+#include "main.h"
+
 #include <fstream>
+#include <stdint.h>
+#include <string>
 #include <vector>
+
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/foreach.hpp>
-#include <boost/preprocessor/stringize.hpp>
 #include <boost/test/unit_test.hpp>
 #include "json/json_spirit_reader_template.h"
-#include "json/json_spirit_writer_template.h"
 #include "json/json_spirit_utils.h"
+#include "json/json_spirit_writer_template.h"
 
 #include "main.h"
 #include "wallet.h"
-#include "data/script_invalid.json.h"
-#include "data/script_valid.json.h"
 
 using namespace std;
 using namespace json_spirit;
 using namespace boost::algorithm;
 
-extern uint256 SignatureHash(CScript scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
+extern uint256 SignatureHash(const CScript &scriptCode, const CTransaction& txTo, unsigned int nIn, int nHashType);
 
 static const unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC;
 

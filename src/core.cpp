@@ -7,8 +7,6 @@
 
 #include "util.h"
 
-#include <stdint.h>
-
 std::string COutPoint::ToString() const
 {
     return strprintf("COutPoint(%s, %u)", hash.ToString().substr(0,10).c_str(), n);
@@ -66,7 +64,7 @@ uint256 CTxOut::GetHash() const
 
 std::string CTxOut::ToString() const
 {
-    return strprintf("CTxOut(nValue=%" PRId64".%08"PRId64", scriptPubKey=%s)", nValue / COIN, nValue % COIN, scriptPubKey.ToString().substr(0,30).c_str());
+    return strprintf("CTxOut(nValue=%"PRId64".%08"PRId64", scriptPubKey=%s)", nValue / COIN, nValue % COIN, scriptPubKey.ToString().substr(0,30).c_str());
 }
 
 void CTxOut::print() const
@@ -108,10 +106,41 @@ bool CTransaction::IsNewerThan(const CTransaction& old) const
     return fNewer;
 }
 
+int64_t CTransaction::GetValueOut() const
+{
+    int64_t nValueOut = 0;
+    BOOST_FOREACH(const CTxOut& txout, vout)
+    {
+        nValueOut += txout.nValue;
+        if (!MoneyRange(txout.nValue) || !MoneyRange(nValueOut))
+            throw std::runtime_error("CTransaction::GetValueOut() : value out of range");
+    }
+    return nValueOut;
+}
+
+double CTransaction::ComputePriority(double dPriorityInputs, unsigned int nTxSize) const
+{
+    // In order to avoid disincentivizing cleaning up the UTXO set we don't count
+    // the constant overhead for each txin and up to 110 bytes of scriptSig (which
+    // is enough to cover a compressed pubkey p2sh redemption) for priority.
+    // Providing any more cleanup incentive than making additional inputs free would
+    // risk encouraging people to create junk outputs to redeem later.
+    if (nTxSize == 0)
+        nTxSize = ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
+    BOOST_FOREACH(const CTxIn& txin, vin)
+    {
+        unsigned int offset = 41U + std::min(110U, (unsigned int)txin.scriptSig.size());
+        if (nTxSize > offset)
+            nTxSize -= offset;
+    }
+    if (nTxSize == 0) return 0.0;
+    return dPriorityInputs / nTxSize;
+}
+
 std::string CTransaction::ToString() const
 {
     std::string str;
-    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%" PRIszu", vout.size=%" PRIszu", nLockTime=%u)\n",
+    str += strprintf("CTransaction(hash=%s, ver=%d, vin.size=%"PRIszu", vout.size=%"PRIszu", nLockTime=%u)\n",
         GetHash().ToString().substr(0,10).c_str(),
         nVersion,
         vin.size(),
@@ -240,7 +269,7 @@ uint256 CBlock::CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMer
 
 void CBlock::print() const
 {
-    LogPrintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%" PRIszu")\n",
+    LogPrintf("CBlock(hash=%s, ver=%d, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%"PRIszu")\n",
         GetHash().ToString().c_str(),
         nVersion,
         hashPrevBlock.ToString().c_str(),

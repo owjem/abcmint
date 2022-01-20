@@ -6,7 +6,6 @@
 #ifndef H_BITCOIN_SCRIPT
 #define H_BITCOIN_SCRIPT
 
-#include "init.h"
 #include "bignum.h"
 #include "key.h"
 #include "util.h"
@@ -359,7 +358,7 @@ public:
 
     CScript& operator<<(const CPubKey& key)
     {
-        // assert(key.size() < OP_PUSHDATA1);
+        assert(key.size() < OP_PUSHDATA1);
         insert(end(), (unsigned char)key.size());
         insert(end(), key.begin(), key.end());
         return *this;

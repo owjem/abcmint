@@ -12,7 +12,6 @@
 #include "wallet.h"
 
 #include <inttypes.h>
-#include <stdint.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/foreach.hpp>
@@ -580,12 +579,12 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         }
         else if (strType == "pos")
         {
-            string address;
-            ssKey >> address;
+            CKeyID keyID;
+            ssKey >> keyID;
 
             CDiskPubKeyPos pos;
             ssValue >> pos;
-            if (!pwallet->AddPubKeyPos2Map(address, pos))
+            if (!pwallet->AddPubKeyPos2Map(keyID, pos))
             {
                 strErr = "Error reading wallet database: AddPubKeyPos2Map failed";
                 return false;
@@ -759,7 +758,7 @@ void ThreadFlushWalletDB(const string& strFile)
                         bitdb.CheckpointLSN(strFile);
 
                         bitdb.mapFileUseCount.erase(mi++);
-                        LogPrint("db", "Flushed wallet.dat %" PRId64"ms\n", GetTimeMillis() - nStart);
+                        LogPrint("db", "Flushed wallet.dat %"PRId64"ms\n", GetTimeMillis() - nStart);
                     }
                 }
             }
@@ -820,7 +819,7 @@ bool CWalletDB::Recover(CDBEnv& dbenv, std::string filename, bool fOnlyKeys)
     // Set -rescan so any missing transactions will be
     // found.
     int64_t now = GetTime();
-    std::string newFilename = strprintf("wallet.%" PRId64".bak", now);
+    std::string newFilename = strprintf("wallet.%"PRId64".bak", now);
 
     int result = dbenv.dbenv.dbrename(NULL, filename.c_str(), NULL,
                                       newFilename.c_str(), DB_AUTO_COMMIT);
@@ -839,7 +838,7 @@ bool CWalletDB::Recover(CDBEnv& dbenv, std::string filename, bool fOnlyKeys)
         LogPrintf("Salvage(aggressive) found no records in %s.\n", newFilename.c_str());
         return false;
     }
-    LogPrintf("Salvage(aggressive) found %" PRIszu" records\n", salvagedData.size());
+    LogPrintf("Salvage(aggressive) found %"PRIszu" records\n", salvagedData.size());
 
     bool fSuccess = allOK;
     Db* pdbCopy = new Db(&dbenv.dbenv, 0);

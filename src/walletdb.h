@@ -23,7 +23,7 @@ class CMasterKey;
 class CScript;
 class CWallet;
 class CWalletTx;
-// class uint160;
+class uint160;
 class uint256;
 
 /** Error statuses for the wallet database */
@@ -89,7 +89,6 @@ public:
     bool EraseTx(uint256 hash);
 
     bool WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata &keyMeta);
-
     bool WriteCryptedKey(const CPubKey& vchPubKey, const std::vector<unsigned char>& vchCryptedSecret, const CKeyMetadata &keyMeta);
     bool WriteMasterKey(unsigned int nID, const CMasterKey& kMasterKey);
 
@@ -122,7 +121,7 @@ public:
         nWalletDBUpdated++;
         return Write(std::make_pair(std::string("setting"), strKey), value);
     }
-
+ 
     bool EraseSetting(const std::string& strKey);
 
     bool WriteMinVersion(int nVersion);

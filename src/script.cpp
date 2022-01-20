@@ -5,24 +5,18 @@
 
 #include "script.h"
 
-#include "base58.h"
 #include "bignum.h"
 #include "core.h"
 #include "hash.h"
-#include "init.h"
 #include "key.h"
 #include "keystore.h"
 #include "sync.h"
 #include "uint256.h"
 #include "util.h"
 
-#include <stdint.h>
-
 #include <boost/foreach.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/tuple/tuple_comparison.hpp>
-
-#include "init.h"
 
 using namespace std;
 using namespace boost;
@@ -772,7 +766,10 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, CT
                 //
                 // Crypto
                 //
+                case OP_RIPEMD160:
+                case OP_SHA1:
                 case OP_SHA256:
+                case OP_HASH160:
                 case OP_HASH256:
                 {
                     // (in -- hash)

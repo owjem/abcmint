@@ -1518,3 +1518,4 @@ void RenameThread(const char* name)
     (void)name;
 #endif
 }
+

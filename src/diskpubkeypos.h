@@ -7,8 +7,8 @@
 #include <boost/thread.hpp>
 #include "key.h"
 #include "serialize.h"
-
-
+#include "sync.h"
+#include "util.h"
 
 static const unsigned int RAINBOW_PUBLIC_KEY_POS_SIZE         = 8;
 static const unsigned int RAINBOW_PUBLIC_KEY_REUSED_SIZE      = 4;
@@ -16,12 +16,14 @@ static const unsigned int RAINBOW_PUBLIC_KEY_REUSED_SIZE      = 4;
 // nHeight is different from CDiskBlockPos.nFile, because it need to cast to
 // unsigned char in CScript
 class CDiskPubKeyPos {
-public:
+private:
   unsigned int nHeight;
   unsigned int nPubKeyOffset;
 
-  IMPLEMENT_SERIALIZE(READWRITE(VARINT(nHeight));
-                      READWRITE(VARINT(nPubKeyOffset));)
+public:
+
+  // IMPLEMENT_SERIALIZE(READWRITE(VARINT(nHeight));
+  //                     READWRITE(VARINT(nPubKeyOffset));)
 
   CDiskPubKeyPos(unsigned int nHeightIn, unsigned int nPubKeyOffsetIn)
       : nHeight(nHeightIn), nPubKeyOffset(nPubKeyOffsetIn) {}
@@ -35,6 +37,21 @@ public:
 
   bool IsNull() const { return (nHeight == 0xFFFFFFFF); }
 
+  unsigned int GetHeight() const { return nHeight; }
+
+  void SetHeight(const unsigned int nHeightIn) { nHeight = nHeightIn; }
+
+  unsigned int GetPubKeyOffset() const { return nPubKeyOffset; }
+
+  void SetPubKeyOff(const unsigned int nPubKeyOffsetIn) { nPubKeyOffset = nPubKeyOffsetIn; }
+
+  void SetPubKeyOff(const std::vector<unsigned char> nPubKeyOffsetIn) {
+    memcpy(&nPubKeyOffset, &nPubKeyOffsetIn[0], nPubKeyOffsetIn.size() * sizeof(nPubKeyOffsetIn[0]));
+    bswap_32(nPubKeyOffset);
+  }
+
+  unsigned int size() const { return sizeof(nHeight)+sizeof(nHeight); }
+
   friend bool operator==(const CDiskPubKeyPos &a, const CDiskPubKeyPos &b) {
     return (a.nHeight == b.nHeight && a.nPubKeyOffset == b.nPubKeyOffset);
   }
@@ -43,24 +60,24 @@ public:
     return !(a == b);
   }
 
+  friend bool operator<(const CDiskPubKeyPos &a, const CDiskPubKeyPos &b) {
+    return false;
+  }
+  friend bool operator>(const CDiskPubKeyPos &a, const CDiskPubKeyPos &b) {
+    return false;
+  }
+
   CDiskPubKeyPos &operator<<(const std::vector<unsigned char> &v) {
     if (v.size() < RAINBOW_PUBLIC_KEY_POS_SIZE) {
       nHeight = 0xFFFFFFFF;
+      memcpy(&nPubKeyOffset, &v[0], sizeof(nPubKeyOffset));
+      bswap_32(nPubKeyOffset);
       return *this;
     }
-
-    unsigned int cursor0 = ((unsigned char)v[0]) & 0xff;
-    unsigned int cursor1 = ((unsigned char)v[1]) & 0xff;
-    unsigned int cursor2 = ((unsigned char)v[2]) & 0xff;
-    unsigned int cursor3 = ((unsigned char)v[3]) & 0xff;
-    nHeight = cursor0 + (cursor1 << 8) + (cursor2 << 16) + (cursor3 << 24);
-
-    cursor0 = ((unsigned char)v[4]) & 0xff;
-    cursor1 = ((unsigned char)v[5]) & 0xff;
-    cursor2 = ((unsigned char)v[6]) & 0xff;
-    cursor3 = ((unsigned char)v[7]) & 0xff;
-    nPubKeyOffset =
-        cursor0 + (cursor1 << 8) + (cursor2 << 16) + (cursor3 << 24);
+    memcpy(&nHeight, &v[0], sizeof(nHeight));
+    memcpy(&nPubKeyOffset, &v[4], sizeof(nPubKeyOffset));
+    bswap_32(nHeight);
+    bswap_32(nPubKeyOffset);
 
     return *this;
   }
@@ -87,12 +104,33 @@ public:
 
     return v;
   }
+
+ std::vector<unsigned char> Raw() const {
+    std::vector<unsigned char> v;
+    v.insert(v.end(), (unsigned char*)&nHeight, (unsigned char*)&nHeight+sizeof(nHeight));
+    v.insert(v.end(), (unsigned char*)&nPubKeyOffset, (unsigned char*)&nPubKeyOffset+sizeof(nPubKeyOffset));
+    return v;
+  }
 };
 
-bool GetPubKeyByPos(CDiskPubKeyPos pos, CPubKey& pubKey);
+// bool GetPubKeyByPos(CDiskPubKeyPos pos, CPubKey& pubKey);
 
-bool UpdatePubKeyPos(CPubKey& pubKey, const std::string& address, const CKeyID &keyID);
+// bool UpdatePubKeyPos(CPubKey& pubKey, const std::string& address, const CKeyID &keyID);
 
-void SearchPubKeyPos(boost::thread_group& threadGroup);
+// void SearchPubKeyPos(boost::thread_group& threadGroup);
+
+typedef std::map<CKeyID, CDiskPubKeyPos> PubKeyPosMap;
+class CMemPos {
+protected:
+    mutable CCriticalSection cs_CMemPos;
+    PubKeyPosMap mapPubKeyPos;
+
+public:
+    bool AddPubKeyPos2Map(const CKeyID& keyID, const CDiskPubKeyPos& pos);
+
+    bool GetPubKeyPos(const CKeyID& keyID, CDiskPubKeyPos& posOut) const;
+
+    bool GetPossbyHeight(const unsigned int& nHeight, std::set<CDiskPubKeyPos>& Poss) const;
+};
 
 #endif

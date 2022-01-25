@@ -11,11 +11,6 @@
 #include "wallet.h"
 #include "miner/common.h"
 
-#include <stdint.h>
-
-double dHashesPerSec = 0.0;
-int64_t nHPSTimerStart = 0;
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // BitcoinMiner
@@ -534,18 +529,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
     return pblocktemplate.release();
 }
 
-CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
-{
-    CPubKey pubkey;
-    if (!reservekey.GetReservedKey(pubkey))
-        return NULL;
-
-    // CScript scriptPubKey = CScript() << pubkey << OP_CHECKSIG;
-    CScript scriptPubKey ;
-    scriptPubKey.SetDestination(pubkey.GetID());
-    return CreateNewBlock(scriptPubKey);
-}
-
 void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce)
 {
     // Update nExtraNonce
@@ -610,6 +593,25 @@ void FormatHashBuffers(CBlock* pblock, char* pmidstate, char* pdata, char* phash
     memcpy(phash1, &tmp.hash1, 64);
 }
 
+#ifdef ENABLE_WALLET
+//////////////////////////////////////////////////////////////////////////////
+//
+// Internal miner
+//
+double dHashesPerSec = 0.0;
+int64_t nHPSTimerStart = 0;
+
+CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
+{
+    CPubKey pubkey;
+    if (!reservekey.GetReservedKey(pubkey))
+        return NULL;
+
+    // CScript scriptPubKey = CScript() << pubkey << OP_CHECKSIG;
+    CScript scriptPubKey ;
+    scriptPubKey.SetDestination(pubkey.GetID());
+    return CreateNewBlock(scriptPubKey);
+}
 
 bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
 {
@@ -806,3 +808,6 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet, int nThreads)
     // minerThreads->interrupt_all();
     // minerThreads->join_all();
 }
+
+#endif
+

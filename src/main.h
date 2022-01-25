@@ -97,6 +97,7 @@ extern int nScriptCheckThreads;
 extern bool fTxIndex;
 extern unsigned int nCoinCacheSize;
 extern bool fHaveGUI;
+extern CMemPos* pmemPos;
 
 // Settings
 extern int64_t nTransactionFee;
@@ -112,6 +113,7 @@ class CTxUndo;
 class CScriptCheck;
 class CValidationState;
 class CWalletInterface;
+struct CNodeStateStats;
 
 struct CBlockTemplate;
 
@@ -182,21 +184,30 @@ void UpdateTime(CBlockHeader& block, const CBlockIndex* pindexPrev);
 /** Create a new block index entry for a given block hash */
 CBlockIndex * InsertBlockIndex(uint256 hash);
 /** Verify a signature */
-bool VerifySignature(const CCoins& txFrom, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType);
+// bool VerifySignature(const CCoins& txFrom, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType);
 /** Abort with a message */
 bool AbortNode(const std::string &msg);
+/** Get statistics from node state */
+bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
 
 /** (try to) add transaction to memory pool **/
 bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, CTransaction &tx, bool fLimitFree,
                         bool* pfMissingInputs, bool fRejectInsaneFee=false);
 
 
-
-
-
-
-
+bool GetPubKeyByPos(CDiskPubKeyPos pos, CPubKey& pubKey);
 bool CheckSolution(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce, unsigned int nTime = 1538270779);
+
+
+
+
+
+
+
+
+struct CNodeStateStats {
+    int nMisbehavior;
+};
 
 struct CDiskBlockPos
 {
@@ -405,14 +416,15 @@ private:
     unsigned int nIn;
     unsigned int nFlags;
     int nHashType;
+    map<vector<unsigned char>, vector<unsigned char>> mapPubKey;
 
 public:
     CScriptCheck() {}
 
     //TODO:: abc pubkey
-    CScriptCheck(const CCoins& txFromIn, CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, int nHashTypeIn) :
+    CScriptCheck(const CCoins& txFromIn, CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, int nHashTypeIn,const map<vector<unsigned char>, vector<unsigned char>>& mapPubKeyIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey),
-        ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), nHashType(nHashTypeIn) { }
+        ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), nHashType(nHashTypeIn), mapPubKey(mapPubKeyIn) { }
 
     bool operator()() const;
 
@@ -422,6 +434,7 @@ public:
         std::swap(nIn, check.nIn);
         std::swap(nFlags, check.nFlags);
         std::swap(nHashType, check.nHashType);
+        std::swap(mapPubKey, check.mapPubKey);
     }
 };
 

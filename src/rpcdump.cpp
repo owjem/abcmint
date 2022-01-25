@@ -56,7 +56,7 @@ std::string DecodeDumpString(const std::string &str) {
     for (unsigned int pos = 0; pos < str.length(); pos++) {
         unsigned char c = str[pos];
         if (c == '%' && pos+2 < str.length()) {
-            c = (((str[pos+1]>>6)*9+((str[pos+1]-'0')&15)) << 4) | 
+            c = (((str[pos+1]>>6)*9+((str[pos+1]-'0')&15)) << 4) |
                 ((str[pos+2]>>6)*9+((str[pos+2]-'0')&15));
             pos += 2;
         }
@@ -380,7 +380,7 @@ Value importkey(const Array& params, bool fHelp)
         if(vArgs.size() > 2) {
             CDiskPubKeyPos pos;
             pos<< ParseHex(vArgs[2]);
-            if (!pwalletMain->AddPubKeyPos(CBitcoinAddress(vchAddress).ToString(), pos))
+            if (!pmemPos->AddPubKeyPos2Map(CBitcoinAddress(vchAddress).ToString(), pos))
                 throw JSONRPCError(RPC_WALLET_ERROR, "Error adding public key position to wallet");
         }
 
@@ -419,7 +419,7 @@ Value dumpkey(const Array& params, bool fHelp)
 
 
     CDiskPubKeyPos pos;
-    if (pwalletMain->GetPubKeyPos(strAddress, pos))
+    if (pmemPos->GetPubKeyPos(strAddress, pos))
         return CBitcoinSecret(vchSecret).ToString()+"|" + EncodeBase58(pubKey.begin(), pubKey.end()) + "|" + HexStr(pos.ToVector());
     else
         return CBitcoinSecret(vchSecret).ToString()+"|" + EncodeBase58(pubKey.begin(), pubKey.end());

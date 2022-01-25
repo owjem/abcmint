@@ -70,23 +70,23 @@ bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
     return true;
 }
 
-bool CWallet::AddPubKeyPos(const CKeyID &keyID, const CDiskPubKeyPos& pos)
-{
-    LOCK(cs_wallet);
-    if (!CBasicKeyStore::AddPubKeyPos2Map(keyID, pos))
-        return false;
+// bool CWallet::AddPubKeyPos(const CKeyID &keyID, const CDiskPubKeyPos& pos)
+// {
+//     LOCK(cs_wallet);
+//     if (!CBasicKeyStore::AddPubKeyPos2Map(keyID, pos))
+//         return false;
 
-    return CWalletDB(strWalletFile).WritePos(keyID, pos);
-}
+//     return CWalletDB(strWalletFile).WritePos(keyID, pos);
+// }
 
-bool CWallet::GetPubKeyPosOut(const CKeyID &keyID, CDiskPubKeyPos& posOut)
-{
-    LOCK(cs_wallet);
-    if (!CBasicKeyStore::GetPubKeyPos(keyID, posOut))
-        return false;
+// bool CWallet::GetPubKeyPosOut(const CKeyID &keyID, CDiskPubKeyPos& posOut)
+// {
+//     LOCK(cs_wallet);
+//     if (!CBasicKeyStore::GetPubKeyPos(keyID, posOut))
+//         return false;
 
-    return CWalletDB(strWalletFile).ReadPos(keyID, posOut);
-}
+//     return CWalletDB(strWalletFile).ReadPos(keyID, posOut);
+// }
 
 bool CWallet::AddCryptedKey(const CPubKey &vchPubKey,
                             const vector<unsigned char> &vchCryptedSecret)
@@ -1454,7 +1454,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
 
 
 
-string CWallet::SendMoney(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew, bool fAskFee)
+string CWallet::SendMoney(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew)
 {
     CReserveKey reservekey(this);
     int64_t nFeeRequired;
@@ -1474,9 +1474,6 @@ string CWallet::SendMoney(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNe
         return strError;
     }
 
-    if (fAskFee && !uiInterface.ThreadSafeAskFee(nFeeRequired))
-        return "ABORTED";
-
     if (!CommitTransaction(wtxNew, reservekey))
         return _("Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of wallet.dat and coins were spent in the copy but not marked as spent here.");
 
@@ -1485,7 +1482,7 @@ string CWallet::SendMoney(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNe
 
 
 
-string CWallet::SendMoneyToDestination(const CTxDestination& address, int64_t nValue, CWalletTx& wtxNew, bool fAskFee)
+string CWallet::SendMoneyToDestination(const CTxDestination& address, int64_t nValue, CWalletTx& wtxNew)
 {
     // Check amount
     if (nValue <= 0)
@@ -1497,7 +1494,7 @@ string CWallet::SendMoneyToDestination(const CTxDestination& address, int64_t nV
     CScript scriptPubKey;
     scriptPubKey.SetDestination(address);
 
-    return SendMoney(scriptPubKey, nValue, wtxNew, fAskFee);
+    return SendMoney(scriptPubKey, nValue, wtxNew);
 }
 
 

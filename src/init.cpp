@@ -10,15 +10,19 @@
 #include "init.h"
 
 #include "addrman.h"
-#include "rpcserver.h"
+#include "db.h"
 #include "checkpoints.h"
+#include "main.h"
 #include "miner.h"
 #include "net.h"
+#include "rpcserver.h"
 #include "txdb.h"
 #include "ui_interface.h"
 #include "util.h"
+#ifdef ENABLE_WALLET
 #include "wallet.h"
 #include "walletdb.h"
+#endif
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -35,8 +39,10 @@
 using namespace std;
 using namespace boost;
 
+#ifdef ENABLE_WALLET
 std::string strWalletFile;
 CWallet* pwalletMain;
+#endif
 
 #ifdef WIN32
 // Win32 LevelDB doesn't use filedescriptors, and the ones used for
@@ -109,14 +115,19 @@ void Shutdown()
     mempool.AddTransactionsUpdated(1);
     StopRPCThreads();
     ShutdownRPCMining();
+#ifdef ENABLE_WALLET
     if (pwalletMain)
         bitdb.Flush(false);
     GenerateBitcoins(false, NULL, 0);
+#endif
     StopNode();
+    UnregisterNodeSignals(GetNodeSignals());
     {
         LOCK(cs_main);
+#ifdef ENABLE_WALLET
         if (pwalletMain)
             pwalletMain->SetBestChain(chainActive.GetLocator());
+#endif
         if (pblocktree)
             pblocktree->Flush();
         if (pcoinsTip)
@@ -125,12 +136,16 @@ void Shutdown()
         delete pcoinsdbview; pcoinsdbview = NULL;
         delete pblocktree; pblocktree = NULL;
     }
+#ifdef ENABLE_WALLET
     if (pwalletMain)
         bitdb.Flush(true);
+#endif
     boost::filesystem::remove(GetPidFile());
     UnregisterAllWallets();
+#ifdef ENABLE_WALLET
     if (pwalletMain)
         delete pwalletMain;
+#endif
     LogPrintf("Shutdown : done\n");
 }
 
@@ -185,9 +200,9 @@ std::string HelpMessage(HelpMessageMode hmm)
     strUsage += "  -wallet=<file>         " + _("Specify wallet file (within data directory)") + "\n";
     strUsage += "  -dbcache=<n>           " + _("Set database cache size in megabytes (default: 25)") + "\n";
     strUsage += "  -timeout=<n>           " + _("Specify connection timeout in milliseconds (default: 5000)") + "\n";
-    strUsage += "  -proxy=<ip:port>       " + _("Connect through socks proxy") + "\n";
-    strUsage += "  -socks=<n>             " + _("Select the version of socks proxy to use (4-5, default: 5)") + "\n";
-    strUsage += "  -onion=<ip:port>         " + _("Use proxy to reach tor hidden services (default: same as -proxy)") + "\n";
+    strUsage += "  -proxy=<ip:port>       " + _("Connect through SOCKS proxy") + "\n";
+    strUsage += "  -socks=<n>             " + _("Select SOCKS version for -proxy (4 or 5, default: 5)") + "\n";
+    strUsage += "  -onion=<ip:port>       " + _("Use separate SOCKS5 proxy to reach peers via Tor hidden services (default: -proxy)") + "\n";
     strUsage += "  -dns                   " + _("Allow DNS lookups for -addnode, -seednode and -connect") + "\n";
         strUsage += "  -port=<port>           " + _("Listen for connections on <port> (default: 8888 or testnet: 18888)") + "\n";
     strUsage += "  -maxconnections=<n>    " + _("Maintain at most <n> connections to peers (default: 125)") + "\n";
@@ -212,7 +227,7 @@ std::string HelpMessage(HelpMessageMode hmm)
     strUsage += "  -upnp                  " + _("Use UPnP to map the listening port (default: 0)") + "\n";
 #endif
 #endif
-    strUsage += "  -paytxfee=<amt>        " + _("Fee per KB to add to transactions you send") + "\n";
+    strUsage += "  -paytxfee=<amt>        " + _("Fee per kB to add to transactions you send") + "\n";
     strUsage += "  -debug=<category>      " + _("Output debugging information (default: 0, supplying <category> is optional)") + "\n";
     strUsage +=                               _("If <category> is not supplied, output all debugging information.") + "\n";
     strUsage +=                               _("<category> can be:");
@@ -229,7 +244,7 @@ std::string HelpMessage(HelpMessageMode hmm)
     strUsage += "  -shrinkdebugfile       " + _("Shrink debug.log file on client startup (default: 1 when no -debug)") + "\n";
     strUsage += "  -printtoconsole        " + _("Send trace/debug info to console instead of debug.log file") + "\n";
     strUsage += "  -regtest               " + _("Enter regression test mode, which uses a special chain in which blocks can be "
-                                            "solved instantly. This is intended for regression testing tools and app development.") + "\n";
+                                                "solved instantly. This is intended for regression testing tools and app development.") + "\n";
 #ifdef WIN32
     strUsage += "  -printtodebugger       " + _("Send trace/debug info to debugger") + "\n";
 #endif
@@ -267,9 +282,9 @@ std::string HelpMessage(HelpMessageMode hmm)
     strUsage += "  -par=<n>               " + _("Set the number of script verification threads (up to 16, 0 = auto, <0 = leave that many cores free, default: 0)") + "\n";
 
     strUsage += "\n" + _("Block creation options:") + "\n";
-    strUsage += "  -blockminsize=<n>      "   + _("Set minimum block size in bytes (default: 0)") + "\n";
-    strUsage += "  -blockmaxsize=<n>      "   + _("Set maximum block size in bytes (default: 250000)") + "\n";
-    strUsage += "  -blockprioritysize=<n> "   + _("Set maximum size of high-priority/low-fee transactions in bytes (default: 27000)") + "\n";
+    strUsage += "  -blockminsize=<n>      " + _("Set minimum block size in bytes (default: 0)") + "\n";
+    strUsage += "  -blockmaxsize=<n>      " + strprintf(_("Set maximum block size in bytes (default: %d)"), DEFAULT_BLOCK_MAX_SIZE) + "\n";
+    strUsage += "  -blockprioritysize=<n> " + strprintf(_("Set maximum size of high-priority/low-fee transactions in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE) + "\n";
 
     strUsage += "\n" + _("SSL options: (see the Bitcoin Wiki for SSL setup instructions)") + "\n";
     strUsage += "  -rpcssl                                  " + _("Use OpenSSL (https) for JSON-RPC connections") + "\n";
@@ -464,12 +479,12 @@ bool AppInit2(boost::thread_group& threadGroup, bool fForceServer)
 
     // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
     nScriptCheckThreads = GetArg("-par", 0);
-    // if (nScriptCheckThreads <= 0)
-    //     nScriptCheckThreads += boost::thread::hardware_concurrency();
-    // if (nScriptCheckThreads <= 1)
-    //     nScriptCheckThreads = 0;
-    // else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
-    //     nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
+    if (nScriptCheckThreads <= 0)
+        nScriptCheckThreads += boost::thread::hardware_concurrency();
+    if (nScriptCheckThreads <= 1)
+        nScriptCheckThreads = 0;
+    else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
+        nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
 
 
     if (fDaemon || fForceServer)
@@ -480,7 +495,9 @@ bool AppInit2(boost::thread_group& threadGroup, bool fForceServer)
     fPrintToConsole = GetBoolArg("-printtoconsole", false);
     fPrintToDebugger = GetBoolArg("-printtodebugger", false);
     fLogTimestamps = GetBoolArg("-logtimestamps", true);
+#ifdef ENABLE_WALLET
     bool fDisableWallet = GetBoolArg("-disablewallet", false);
+#endif
 
     if (mapArgs.count("-timeout"))
     {
@@ -526,16 +543,17 @@ bool AppInit2(boost::thread_group& threadGroup, bool fForceServer)
             InitWarning(_("Warning: -paytxfee is set very high! This is the transaction fee you will pay if you send a transaction."));
     }
 
+#ifdef ENABLE_WALLET
     strWalletFile = GetArg("-wallet", "wallet.dat");
-
+#endif
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 
     std::string strDataDir = GetDataDir().string();
-
+#ifdef ENABLE_WALLET
     // Wallet file must be a plain filename without a directory
     if (strWalletFile != boost::filesystem::basename(strWalletFile) + boost::filesystem::extension(strWalletFile))
         return InitError(strprintf(_("Wallet %s resides outside data directory %s"), strWalletFile.c_str(), strDataDir.c_str()));
-
+#endif
     // Make sure only a single Bitcoin process is using the data directory.
     boost::filesystem::path pathLockFile = GetDataDir() / ".lock";
     FILE* file = fopen(pathLockFile.string().c_str(), "a"); // empty lock file; created if it doesn't exist.
@@ -568,7 +586,7 @@ bool AppInit2(boost::thread_group& threadGroup, bool fForceServer)
     int64_t nStart;
 
     // ********************************************************* Step 5: verify wallet database integrity
-
+#ifdef ENABLE_WALLET
     if (!fDisableWallet) {
         uiInterface.InitMessage(_("Verifying wallet..."));
 
@@ -614,7 +632,7 @@ bool AppInit2(boost::thread_group& threadGroup, bool fForceServer)
                 return InitError(_("wallet.dat corrupt, salvage failed"));
         }
     } // (!fDisableWallet)
-
+#endif // ENABLE_WALLET
     // ********************************************************* Step 6: network initialization
 
     RegisterNodeSignals(GetNodeSignals());
@@ -881,7 +899,7 @@ bool AppInit2(boost::thread_group& threadGroup, bool fForceServer)
     }
 
     // ********************************************************* Step 8: load wallet
-
+#ifdef ENABLE_WALLET
     if (fDisableWallet) {
         pwalletMain = NULL;
         LogPrintf("Wallet disabled!\n");
@@ -973,7 +991,9 @@ bool AppInit2(boost::thread_group& threadGroup, bool fForceServer)
             nWalletDBUpdated++;
         }
     } // (!fDisableWallet)
-
+#else // ENABLE_WALLET
+    LogPrintf("No wallet compiled in!\n");
+#endif // !ENABLE_WALLET
     // ********************************************************* Step 9: import blocks
 
     // scan for better chains in the block chain database, that are not yet connected in the active best chain
@@ -1001,7 +1021,7 @@ bool AppInit2(boost::thread_group& threadGroup, bool fForceServer)
             LogPrintf("Invalid or missing peers.dat; recreating\n");
     }
 
-    LogPrintf("Loaded %i addresses from peers.dat  %" PRId64"ms\n",
+    LogPrintf("Loaded %i addresses from peers.dat  %"PRId64"ms\n",
            addrman.size(), GetTimeMillis() - nStart);
 
     // ********************************************************* Step 11: start node
@@ -1017,29 +1037,33 @@ bool AppInit2(boost::thread_group& threadGroup, bool fForceServer)
     //// debug print
     LogPrintf("mapBlockIndex.size() = %"PRIszu"\n",   mapBlockIndex.size());
     LogPrintf("nBestHeight = %d\n",                   chainActive.Height());
+#ifdef ENABLE_WALLET
     LogPrintf("setKeyPool.size() = %"PRIszu"\n",      pwalletMain ? pwalletMain->setKeyPool.size() : 0);
     LogPrintf("mapWallet.size() = %"PRIszu"\n",       pwalletMain ? pwalletMain->mapWallet.size() : 0);
     LogPrintf("mapAddressBook.size() = %"PRIszu"\n",  pwalletMain ? pwalletMain->mapAddressBook.size() : 0);
+#endif
 
     StartNode(threadGroup);
-
     // InitRPCMining is needed here so getwork/getblocktemplate in the GUI debug console works properly.
     InitRPCMining();
     if (fServer)
         StartRPCThreads();
 
+#ifdef ENABLE_WALLET
     // Generate coins in the background
     if (pwalletMain)
         GenerateBitcoins(GetBoolArg("-gen", false), pwalletMain, GetArg("-genproclimit", -1));
 
     //seach block position for public key  in the background
-    if (pwalletMain)
-	    SearchPubKeyPos(threadGroup);
+    // if (pwalletMain)
+	//     SearchPubKeyPos(threadGroup);
+#endif
 
     // ********************************************************* Step 12: finished
 
     uiInterface.InitMessage(_("Done loading"));
 
+#ifdef ENABLE_WALLET
     if (pwalletMain) {
         // Add wallet transactions that aren't already in a block to mapTransactions
         pwalletMain->ReacceptWalletTransactions();
@@ -1047,6 +1071,7 @@ bool AppInit2(boost::thread_group& threadGroup, bool fForceServer)
         // Run a thread to flush wallet periodically
         threadGroup.create_thread(boost::bind(&ThreadFlushWalletDB, boost::ref(pwalletMain->strWalletFile)));
     }
+#endif
 
     return !fRequestShutdown;
 }

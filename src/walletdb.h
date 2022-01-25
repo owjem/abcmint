@@ -6,7 +6,7 @@
 #define BITCOIN_WALLETDB_H
 
 #include "db.h"
-#include "diskpubkeypos.h"
+// #include "diskpubkeypos.h"
 #include "key.h"
 
 #include <list>
@@ -101,8 +101,8 @@ public:
 
     bool WriteDefaultKey(const CPubKey& vchPubKey);
 
-    bool WritePos(const CKeyID& address, const CDiskPubKeyPos& pos);
-    bool ReadPos(const CKeyID& address, CDiskPubKeyPos& posOut);
+    // bool WritePos(const CKeyID& address, const CDiskPubKeyPos& pos);
+    // bool ReadPos(const CKeyID& address, CDiskPubKeyPos& posOut);
 
     bool ReadPool(int64_t nPool, CKeyPool& keypool);
     bool WritePool(int64_t nPool, const CKeyPool& keypool);
@@ -121,7 +121,7 @@ public:
         nWalletDBUpdated++;
         return Write(std::make_pair(std::string("setting"), strKey), value);
     }
- 
+
     bool EraseSetting(const std::string& strKey);
 
     bool WriteMinVersion(int nVersion);

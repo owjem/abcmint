@@ -5,9 +5,8 @@
 #ifndef BITCOIN_MINER_H
 #define BITCOIN_MINER_H
 
-#include "core.h"
-#include "wallet.h"
 #include "miner/idxlut.h"
+#include "uint256.h"
 #include <stdint.h>
 //#include "main.h"
 
@@ -26,8 +25,6 @@ int64_t GetBlockValue(int nHeight, int64_t nFees);
 
 /** Calculate the minimum amount of work a received block needs, without knowing its direct parent */
 // unsigned int ComputeMinWork(unsigned int nBase, int64_t nTime);
-
-unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock);
 
 uint256 SerchSolution(uint256 hash, unsigned int nBits, uint256 randomNonce, CBlockIndex* pindexPrev, int deviceID, int deviceCount);
 

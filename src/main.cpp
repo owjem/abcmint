@@ -154,10 +154,57 @@ void SyncWithWallets(const uint256 &hash, const CTransaction &tx, const CBlock *
 // Registration of network node signals.
 //
 
-int static GetHeight()
+namespace {
+// Maintain validation-specific state about nodes, protected by cs_main, instead
+// by CNode's own locks. This simplifies asynchronous operation, where
+// processing of incoming data is done after the ProcessMessage call returns,
+// and we're no longer holding the node's locks.
+struct CNodeState {
+    int nMisbehavior;
+    bool fShouldBan;
+    std::string name;
+
+    CNodeState() {
+        nMisbehavior = 0;
+        fShouldBan = false;
+    }
+};
+
+map<NodeId, CNodeState> mapNodeState;
+
+// Requires cs_main.
+CNodeState *State(NodeId pnode) {
+    map<NodeId, CNodeState>::iterator it = mapNodeState.find(pnode);
+    if (it == mapNodeState.end())
+        return NULL;
+    return &it->second;
+}
+
+int GetHeight()
 {
     LOCK(cs_main);
     return chainActive.Height();
+}
+
+void InitializeNode(NodeId nodeid, const CNode *pnode) {
+    LOCK(cs_main);
+    CNodeState &state = mapNodeState.insert(std::make_pair(nodeid, CNodeState())).first->second;
+    state.name = pnode->addrName;
+}
+
+void FinalizeNode(NodeId nodeid) {
+    LOCK(cs_main);
+    mapNodeState.erase(nodeid);
+}
+}
+
+bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats) {
+    LOCK(cs_main);
+    CNodeState *state = State(nodeid);
+    if (state == NULL)
+        return false;
+    stats.nMisbehavior = state->nMisbehavior;
+    return true;
 }
 
 void RegisterNodeSignals(CNodeSignals& nodeSignals)
@@ -165,6 +212,8 @@ void RegisterNodeSignals(CNodeSignals& nodeSignals)
     nodeSignals.GetHeight.connect(&GetHeight);
     nodeSignals.ProcessMessages.connect(&ProcessMessages);
     nodeSignals.SendMessages.connect(&SendMessages);
+    nodeSignals.InitializeNode.connect(&InitializeNode);
+    nodeSignals.FinalizeNode.connect(&FinalizeNode);
 }
 
 void UnregisterNodeSignals(CNodeSignals& nodeSignals)
@@ -172,6 +221,8 @@ void UnregisterNodeSignals(CNodeSignals& nodeSignals)
     nodeSignals.GetHeight.disconnect(&GetHeight);
     nodeSignals.ProcessMessages.disconnect(&ProcessMessages);
     nodeSignals.SendMessages.disconnect(&SendMessages);
+    nodeSignals.InitializeNode.disconnect(&InitializeNode);
+    nodeSignals.FinalizeNode.disconnect(&FinalizeNode);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -415,6 +466,7 @@ bool AreInputsStandard(CTransaction& tx, CCoinsViewCache& mapInputs)
         if (nArgsExpected < 0)
             return false;
 
+        map<vector<unsigned char>, vector<unsigned char>> mapPubKey;
         // Transactions with extra stuff in their scriptSigs are
         // non-standard. Note that this EvalScript() call will
         // be quick, because if there are any operations
@@ -422,7 +474,7 @@ bool AreInputsStandard(CTransaction& tx, CCoinsViewCache& mapInputs)
         // IsStandard() call returns false
         vector<vector<unsigned char> > stack;
         //TODO:: abc pubkey
-        if (!EvalScript(stack, tx.vin[i].scriptSig, tx, i, false, 0))
+        if (!EvalScript(stack, tx.vin[i].scriptSig, tx, i, false, 0, mapPubKey))
             return false;
 
         if (whichType == TX_SCRIPTHASH)
@@ -877,7 +929,67 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
     return false;
 }
 
+bool GetPubKeyByPos(CDiskPubKeyPos pos, CPubKey& pubKey)
+{
+    CBlockIndex* pblockindex = NULL;
+    if(pos.GetHeight() >0){
+        pblockindex = chainActive[pos.GetHeight()];
+    }
+    if (!pblockindex) {
+        return error("%s() : can't find block at height: %u", __PRETTY_FUNCTION__, pos.GetHeight());
+    }
 
+    //in scripts, the public key is deserialize as
+    //4e (21 52 02 00) (e2 b8 8a 76 1b 0d d7 8e b3...)--4e is the opcode, (21 52 02 00) is the length
+    CDiskBlockPos blockPos(pblockindex->nFile , pblockindex->nDataPos + pos.GetPubKeyOffset());
+    FILE* pFile = OpenBlockFile(blockPos, true);
+    if (NULL == pFile)
+        return error("%s() : open file blk%d.dat error", __PRETTY_FUNCTION__, pblockindex->nFile);
+
+    CAutoFile file(pFile, SER_DISK, CLIENT_VERSION);
+    try {
+        unsigned char opcode;
+        READDATA(file, opcode);
+        unsigned int nSize = 0;
+
+        switch(opcode)
+        {
+            case OP_PUSHDATA1:
+            case OP_PUSHDATA2:
+            {
+                READDATA(file, nSize);
+            }
+            break;
+            case OP_PUSHDATA4:
+            {
+                READDATA(file, nSize);
+            }
+            break;
+            default:
+                nSize = opcode;
+            break;
+        }
+
+        //currently rainbow public key size is fixed, maybe change in future, change this
+        if (nSize != RAINBOW_PUBLIC_KEY_SIZE)
+            return error("%s() : invalid opcode=[%x], value[%d] or I/O error", __PRETTY_FUNCTION__, opcode, nSize);
+
+        file.read((char*)&pubKey[0], RAINBOW_PUBLIC_KEY_SIZE);
+        // unsigned int i = 0;
+        // while (i < nSize)
+        // {
+        //     unsigned int blk = std::min(nSize - i, (unsigned int)(1 + 4999999 / sizeof(unsigned char)));
+        //     // pubKey.vchPubKey.resize(i + blk);
+        //     file.read((char*)&pubKey[i], blk * sizeof(unsigned char));
+        //     i += blk;
+        // }
+
+    } catch (std::exception &e) {
+        return error("%s() : deserialize or I/O error", __PRETTY_FUNCTION__);
+    }
+
+    return true;
+}
 
 
 
@@ -1464,16 +1576,17 @@ void UpdateCoins(const CTransaction& tx, CValidationState &state, CCoinsViewCach
 
 bool CScriptCheck::operator()() const {
     const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
-    if (!VerifyScript(scriptSig, scriptPubKey, *ptxTo, nIn, nFlags, nHashType))
+    if (!VerifyScript(scriptSig, scriptPubKey, *ptxTo, nIn, nFlags, nHashType, mapPubKey))
         return error("CScriptCheck() : %s VerifySignature failed", ptxTo->GetHash().ToString().c_str());
     return true;
 }
 
 //TODO:: abc pubkey
-bool VerifySignature(const CCoins& txFrom, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType)
-{
-    return CScriptCheck(txFrom, txTo, nIn, flags, nHashType)();
-}
+// bool VerifySignature(const CCoins& txFrom, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType)
+// {
+//     map<vector<unsigned char>, vector<unsigned char>> mapPubKey;
+//     return CScriptCheck(txFrom, txTo, nIn, flags, nHashType, mapPubKey)();
+// }
 
 //TODO:: abc pubkey
 bool CheckInputs(CTransaction& tx, CValidationState &state, CCoinsViewCache &inputs, bool fScriptChecks, unsigned int flags, std::vector<CScriptCheck> *pvChecks)
@@ -1537,12 +1650,33 @@ bool CheckInputs(CTransaction& tx, CValidationState &state, CCoinsViewCache &inp
         // before the last block chain checkpoint. This is safe because block merkle hashes are
         // still computed and checked, and any change will be caught at the next checkpoint.
         if (fScriptChecks) {
+            map<vector<unsigned char>, vector<unsigned char> > mapPubKey;
+            for (unsigned int i = 0; i < tx.vin.size(); i++) {
+                const CScript &scriptSig = tx.vin[i].scriptSig;
+                SplitScript(mapPubKey, scriptSig,i);
+            }
+            for (std::map<std::vector<unsigned char>, vector<unsigned char>>::iterator iter = mapPubKey.begin(); iter!=mapPubKey.end(); iter++) {
+                // if(iter->second.size()>20){
+                //     LogPrintf(" ===> mapPubKey  [%s] [%s]  \n", HexStr(iter->first.begin(), iter->first.end()).c_str(), HexStr(iter->second.begin(), iter->second.begin()+20).c_str()  );
+                // }else
+                // {
+                //     LogPrintf(" ===> mapPubKey  [%s] [%s]  \n", HexStr(iter->first.begin(), iter->first.end()).c_str(), HexStr(iter->second.begin(), iter->second.end()).c_str()  );
+                // }
+                CDiskPubKeyPos pos;
+                pos << iter->first;
+                if( 0<=pos.GetHeight() && pos.GetHeight() < 0xffffffff){
+                    CPubKey pubkey;
+                    if(GetPubKeyByPos(pos, pubkey))
+                        iter->second.insert(iter->second.end(), pubkey.begin(), pubkey.end());
+                }
+                // LogPrintf(" ===> mapPubKey  [%s] [%s]  \n", HexStr(iter->first.begin(), iter->first.end()).c_str(), HexStr(iter->second.begin(), iter->second.begin()+20).c_str()  );
+            }
             for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 const COutPoint &prevout = tx.vin[i].prevout;
                 const CCoins &coins = inputs.GetCoins(prevout.hash);
 
                 // Verify signature
-                CScriptCheck check(coins, tx, i, flags, 0);
+                CScriptCheck check(coins, tx, i, flags, 0, mapPubKey);
                 if (pvChecks) {
                     pvChecks->push_back(CScriptCheck());
                     check.swap(pvChecks->back());
@@ -1550,7 +1684,7 @@ bool CheckInputs(CTransaction& tx, CValidationState &state, CCoinsViewCache &inp
                     if (flags & SCRIPT_VERIFY_STRICTENC) {
                         // For now, check whether the failure was caused by non-canonical
                         // encodings or not; if so, don't trigger DoS protection.
-                        CScriptCheck check(coins, tx, i, flags & (~SCRIPT_VERIFY_STRICTENC), 0);
+                        CScriptCheck check(coins, tx, i, flags & (~SCRIPT_VERIFY_STRICTENC), 0, mapPubKey);
                         if (check())
                             return state.Invalid(false, REJECT_NONSTANDARD, "non-canonical");
                     }
@@ -3117,6 +3251,23 @@ bool static AlreadyHave(const CInv& inv)
 }
 
 
+void Misbehaving(NodeId pnode, int howmuch)
+{
+    if (howmuch == 0)
+        return;
+
+    CNodeState *state = State(pnode);
+    if (state == NULL)
+        return;
+
+    state->nMisbehavior += howmuch;
+    if (state->nMisbehavior >= GetArg("-banscore", 100))
+    {
+        LogPrintf("Misbehaving: %s (%d -> %d) BAN THRESHOLD EXCEEDED\n", state->name.c_str(), state->nMisbehavior-howmuch, state->nMisbehavior);
+        state->fShouldBan = true;
+    } else
+        LogPrintf("Misbehaving: %s (%d -> %d)\n", state->name.c_str(), state->nMisbehavior-howmuch, state->nMisbehavior);
+}
 
 void static ProcessGetData(CNode* pfrom)
 {
@@ -3250,7 +3401,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         if (pfrom->nVersion != 0)
         {
             pfrom->PushMessage("reject", strCommand, REJECT_DUPLICATE, string("Duplicate version message"));
-            pfrom->Misbehaving(1);
+            Misbehaving(pfrom->GetId(), 1);
             return false;
         }
 
@@ -3355,7 +3506,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
     else if (pfrom->nVersion == 0)
     {
         // Must have a version message before anything else
-        pfrom->Misbehaving(1);
+        Misbehaving(pfrom->GetId(), 1);
         return false;
     }
 
@@ -3376,7 +3527,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             return true;
         if (vAddr.size() > 1000)
         {
-            pfrom->Misbehaving(20);
+            Misbehaving(pfrom->GetId(), 20);
             return error("message addr size() = %"PRIszu"", vAddr.size());
         }
 
@@ -3439,7 +3590,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         vRecv >> vInv;
         if (vInv.size() > MAX_INV_SZ)
         {
-            pfrom->Misbehaving(20);
+            Misbehaving(pfrom->GetId(), 20);
             return error("message inv size() = %"PRIszu"", vInv.size());
         }
 
@@ -3490,7 +3641,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         vRecv >> vInv;
         if (vInv.size() > MAX_INV_SZ)
         {
-            pfrom->Misbehaving(20);
+            Misbehaving(pfrom->GetId(), 20);
             return error("message getdata size() = %"PRIszu"", vInv.size());
         }
 
@@ -3657,14 +3808,14 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         }
         int nDoS = 0;
         if (state.IsInvalid(nDoS))
-        { 
-            LogPrint("mempool", "%s from %s %s was not accepted into the memory pool: %s\n", tx.GetHash().ToString().c_str(), 
+        {
+            LogPrint("mempool", "%s from %s %s was not accepted into the memory pool: %s\n", tx.GetHash().ToString().c_str(),
                 pfrom->addr.ToString().c_str(), pfrom->cleanSubVer.c_str(),
                 state.GetRejectReason().c_str());
             pfrom->PushMessage("reject", strCommand, state.GetRejectCode(),
                                state.GetRejectReason(), inv.hash);
             if (nDoS > 0)
-                pfrom->Misbehaving(nDoS);
+                Misbehaving(pfrom->GetId(), nDoS);
         }
     }
 
@@ -3691,7 +3842,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
             pfrom->PushMessage("reject", strCommand, state.GetRejectCode(),
                                state.GetRejectReason(), inv.hash);
             if (nDoS > 0)
-                pfrom->Misbehaving(nDoS);
+                Misbehaving(pfrom->GetId(), nDoS);
         }
     }
 
@@ -3834,7 +3985,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
                 // This isn't a Misbehaving(100) (immediate ban) because the
                 // peer might be an older or different implementation with
                 // a different signature key, etc.
-                pfrom->Misbehaving(10);
+                Misbehaving(pfrom->GetId(), 10);
             }
         }
     }
@@ -3847,7 +3998,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
 
         if (!filter.IsWithinSizeConstraints())
             // There is no excuse for sending a too-large filter
-            pfrom->Misbehaving(100);
+            Misbehaving(pfrom->GetId(), 100);
         else
         {
             LOCK(pfrom->cs_filter);
@@ -3868,13 +4019,13 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
         // and thus, the maximum size any matched object can have) in a filteradd message
         if (vData.size() > MAX_SCRIPT_ELEMENT_SIZE)
         {
-            pfrom->Misbehaving(100);
+            Misbehaving(pfrom->GetId(), 100);
         } else {
             LOCK(pfrom->cs_filter);
             if (pfrom->pfilter)
                 pfrom->pfilter->insert(vData);
             else
-                pfrom->Misbehaving(100);
+                Misbehaving(pfrom->GetId(), 100);
         }
     }
 
@@ -4138,6 +4289,16 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         TRY_LOCK(cs_main, lockMain);
         if (!lockMain)
             return true;
+
+        if (State(pto->GetId())->fShouldBan) {
+            if (pto->addr.IsLocal())
+                LogPrintf("Warning: not banning local node %s!\n", pto->addr.ToString().c_str());
+            else {
+                pto->fDisconnect = true;
+                CNode::Ban(pto->addr);
+            }
+            State(pto->GetId())->fShouldBan = false;
+        }
 
         // Start block sync
         if (pto->fStartSync && !fImporting && !fReindex) {

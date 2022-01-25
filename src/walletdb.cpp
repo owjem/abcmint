@@ -81,16 +81,16 @@ bool CWalletDB::WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, c
     return Write(std::make_pair(std::string("key"), vchPubKey), std::make_pair(vchPrivKey, Hash(vchKey.begin(), vchKey.end())), false);
 }
 
-bool CWalletDB::WritePos(const CKeyID& address, const CDiskPubKeyPos& pos)
-{
-    nWalletDBUpdated++;
-    return Write(std::make_pair(std::string("pos"), address), pos, true);
-}
+// bool CWalletDB::WritePos(const CKeyID& address, const CDiskPubKeyPos& pos)
+// {
+//     nWalletDBUpdated++;
+//     return Write(std::make_pair(std::string("pos"), address), pos, true);
+// }
 
-bool CWalletDB::ReadPos(const CKeyID& address, CDiskPubKeyPos& pos)
-{
-    return Read(std::make_pair(std::string("pos"), address), pos);
-}
+// bool CWalletDB::ReadPos(const CKeyID& address, CDiskPubKeyPos& pos)
+// {
+//     return Read(std::make_pair(std::string("pos"), address), pos);
+// }
 
 bool CWalletDB::WriteCryptedKey(const CPubKey& vchPubKey,
                                 const std::vector<unsigned char>& vchCryptedSecret,
@@ -577,19 +577,19 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         {
             ssValue >> pwallet->nOrderPosNext;
         }
-        else if (strType == "pos")
-        {
-            CKeyID keyID;
-            ssKey >> keyID;
+        // else if (strType == "pos")
+        // {
+        //     CKeyID keyID;
+        //     ssKey >> keyID;
 
-            CDiskPubKeyPos pos;
-            ssValue >> pos;
-            if (!pwallet->AddPubKeyPos2Map(keyID, pos))
-            {
-                strErr = "Error reading wallet database: AddPubKeyPos2Map failed";
-                return false;
-            }
-        }
+        //     CDiskPubKeyPos pos;
+        //     ssValue >> pos;
+        //     if (!pwallet->AddPubKeyPos2Map(keyID, pos))
+        //     {
+        //         strErr = "Error reading wallet database: AddPubKeyPos2Map failed";
+        //         return false;
+        //     }
+        // }
     } catch (...)
     {
         return false;

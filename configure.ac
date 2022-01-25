@@ -76,6 +76,12 @@ AC_PATH_PROG(HEXDUMP,hexdump)
 dnl pkg-config check.
 PKG_PROG_PKG_CONFIG
 
+# Enable wallet
+AC_ARG_ENABLE([wallet],
+  [AS_HELP_STRING([--enable-wallet],
+  [enable wallet (default is yes)])],
+  [enable_wallet=$enableval],
+  [enable_wallet=yes])
 
 AC_ARG_WITH([miniupnpc],
   [AS_HELP_STRING([--with-miniupnpc],
@@ -125,6 +131,11 @@ AC_ARG_WITH([comparison-tool],
     AS_HELP_STRING([--with-comparison-tool],[path to java comparison tool (requires --enable-tests)]),
     [use_comparison_tool=$withval],
     [use_comparison_tool=no])
+
+AC_ARG_ENABLE([comparison-tool-reorg-tests],
+    AS_HELP_STRING([--enable-comparison-tool-reorg-tests],[enable expensive reorg tests in the comparison tool (default no)]),
+    [use_comparison_tool_reorg_tests=$enableval],
+    [use_comparison_tool_reorg_tests=no])
 
 AC_ARG_WITH([qrencode],
   [AS_HELP_STRING([--with-qrencode],
@@ -228,6 +239,7 @@ case $host in
      AC_CHECK_LIB([mswsock],      [main],, AC_MSG_ERROR(lib missing))
      AC_CHECK_LIB([shlwapi],      [main],, AC_MSG_ERROR(lib missing))
      AC_CHECK_LIB([iphlpapi],      [main],, AC_MSG_ERROR(lib missing))
+     AC_CHECK_LIB([crypt32],      [main],, AC_MSG_ERROR(lib missing))
 
      # -static is interpreted by libtool, where it has a different meaning.
      # In libtool-speak, it's -all-static.
@@ -337,6 +349,14 @@ if test x$use_comparison_tool != xno; then
   AC_SUBST(JAVA_COMPARISON_TOOL, $use_comparison_tool)
 fi
 
+if test x$use_comparison_tool_reorg_tests != xno; then
+  if test x$use_comparison_tool == x; then
+    AC_MSG_ERROR("comparison tool reorg tests but comparison tool was not specified")
+  fi
+  AC_SUBST(COMPARISON_TOOL_REORG_TESTS, 1)
+else
+  AC_SUBST(COMPARISON_TOOL_REORG_TESTS, 0)
+fi
 
 if test x$use_lcov = xyes; then
   if test x$LCOV = x; then
@@ -811,12 +831,28 @@ AC_MSG_RESULT($build_bitcoind)
 if test x$use_ipv6 = xyes; then
   dnl Check for ipv6 build requirements
   AC_MSG_CHECKING(for IPV6 build support)
-  AC_DEFINE(HAVE_IPV6, 1, [Define this symbol if you have ipv6 build support])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+    #if defined(_WINDOWS)
+    #include <winsock2.h>
+    #else
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #endif
+  ]],[[
+    #if !defined(_WINDOWS)
+    struct in6_addr ipv6Addr;
+    struct sockaddr_in6 addr;
+    #endif
+    int temp = socket(AF_INET6, SOCK_STREAM, 0);
+  ]])],
+  [AC_MSG_RESULT(yes); have_ipv6=yes; AC_DEFINE(HAVE_IPV6, 1, [Define this symbol if you have ipv6 build support])],
+  [AC_MSG_RESULT(no)]; have_ipv6=no)
 fi
 AC_LANG_POP
 
 if test "x$use_ccache" != "xno"; then
-  AC_MSG_CHECKING(if ccache should be used)
+  AC_MSG_CHECKING(if ccache should be enabled)
   if test x$CCACHE = x; then
     if test "x$use_ccache" = "xyes"; then
       AC_MSG_ERROR([ccache not found.]);
@@ -831,6 +867,19 @@ if test "x$use_ccache" != "xno"; then
   AC_MSG_RESULT($use_ccache)
 fi
 
+dnl enable wallet
+AC_MSG_CHECKING([if wallet should be enabled])
+if test x$enable_wallet != xno; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE_UNQUOTED([ENABLE_WALLET],[1],[Define to 1 to enable wallet functions])
+
+else
+  AC_MSG_RESULT(no)
+
+  if test "x$use_qt" != "xno"; then
+    AC_MSG_ERROR([Cannot currently build Qt GUI with wallet disabled. Use --without-qt.])
+  fi
+fi
 if test "x$use_ccache" = "xyes"; then
     AX_CHECK_PREPROC_FLAG([-Qunused-arguments],[CPPFLAGS="-Qunused-arguments $CPPFLAGS"])
 fi
@@ -987,7 +1036,7 @@ AC_ARG_WITH([cuda-path],
 AC_SUBST([CUDA_PATH])
 AC_SUBST([CUDA_CFLAGS], ["-I${CUDA_PATH}/include"])
 AC_SUBST([CUDA_LDFLAGS], ["-L${CUDA_PATH}/lib64 -lcudadevrt -lcudart"])
-AC_SUBST([CUDA_ARCH], ["-arch=sm_60 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61 -gencode=arch=compute_62,code=sm_62 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_70,code=compute_70"])
+AC_SUBST([CUDA_ARCH], ["-arch=sm_52 -gencode=arch=compute_52,code=sm_52 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_86,code=sm_86 -gencode=arch=compute_86,code=compute_86"])
 
 cuda_k=20
 cuda_unroll=8
@@ -1006,6 +1055,7 @@ fi
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
 AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
+AM_CONDITIONAL([ENABLE_WALLET],[test x$enable_wallet == xyes])
 AM_CONDITIONAL([ENABLE_TESTS],[test x$use_tests = xyes])
 AM_CONDITIONAL([USE_QRCODE], [test x$use_qr = xyes])
 AM_CONDITIONAL([USE_LCOV],[test x$use_lcov = xyes])

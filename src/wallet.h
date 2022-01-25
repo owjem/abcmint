@@ -173,8 +173,8 @@ public:
     CPubKey GenerateNewKey();
     // Adds a key to the store, and saves it to disk.
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey);
-    bool AddPubKeyPos(const CKeyID& address, const CDiskPubKeyPos& pos);
-    bool GetPubKeyPosOut(const CKeyID& address, CDiskPubKeyPos& posOut);
+    // bool AddPubKeyPos(const CKeyID& address, const CDiskPubKeyPos& pos);
+    // bool GetPubKeyPosOut(const CKeyID& address, CDiskPubKeyPos& posOut);
     // Adds a key to the store, without saving it to disk (used by LoadWallet)
     bool LoadKey(const CKey& key, const CPubKey &pubkey) { return CCryptoKeyStore::AddKeyPubKey(key, pubkey); }
     // Load metadata (used by LoadWallet)
@@ -226,8 +226,8 @@ public:
     bool CreateTransaction(CScript scriptPubKey, int64_t nValue,
                            CWalletTx& wtxNew, CReserveKey& reservekey, int64_t& nFeeRet, std::string& strFailReason, const CCoinControl *coinControl = NULL);
     bool CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey);
-    std::string SendMoney(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew, bool fAskFee=false);
-    std::string SendMoneyToDestination(const CTxDestination &address, int64_t nValue, CWalletTx& wtxNew, bool fAskFee=false);
+    std::string SendMoney(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew);
+    std::string SendMoneyToDestination(const CTxDestination &address, int64_t nValue, CWalletTx& wtxNew);
 
     bool NewKeyPool();
     bool TopUpKeyPool(unsigned int kpSize = 0);

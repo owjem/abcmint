@@ -10,7 +10,6 @@
 #include "hash.h"
 #include "key.h"
 #include "keystore.h"
-#include "main.h"
 #include "sync.h"
 #include "uint256.h"
 #include "util.h"
@@ -1497,15 +1496,16 @@ bool SignN(const vector<valtype>& multisigdata, const CKeyStore& keystore, uint2
     {
         const vector<unsigned char>& pubkey = multisigdata[i];
         CKeyID keyID;
-        if (pubkey.size() == RAINBOW_PUBLIC_KEY_POS_SIZE) {
-            CDiskPubKeyPos pos;
-            CPubKey findPublicKey;
-            pos << pubkey;
-            if(!GetPubKeyByPos(pos, findPublicKey)){
-                return false;
-            }
-           keyID= findPublicKey.GetID();
-        } else if (pubkey.size() == RAINBOW_PUBLIC_KEY_SIZE) {
+        // if (pubkey.size() == RAINBOW_PUBLIC_KEY_POS_SIZE) {
+        //     CDiskPubKeyPos pos;
+        //     CPubKey findPublicKey;
+        //     pos << pubkey;
+        //     if(!GetPubKeyByPos(pos, findPublicKey)){
+        //         return false;
+        //     }
+        //    keyID= findPublicKey.GetID();
+        // } else
+        if (pubkey.size() == RAINBOW_PUBLIC_KEY_SIZE) {
             keyID= CPubKey(pubkey).GetID();
         } else
             return false;

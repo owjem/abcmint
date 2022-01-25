@@ -168,7 +168,6 @@ libbitcoin_server_a_SOURCES = \
   coins.cpp \
   crypter.cpp \
   db.cpp \
-  diskpubkeypos.cpp \
   init.cpp \
   keystore.cpp \
   leveldbwrapper.cpp \
@@ -182,7 +181,6 @@ libbitcoin_server_a_SOURCES = \
   rpcnet.cpp \
   rpcrawtransaction.cpp \
   rpcwallet.cpp \
-  script.cpp \
   txdb.cpp \
   txmempool.cpp \
   wallet.cpp \
@@ -197,12 +195,14 @@ libbitcoin_common_a_SOURCES = \
   allocators.cpp \
   chainparams.cpp \
   core.cpp \
+  diskpubkeypos.cpp \
   hash.cpp \
   key.cpp \
   netbase.cpp \
   protocol.cpp \
   rpcprotocol.cpp \
   sync.cpp \
+  script.cpp \
   util.cpp \
   version.cpp \
   $(BITCOIN_CORE_H)
@@ -328,11 +328,9 @@ endif
 
 bitcoin_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
-  $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_COMMON) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
-  $(LIBMINER) \
   $(LIBPQCRYPTO)
 
 bitcoin_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS)
@@ -343,8 +341,8 @@ bitcoin_cli_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS)
 if USE_GPU
 bitcoind_LDADD += obj/gpumining.o
 bitcoind_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
-bitcoin_cli_LDADD += obj/gpumining.o
-bitcoin_cli_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
+# bitcoin_cli_LDADD += obj/gpumining.o
+# bitcoin_cli_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 endif
 
 

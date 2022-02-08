@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "sync.h"
+
 #include "util.h"
 
 #include <boost/foreach.hpp>
@@ -41,6 +42,8 @@ struct CLockLocation
         return mutexName+"  "+sourceFile+":"+itostr(sourceLine);
     }
 
+    std::string MutexName() const { return mutexName; }
+
 private:
     std::string mutexName;
     std::string sourceFile;
@@ -78,7 +81,7 @@ static void push_lock(void* c, const CLockLocation& locklocation, bool fTry)
     if (lockstack.get() == NULL)
         lockstack.reset(new LockStack);
 
-    if (fDebug) LogPrintf("Locking: %s\n", locklocation.ToString().c_str());
+    LogPrint("lock", "Locking: %s\n", locklocation.ToString().c_str());
     dd_mutex.lock();
 
     (*lockstack).push_back(std::make_pair(c, locklocation));
@@ -108,7 +111,7 @@ static void pop_lock()
     if (fDebug)
     {
         const CLockLocation& locklocation = (*lockstack).rbegin()->second;
-        LogPrintf("Unlocked: %s\n", locklocation.ToString().c_str());
+        LogPrint("lock", "Unlocked: %s\n", locklocation.ToString().c_str());
     }
     dd_mutex.lock();
     (*lockstack).pop_back();
@@ -123,6 +126,22 @@ void EnterCritical(const char* pszName, const char* pszFile, int nLine, void* cs
 void LeaveCritical()
 {
     pop_lock();
+}
+
+std::string LocksHeld()
+{
+    std::string result;
+    BOOST_FOREACH(const PAIRTYPE(void*, CLockLocation)&i, *lockstack)
+        result += i.second.ToString() + std::string("\n");
+    return result;
+}
+
+void AssertLockHeld(std::string strName)
+{
+    BOOST_FOREACH(const PAIRTYPE(void*, CLockLocation)&i, *lockstack)
+        if (i.second.MutexName() == strName) return;
+    LogPrintf("Lock %s not held; locks held:\n%s", strName.c_str(), LocksHeld().c_str());
+    assert(0);
 }
 
 #endif /* DEBUG_LOCKORDER */

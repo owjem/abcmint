@@ -1,8 +1,7 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin Developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 
 //
 // Why base-58 instead of standard base-64 encoding?
@@ -15,14 +14,18 @@
 #ifndef BITCOIN_BASE58_H
 #define BITCOIN_BASE58_H
 
+#include "bignum.h"
+#include "chainparams.h"
+#include "hash.h"
+#include "key.h"
+#include "script.h"
+#include "uint256.h"
+
 #include <string>
 #include <vector>
 
-#include "chainparams.h"
-#include "bignum.h"
-#include "key.h"
-#include "script.h"
-#include "allocators.h"
+#include <boost/variant/apply_visitor.hpp>
+#include <boost/variant/static_visitor.hpp>
 
 static const char* pszBase58 = "823456719ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -348,25 +351,24 @@ bool inline CBitcoinAddressVisitor::operator()(const CNoDestination &id) const {
 class CBitcoinSecret : public CBase58Data
 {
 public:
-    void SetSecret(const CSecret& vchSecret)
+    void SetKey(const CKey& vchSecret)
     {
-      //  assert(vchSecret.size() == RAINBOW_PRIVATE_KEY_SIZE);
-        SetData(Params().Base58Prefix(CChainParams::SECRET_KEY), &vchSecret[0], vchSecret.size());
+        assert(vchSecret.IsValid());
+        SetData(Params().Base58Prefix(CChainParams::SECRET_KEY), vchSecret.begin(), vchSecret.size());
     }
 
-    CSecret GetSecret()
+    CKey GetKey()
     {
-        CSecret vchSecret;
-        vchSecret.resize(RAINBOW_PRIVATE_KEY_SIZE);
-        memcpy(&vchSecret[0], &vchData[0], RAINBOW_PRIVATE_KEY_SIZE);
-        return vchSecret;
+        CKey ret;
+        ret.Set(&vchData[0], &vchData[RAINBOW_PRIVATE_KEY_SIZE]);
+        return ret;
     }
 
     bool IsValid() const
     {
         bool fExpectedFormat = vchData.size() == RAINBOW_PRIVATE_KEY_SIZE;
-		bool fCorrectVersion = vchVersion == Params().Base58Prefix(CChainParams::SECRET_KEY);
-		return fExpectedFormat && fCorrectVersion;
+        bool fCorrectVersion = vchVersion == Params().Base58Prefix(CChainParams::SECRET_KEY);
+        return fExpectedFormat && fCorrectVersion;
     }
 
     bool SetString(const char* pszSecret)
@@ -379,9 +381,9 @@ public:
         return SetString(strSecret.c_str());
     }
 
-    CBitcoinSecret(const CSecret& vchSecret)
+    CBitcoinSecret(const CKey& vchSecret)
     {
-        SetSecret(vchSecret);
+        SetKey(vchSecret);
     }
 
     CBitcoinSecret()

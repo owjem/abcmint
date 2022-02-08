@@ -1,18 +1,25 @@
-#include <boost/test/unit_test.hpp>
-#include "json/json_spirit_reader_template.h"
-#include "json/json_spirit_writer_template.h"
-#include "json/json_spirit_utils.h"
+#include "base58.h"
+
 #include "data/base58_encode_decode.json.h"
 #include "data/base58_keys_invalid.json.h"
 #include "data/base58_keys_valid.json.h"
 #include "data/wallet_decode_check.json.h"
+
+#include "key.h"
+#include "script.h"
+#include "uint256.h"
 
 #include "base58.h"
 #include "util.h"
 #include "pqcrypto/random.h"
 #include "pqcrypto/pqcrypto.h"
 #include "pqcrypto/sha512.h"
-#include "key.h"
+
+#include <boost/foreach.hpp>
+#include <boost/test/unit_test.hpp>
+#include "json/json_spirit_reader_template.h"
+#include "json/json_spirit_utils.h"
+#include "json/json_spirit_writer_template.h"
 
 using namespace json_spirit;
 extern Array read_json(const std::string& jsondata);
@@ -138,9 +145,9 @@ BOOST_AUTO_TEST_CASE(base58_public_key_address)
 	//std::string longstr = HexStr(sk);
 	//std::vector<unsigned char> skhex = ParseHex(longstr);
 
-	//int64 nStart = GetTimeMicros();
+	//int64_t nStart = GetTimeMicros();
 	//std::string encodedata = EncodeBase58Check(sk);
-    //int64 nTime = GetTimeMicros() - nStart;
+    //int64_t nTime = GetTimeMicros() - nStart;
 	//std::cout<<"encodeTime: "<<nTime<<std::endl;
 	//std::vector<unsigned char> result;
 	//nStart = GetTimeMicros();

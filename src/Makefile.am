@@ -19,13 +19,15 @@ $(LIBLEVELDB): $(LIBMEMENV)
 $(LIBLEVELDB) $(LIBMEMENV):
 	@echo "Building LevelDB ..." && $(MAKE) -C $(@D) $(@F) CXX="$(CXX)" \
 	  CC="$(CC)" PLATFORM=$(TARGET_OS) AR="$(AR)" $(LEVELDB_TARGET_FLAGS) \
-          OPT="$(CXXFLAGS) $(CPPFLAGS)"
+          OPT="$(CXXFLAGS) $(CPPFLAGS) -D__STDC_LIMIT_MACROS"
 endif
 
 BITCOIN_CONFIG_INCLUDES=-I$(builddir)/config
 BITCOIN_INCLUDES=-I$(builddir) -I$(builddir)/obj $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS) $(CUDA_CFLAGS)
 
-LIBBITCOIN=libbitcoin.a
+LIBBITCOIN_SERVER=libbitcoin_server.a
+LIBBITCOIN_COMMON=libbitcoin_common.a
+LIBBITCOIN_CLI=libbitcoin_cli.a
 LIBBITCOINQT=qt/libbitcoinqt.a
 LIBPQCRYPTO=pqcrypto/libpqcrypto.a
 LIBMINER=miner/libminer.a
@@ -34,7 +36,9 @@ LIBMINER=miner/libminer.a
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
 EXTRA_LIBRARIES = \
-  libbitcoin.a \
+  libbitcoin_common.a \
+  libbitcoin_server.a \
+  libbitcoin_cli.a \
   miner/libminer.a \
   pqcrypto/libpqcrypto.a
 BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
@@ -43,7 +47,10 @@ BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
 
 bin_PROGRAMS =
 TESTS =
+
   bin_PROGRAMS += bitcoind
+
+  bin_PROGRAMS += bitcoin-cli
 
 # SUBDIRS = . $(BUILD_QT) $(BUILD_TEST)
 # DIST_SUBDIRS = . qt
@@ -55,13 +62,17 @@ BITCOIN_CORE_H = \
   allocators.h \
   base58.h \
   bignum.h \
-  bitcoinrpc.h \
   bloom.h \
+  rpcclient.h \
+  rpcprotocol.h \
+  rpcserver.h \
   chainparams.h \
   checkpoints.h \
   checkqueue.h \
   clientversion.h \
+  coincontrol.h \
   compat.h \
+  coins.h \
   core.h \
   crypter.h \
   db.h \
@@ -69,19 +80,22 @@ BITCOIN_CORE_H = \
   init.h \
   key.h \
   keystore.h \
-  leveldb.h \
+  leveldbwrapper.h \
   limitedmap.h \
   main.h \
   miner.h \
+  miner/common.h \
   mruset.h \
   netbase.h \
   net.h \
+  noui.h \
   protocol.h \
   script.h \
   serialize.h \
   sync.h \
   threadsafety.h \
   txdb.h \
+  txmempool.h \
   ui_interface.h \
   uint256.h \
   util.h \
@@ -129,7 +143,6 @@ PQCRYPTO_H = \
   pqcrypto/sha512.h
 
 MINER_H = \
-  miner/common.h \
   miner/idxlut.h \
   miner/solution.h \
   miner.h
@@ -140,46 +153,68 @@ obj/build.h: FORCE
 	@$(MKDIR_P) $(builddir)/obj
 	@$(top_srcdir)/share/genbuild.sh $(abs_top_builddir)/src/obj/build.h \
 	  $(abs_top_srcdir)
-libbitcoin_a-version.$(OBJEXT): obj/build.h
+libbitcoin_common_a-version.$(OBJEXT): obj/build.h
 
-libbitcoin_a_LIBADD = $(LIBMINER)
-
-libbitcoin_a_SOURCES = \
+libbitcoin_server_a_LIBADD = $(LIBMINER)
+# server: shared between bitcoind and bitcoin-qt
+libbitcoin_server_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS)
+libbitcoin_server_a_SOURCES = \
   addrman.cpp \
   alert.cpp \
-  bitcoinrpc.cpp \
+  rpcserver.cpp \
   bloom.cpp \
   chainparams.cpp \
   checkpoints.cpp \
-  core.cpp \
+  coins.cpp \
   crypter.cpp \
   db.cpp \
-  hash.cpp \
   init.cpp \
-  key.cpp \
   keystore.cpp \
-  leveldb.cpp \
+  leveldbwrapper.cpp \
   main.cpp \
-  netbase.cpp \
+  miner.cpp \
   net.cpp \
   noui.cpp \
-  protocol.cpp \
   rpcblockchain.cpp \
   rpcdump.cpp \
   rpcmining.cpp \
   rpcnet.cpp \
   rpcrawtransaction.cpp \
   rpcwallet.cpp \
-  script.cpp \
-  sync.cpp \
   txdb.cpp \
-  util.cpp \
-  version.cpp \
+  txmempool.cpp \
   wallet.cpp \
   walletdb.cpp \
+  $(JSON_H) $(BITCOIN_CORE_H) $(PQCRYPTO_H) $(MINER_H) $(GPUMINING_H)
+
+# common: shared between bitcoind, and bitcoin-qt and non-server tools
+# libbitcoin_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
+libbitcoin_common_a_CPPFLAGS = $(BITCOIN_INCLUDES)
+libbitcoin_common_a_SOURCES = \
+  miner/common.cpp \
+  allocators.cpp \
+  chainparams.cpp \
+  core.cpp \
   diskpubkeypos.cpp \
-  $(JSON_H) \
-  $(BITCOIN_CORE_H) $(PQCRYPTO_H) $(MINER_H) $(GPUMINING_H)
+  hash.cpp \
+  key.cpp \
+  netbase.cpp \
+  protocol.cpp \
+  rpcprotocol.cpp \
+  sync.cpp \
+  script.cpp \
+  util.cpp \
+  version.cpp \
+  $(BITCOIN_CORE_H)
+
+nodist_libbitcoin_common_a_SOURCES = $(srcdir)/obj/build.h
+
+# cli: shared between bitcoin-cli and bitcoin-qt
+libbitcoin_cli_a_CPPFLAGS = $(BITCOIN_INCLUDES)
+libbitcoin_cli_a_SOURCES = \
+  rpcclient.cpp \
+  $(BITCOIN_CORE_H)
+
 
 pqcrypto_libpqcrypto_a_SOURCES = \
   pqcrypto/aes.cpp \
@@ -197,7 +232,6 @@ pqcrypto_libpqcrypto_a_SOURCES = \
   $(PQCRYPTO_H)
 
 miner_libminer_a_SOURCES = \
-  miner/common.cpp \
   miner/idxlut.cpp \
   miner/solution.cpp \
   miner.cpp \
@@ -260,31 +294,55 @@ obj/gpumining.o: miner/gpumining.cu miner/kernel.inc
 # libminer_a_CPPFLAGS = $(GPUMINING_LIBS)
 miner_libminer_a_LIBADD = obj/gpumining.o
 miner_libminer_a_CPPFLAGS = $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
-
 endif
 
 # bitcoind binary #
+bitcoind_SOURCES = bitcoind.cpp
+bitcoind_CPPFLAGS = $(BITCOIN_INCLUDES)
+bitcoind_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+
+if TARGET_WINDOWS
+bitcoind_SOURCES += bitcoind-res.rc
+endif
+
 bitcoind_LDADD = \
-  $(LIBBITCOIN) \
+  $(LIBBITCOIN_CLI) \
+  $(LIBBITCOIN_SERVER) \
+  $(LIBBITCOIN_COMMON) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
   $(LIBMINER) \
   $(LIBPQCRYPTO)
 
-bitcoind_SOURCES = bitcoind.cpp
+bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS)
 #
 
+# bitcoin-cli binary #
+bitcoin_cli_SOURCES = bitcoin-cli.cpp
+bitcoin_cli_CPPFLAGS = $(BITCOIN_INCLUDES)
+bitcoin_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+
 if TARGET_WINDOWS
-bitcoind_SOURCES += bitcoin-res.rc
+bitcoin_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
-bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS)
-libbitcoin_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
-bitcoind_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)  $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
+bitcoin_cli_LDADD = \
+  $(LIBBITCOIN_CLI) \
+  $(LIBBITCOIN_COMMON) \
+  $(LIBLEVELDB) \
+  $(LIBMEMENV) \
+  $(LIBPQCRYPTO)
+
+bitcoin_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS)
+bitcoin_cli_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS)
+#
 
 
 if USE_GPU
 bitcoind_LDADD += obj/gpumining.o
+bitcoind_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
+# bitcoin_cli_LDADD += obj/gpumining.o
+# bitcoin_cli_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 endif
 
 

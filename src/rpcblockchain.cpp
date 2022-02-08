@@ -1,10 +1,15 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "rpcserver.h"
 #include "main.h"
-#include "bitcoinrpc.h"
+#include "sync.h"
+
+#include <stdint.h>
+
+#include "json/json_spirit_value.h"
 
 using namespace json_spirit;
 using namespace std;
@@ -17,10 +22,10 @@ int GetDifficulty(const CBlockIndex* blockindex)
     // minimum difficulty = 41
     if (blockindex == NULL)
     {
-        if (pindexBest == NULL)
+        if (chainActive.Tip() == NULL)
             return 41;
         else
-            blockindex = pindexBest;
+            blockindex = chainActive.Tip();
     }
     return (int)blockindex->nBits;
 }
@@ -49,7 +54,7 @@ Object blockToJSON(const CBlock& block, const CBlockIndex* blockindex)
 
     if (blockindex->pprev)
         result.push_back(Pair("previousblockhash", blockindex->pprev->GetBlockHash().GetHex()));
-    CBlockIndex *pnext = blockindex->GetNextInMainChain();
+    CBlockIndex *pnext = chainActive.Next(blockindex);
     if (pnext)
         result.push_back(Pair("nextblockhash", pnext->GetBlockHash().GetHex()));
     return result;
@@ -61,9 +66,15 @@ Value getblockcount(const Array& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getblockcount\n"
-            "Returns the number of blocks in the longest block chain.");
+            "\nReturns the number of blocks in the longest block chain.\n"
+            "\nResult:\n"
+            "n    (numeric) The current block count\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getblockcount", "")
+            + HelpExampleRpc("getblockcount", "")
+        );
 
-    return nBestHeight;
+    return chainActive.Height();
 }
 
 Value getbestblockhash(const Array& params, bool fHelp)
@@ -71,9 +82,15 @@ Value getbestblockhash(const Array& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getbestblockhash\n"
-            "Returns the hash of the best (tip) block in the longest block chain.");
+            "\nReturns the hash of the best (tip) block in the longest block chain.\n"
+            "\nResult\n"
+            "\"hex\"      (string) the block hash hex encoded\n"
+            "\nExamples\n"
+            + HelpExampleCli("getbestblockhash", "")
+            + HelpExampleRpc("getbestblockhash", "")
+        );
 
-    return hashBestChain.GetHex();
+    return chainActive.Tip()->GetBlockHash().GetHex();
 }
 
 Value getdifficulty(const Array& params, bool fHelp)
@@ -81,7 +98,13 @@ Value getdifficulty(const Array& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "getdifficulty\n"
-            "Returns the proof-of-work difficulty as a multiple of the minimum difficulty.");
+            "\nReturns the proof-of-work difficulty as a multiple of the minimum difficulty.\n"
+            "\nResult:\n"
+            "n.nnn       (numeric) the proof-of-work difficulty as a multiple of the minimum difficulty.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getdifficulty", "")
+            + HelpExampleRpc("getdifficulty", "")
+        );
 
     return GetDifficulty();
 }
@@ -91,11 +114,19 @@ Value settxfee(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 1)
         throw runtime_error(
-            "settxfee <amount btc/kb>\n"
-            "<amount> is a real and is rounded to the nearest 0.00000001 btc per kb");
+            "settxfee amount\n"
+            "\nSet the transaction fee. 'amount' is a real and is rounded to the nearest 0.00000001\n"
+            "\nArguments:\n"
+            "1. amount         (numeric, required) The transaction fee in btc rounded to the nearest 0.00000001\n"
+            "\nResult\n"
+            "true|false        (boolean) Returns true if successful\n"
+            "\nExamples:\n"
+            + HelpExampleCli("settxfee", "0.00001")
+            + HelpExampleRpc("settxfee", "0.00001")
+        );
 
     // Amount
-    int64 nAmount = 0;
+    int64_t nAmount = 0;
     if (params[0].get_real() != 0.0)
         nAmount = AmountFromValue(params[0]);        // rejects 0.0 amounts
 
@@ -105,43 +136,138 @@ Value settxfee(const Array& params, bool fHelp)
 
 Value getrawmempool(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() != 0)
+    if (fHelp || params.size() > 1)
         throw runtime_error(
-            "getrawmempool\n"
-            "Returns all transaction ids in memory pool.");
+            "getrawmempool ( verbose )\n"
+            "\nReturns all transaction ids in memory pool as a json array of string transaction ids.\n"
+            "\nArguments:\n"
+            "1. verbose           (boolean, optional, default=false) true for a json object, false for array of transaction ids\n"
+            "\nResult: (for verbose = false):\n"
+            "[                     (json array of string)\n"
+            "  \"transactionid\"     (string) The transaction id\n"
+            "  ,...\n"
+            "]\n"
+            "\nResult: (for verbose = true):\n"
+            "{                           (json object)\n"
+            "  \"transactionid\" : {       (json object)\n"
+            "    \"size\" : n,             (numeric) transaction size in bytes\n"
+            "    \"fee\" : n,              (numeric) transaction fee in bitcoins\n"
+            "    \"time\" : n,             (numeric) local time transaction entered pool in seconds since 1 Jan 1970 GMT\n"
+            "    \"height\" : n,           (numeric) block height when transaction entered pool\n"
+            "    \"startingpriority\" : n, (numeric) priority when transaction entered pool\n"
+            "    \"currentpriority\" : n,  (numeric) transaction priority now\n"
+            "    \"depends\" : [           (array) unconfirmed transactions used as inputs for this transaction\n"
+            "        \"transactionid\",    (string) parent transaction id\n"
+            "       ... ]\n"
+            "  }, ...\n"
+            "]\n"
+            "\nExamples\n"
+            + HelpExampleCli("getrawmempool", "true")
+            + HelpExampleRpc("getrawmempool", "true")
+        );
 
-    vector<uint256> vtxid;
-    mempool.queryHashes(vtxid);
+    bool fVerbose = false;
+    if (params.size() > 0)
+        fVerbose = params[0].get_bool();
 
-    Array a;
-    BOOST_FOREACH(const uint256& hash, vtxid)
-        a.push_back(hash.ToString());
+    if (fVerbose)
+    {
+        LOCK(mempool.cs);
+        Object o;
+        BOOST_FOREACH(const PAIRTYPE(uint256, CTxMemPoolEntry)& entry, mempool.mapTx)
+        {
+            const uint256& hash = entry.first;
+            const CTxMemPoolEntry& e = entry.second;
+            Object info;
+            info.push_back(Pair("size", (int)e.GetTxSize()));
+            info.push_back(Pair("fee", ValueFromAmount(e.GetFee())));
+            info.push_back(Pair("time", (boost::int64_t)e.GetTime()));
+            info.push_back(Pair("height", (int)e.GetHeight()));
+            info.push_back(Pair("startingpriority", e.GetPriority(e.GetHeight())));
+            info.push_back(Pair("currentpriority", e.GetPriority(chainActive.Height())));
+            const CTransaction& tx = e.GetTx();
+            set<string> setDepends;
+            BOOST_FOREACH(const CTxIn& txin, tx.vin)
+            {
+                if (mempool.exists(txin.prevout.hash))
+                    setDepends.insert(txin.prevout.hash.ToString());
+            }
+            Array depends(setDepends.begin(), setDepends.end());
+            info.push_back(Pair("depends", depends));
+            o.push_back(Pair(hash.ToString(), info));
+        }
+        return o;
+    }
+    else
+    {
+        vector<uint256> vtxid;
+        mempool.queryHashes(vtxid);
 
-    return a;
+        Array a;
+        BOOST_FOREACH(const uint256& hash, vtxid)
+            a.push_back(hash.ToString());
+
+        return a;
+    }
 }
 
 Value getblockhash(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getblockhash <index>\n"
-            "Returns hash of block in best-block-chain at <index>.");
+            "getblockhash index\n"
+            "\nReturns hash of block in best-block-chain at index provided.\n"
+            "\nArguments:\n"
+            "1. index         (numeric, required) The block index\n"
+            "\nResult:\n"
+            "\"hash\"         (string) The block hash\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getblockhash", "1000")
+            + HelpExampleRpc("getblockhash", "1000")
+        );
 
     int nHeight = params[0].get_int();
-    if (nHeight < 0 || nHeight > nBestHeight)
+    if (nHeight < 0 || nHeight > chainActive.Height())
         throw runtime_error("Block number out of range.");
 
-    CBlockIndex* pblockindex = FindBlockByHeight(nHeight);
-    return pblockindex->phashBlock->GetHex();
+    CBlockIndex* pblockindex = chainActive[nHeight];
+    return pblockindex->GetBlockHash().GetHex();
 }
 
 Value getblock(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
-            "getblock <hash> [verbose=true]\n"
-            "If verbose is false, returns a string that is serialized, hex-encoded data for block <hash>.\n"
-            "If verbose is true, returns an Object with information about block <hash>."
+            "getblock \"hash\" ( verbose )\n"
+            "\nIf verbose is false, returns a string that is serialized, hex-encoded data for block 'hash'.\n"
+            "If verbose is true, returns an Object with information about block <hash>.\n"
+            "\nArguments:\n"
+            "1. \"hash\"          (string, required) The block hash\n"
+            "2. verbose           (boolean, optional, default=true) true for a json object, false for the hex encoded data\n"
+            "\nResult (for verbose = true):\n"
+            "{\n"
+            "  \"hash\" : \"hash\",     (string) the block hash (same as provided)\n"
+            "  \"confirmations\" : n,   (numeric) The number of confirmations\n"
+            "  \"size\" : n,            (numeric) The block size\n"
+            "  \"height\" : n,          (numeric) The block height or index\n"
+            "  \"version\" : n,         (numeric) The block version\n"
+            "  \"merkleroot\" : \"xxxx\", (string) The merkle root\n"
+            "  \"tx\" : [               (array of string) The transaction ids\n"
+            "     \"transactionid\"     (string) The transaction id\n"
+            "     ,...\n"
+            "  ],\n"
+            "  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n"
+            "  \"nonce\" : n,           (numeric) The nonce\n"
+            "  \"bits\" : \"1d00ffff\", (string) The bits\n"
+            "  \"difficulty\" : x.xxx,  (numeric) The difficulty\n"
+            "  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n"
+            "  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n"
+            "}\n"
+            "\nResult (for verbose=false):\n"
+            "\"data\"             (string) A string that is serialized, hex-encoded data for block 'hash'.\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getblock", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"")
+            + HelpExampleRpc("getblock", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"")
         );
 
     std::string strHash = params[0].get_str();
@@ -174,7 +300,22 @@ Value gettxoutsetinfo(const Array& params, bool fHelp)
     if (fHelp || params.size() != 0)
         throw runtime_error(
             "gettxoutsetinfo\n"
-            "Returns statistics about the unspent transaction output set.");
+            "\nReturns statistics about the unspent transaction output set.\n"
+            "Note this call may take some time.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"height\":n,     (numeric) The current block height (index)\n"
+            "  \"bestblock\": \"hex\",   (string) the best block hash hex\n"
+            "  \"transactions\": n,      (numeric) The number of transactions\n"
+            "  \"txouts\": n,            (numeric) The number of output transactions\n"
+            "  \"bytes_serialized\": n,  (numeric) The serialized size\n"
+            "  \"hash_serialized\": \"hash\",   (string) The serialized hash\n"
+            "  \"total_amount\": x.xxx          (numeric) The total amount\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("gettxoutsetinfo", "")
+            + HelpExampleRpc("gettxoutsetinfo", "")
+        );
 
     Object ret;
 
@@ -195,8 +336,39 @@ Value gettxout(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 3)
         throw runtime_error(
-            "gettxout <txid> <n> [includemempool=true]\n"
-            "Returns details about an unspent transaction output.");
+            "gettxout \"txid\" n ( includemempool )\n"
+            "\nReturns details about an unspent transaction output.\n"
+            "\nArguments:\n"
+            "1. \"txid\"       (string, required) The transaction id\n"
+            "2. n              (numeric, required) vout value\n"
+            "3. includemempool  (boolean, optional) Whether to included the mem pool\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"bestblock\" : \"hash\",    (string) the block hash\n"
+            "  \"confirmations\" : n,       (numeric) The number of confirmations\n"
+            "  \"value\" : x.xxx,           (numeric) The transaction value in btc\n"
+            "  \"scriptPubKey\" : {         (json object)\n"
+            "     \"asm\" : \"code\",       (string) \n"
+            "     \"hex\" : \"hex\",        (string) \n"
+            "     \"reqSigs\" : n,          (numeric) Number of required signatures\n"
+            "     \"type\" : \"pubkeyhash\", (string) The type, eg pubkeyhash\n"
+            "     \"addresses\" : [          (array of string) array of bitcoin addresses\n"
+            "        \"bitcoinaddress\"     (string) bitcoin address\n"
+            "        ,...\n"
+            "     ]\n"
+            "  },\n"
+            "  \"version\" : n,            (numeric) The version\n"
+            "  \"coinbase\" : true|false   (boolean) Coinbase or not\n"
+            "}\n"
+
+            "\nExamples:\n"
+            "\nGet unspent transactions\n"
+            + HelpExampleCli("listunspent", "") +
+            "\nView the details\n"
+            + HelpExampleCli("gettxout", "\"txid\" 1") +
+            "\nAs a json rpc call\n"
+            + HelpExampleRpc("gettxout", "\"txid\", 1")
+        );
 
     Object ret;
 
@@ -221,11 +393,13 @@ Value gettxout(const Array& params, bool fHelp)
     if (n<0 || (unsigned int)n>=coins.vout.size() || coins.vout[n].IsNull())
         return Value::null;
 
-    ret.push_back(Pair("bestblock", pcoinsTip->GetBestBlock()->GetBlockHash().GetHex()));
+    std::map<uint256, CBlockIndex*>::iterator it = mapBlockIndex.find(pcoinsTip->GetBestBlock());
+    CBlockIndex *pindex = it->second;
+    ret.push_back(Pair("bestblock", pindex->GetBlockHash().GetHex()));
     if ((unsigned int)coins.nHeight == MEMPOOL_HEIGHT)
         ret.push_back(Pair("confirmations", 0));
     else
-        ret.push_back(Pair("confirmations", pcoinsTip->GetBestBlock()->nHeight - coins.nHeight + 1));
+        ret.push_back(Pair("confirmations", pindex->nHeight - coins.nHeight + 1));
     ret.push_back(Pair("value", ValueFromAmount(coins.vout[n].nValue)));
     Object o;
     ScriptPubKeyToJSON(coins.vout[n].scriptPubKey, o, true);
@@ -240,8 +414,17 @@ Value verifychain(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() > 2)
         throw runtime_error(
-            "verifychain [check level] [num blocks]\n"
-            "Verifies blockchain database.");
+            "verifychain ( checklevel numblocks )\n"
+            "\nVerifies blockchain database.\n"
+            "\nArguments:\n"
+            "1. checklevel   (numeric, optional, default=3) The level\n"
+            "2. numblocks    (numeric, optional, 288) The number of blocks\n"
+            "\nResult:\n"
+            "true|false       (boolean) Verified or not\n"
+            "\nExamples:\n"
+            + HelpExampleCli("verifychain", "")
+            + HelpExampleRpc("verifychain", "")
+        );
 
     int nCheckLevel = GetArg("-checklevel", 3);
     int nCheckDepth = GetArg("-checkblocks", 288);

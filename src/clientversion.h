@@ -10,16 +10,16 @@
 
 // These need to be macros, as version.cpp's and bitcoin-qt.rc's voodoo requires it
 #define CLIENT_VERSION_MAJOR       0
-#define CLIENT_VERSION_MINOR       0
-#define CLIENT_VERSION_REVISION    0
-#define CLIENT_VERSION_BUILD       4
+#define CLIENT_VERSION_MINOR       8
+#define CLIENT_VERSION_REVISION    99
+#define CLIENT_VERSION_BUILD       0
 
 // Set to true for release, false for prerelease or test build
-#define CLIENT_VERSION_IS_RELEASE  true
+#define CLIENT_VERSION_IS_RELEASE  false
 
 // Copyright year (2009-this)
 // Todo: update this when changing our copyright comments in the source
-#define COPYRIGHT_YEAR 2018
+#define COPYRIGHT_YEAR 2013
 
 #endif //HAVE_CONFIG_H
 

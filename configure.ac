@@ -6,7 +6,7 @@ define(_CLIENT_VERSION_REVISION, 0)
 define(_CLIENT_VERSION_BUILD, 5)
 define(_CLIENT_VERSION_IS_RELEASE, true)
 define(_COPYRIGHT_YEAR, 2018)
-AC_INIT([Bitcoin],[_CLIENT_VERSION_MAJOR._CLIENT_VERSION_MINOR._CLIENT_VERSION_REVISION],[info@bitcoin.org],[bitcoin])
+AC_INIT([Bitcoin Core],[_CLIENT_VERSION_MAJOR._CLIENT_VERSION_MINOR._CLIENT_VERSION_REVISION],[https://github.com/bitcoin/bitcoin/issues],[bitcoin])
 AC_CONFIG_SRCDIR([src/main.cpp])
 AC_CONFIG_HEADERS([src/config/bitcoin-config.h])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -73,16 +73,15 @@ AC_PATH_PROG(CCACHE,ccache)
 AC_PATH_PROG(XGETTEXT,xgettext)
 AC_PATH_PROG(HEXDUMP,hexdump)
 
-# This m4 will only be used if a system copy cannot be found. This is helpful
-# on systems where autotools are installed but the pkg-config macros are not in
-# a default location. It is currently used for building on OSX where autotools
-# are preinstalled but pkg-config comes from macports or homebrew. It should
-# probably be removed when building on <= 10.6 is no longer supported.
-m4_include([pkg.m4])
-
 dnl pkg-config check.
 PKG_PROG_PKG_CONFIG
 
+# Enable wallet
+AC_ARG_ENABLE([wallet],
+  [AS_HELP_STRING([--enable-wallet],
+  [enable wallet (default is yes)])],
+  [enable_wallet=$enableval],
+  [enable_wallet=yes])
 
 AC_ARG_WITH([miniupnpc],
   [AS_HELP_STRING([--with-miniupnpc],
@@ -132,6 +131,11 @@ AC_ARG_WITH([comparison-tool],
     AS_HELP_STRING([--with-comparison-tool],[path to java comparison tool (requires --enable-tests)]),
     [use_comparison_tool=$withval],
     [use_comparison_tool=no])
+
+AC_ARG_ENABLE([comparison-tool-reorg-tests],
+    AS_HELP_STRING([--enable-comparison-tool-reorg-tests],[enable expensive reorg tests in the comparison tool (default no)]),
+    [use_comparison_tool_reorg_tests=$enableval],
+    [use_comparison_tool_reorg_tests=no])
 
 AC_ARG_WITH([qrencode],
   [AS_HELP_STRING([--with-qrencode],
@@ -191,21 +195,6 @@ if test "x$enable_debug" = xyes; then
         CXXFLAGS="-g3 -O0 -DDEBUG"
     fi
 fi
-# AC_PROG_CXX
-# AC_PROG_CC
-# AC_PROG_CPP
-# AC_PROG_INSTALL
-# AC_PROG_OBJC
-# m4_ifdef([AC_PROG_OBJCXX],[AC_PROG_OBJCXX])
-# AC_PROG_MKDIR_P
-# AC_PROG_SED
-# AC_PATH_PROGS([MOC], [moc moc-qt4],, $qt_bin_path:$PATH)
-# AC_PATH_PROGS([UIC], [uic uic-qt4],, $qt_bin_path:$PATH)
-# AC_PATH_PROG([RCC], [rcc],, $qt_bin_path:$PATH)
-# AC_PATH_PROG([LRELEASE], [lrelease],, $qt_bin_path:$PATH)
-# AC_PATH_PROG([PROTOC], [protoc],, $protoc_bin_path:$PATH)
-# AC_PATH_PROG(CCACHE,ccache)
-# PKG_PROG_PKG_CONFIG
 
 ## TODO: Remove these hard-coded paths and flags. They are here for the sake of
 ##       compatibility with the legacy buildsystem.
@@ -250,6 +239,7 @@ case $host in
      AC_CHECK_LIB([mswsock],      [main],, AC_MSG_ERROR(lib missing))
      AC_CHECK_LIB([shlwapi],      [main],, AC_MSG_ERROR(lib missing))
      AC_CHECK_LIB([iphlpapi],      [main],, AC_MSG_ERROR(lib missing))
+     AC_CHECK_LIB([crypt32],      [main],, AC_MSG_ERROR(lib missing))
 
      # -static is interpreted by libtool, where it has a different meaning.
      # In libtool-speak, it's -all-static.
@@ -359,6 +349,14 @@ if test x$use_comparison_tool != xno; then
   AC_SUBST(JAVA_COMPARISON_TOOL, $use_comparison_tool)
 fi
 
+if test x$use_comparison_tool_reorg_tests != xno; then
+  if test x$use_comparison_tool == x; then
+    AC_MSG_ERROR("comparison tool reorg tests but comparison tool was not specified")
+  fi
+  AC_SUBST(COMPARISON_TOOL_REORG_TESTS, 1)
+else
+  AC_SUBST(COMPARISON_TOOL_REORG_TESTS, 0)
+fi
 
 if test x$use_lcov = xyes; then
   if test x$LCOV = x; then
@@ -469,15 +467,22 @@ if test x$TARGET_OS = xdarwin; then
   AX_CHECK_LINK_FLAG([[-Wl,-dead_strip]], [LDFLAGS="$LDFLAGS -Wl,-dead_strip"])
 fi
 
-AC_CHECK_HEADERS([endian.h stdio.h stdlib.h unistd.h strings.h sys/types.h sys/stat.h sys/select.h sys/prctl.h])
+AC_CHECK_HEADERS([endian.h sys/endian.h byteswap.h stdio.h stdlib.h unistd.h strings.h sys/types.h sys/stat.h sys/select.h sys/prctl.h])
 AC_SEARCH_LIBS([getaddrinfo_a], [anl], [AC_DEFINE(HAVE_GETADDRINFO_A, 1, [Define this symbol if you have getaddrinfo_a])])
 AC_SEARCH_LIBS([inet_pton], [nsl resolv], [AC_DEFINE(HAVE_INET_PTON, 1, [Define this symbol if you have inet_pton])])
 
 AC_CHECK_DECLS([strnlen])
 
-AC_CHECK_DECLS([le32toh, le64toh, htole32, htole64, be32toh, be64toh, htobe32, htobe64],,,
+AC_CHECK_DECLS([le16toh, le32toh, le64toh, htole16, htole32, htole64, be16toh, be32toh, be64toh, htobe16, htobe32, htobe64],,,
 		[#if HAVE_ENDIAN_H
                  #include <endian.h>
+                 #elif HAVE_SYS_ENDIAN_H
+                 #include <sys/endian.h>
+                 #endif])
+
+AC_CHECK_DECLS([bswap_16, bswap_32, bswap_64],,,
+		[#if HAVE_BYTESWAP_H
+                 #include <byteswap.h>
                  #endif])
 
 dnl Check for MSG_NOSIGNAL
@@ -502,7 +507,7 @@ AC_LINK_IFELSE([AC_LANG_SOURCE([
   [
     AC_MSG_RESULT(no)
     if test x$use_reduce_exports = xyes; then
-      AC_MSG_ERROR([Cannot find a working visibility attribute. Use --disable-reduced-exports.])
+      AC_MSG_ERROR([Cannot find a working visibility attribute. Use --disable-reduce-exports.])
     fi
       AC_MSG_WARN([Cannot find a working visibility attribute. Disabling reduced exports.])
       use_reduce_exports=no
@@ -650,17 +655,15 @@ fi
 
 if test x$use_boost = xyes; then
 
-BOOST_LIBS="$BOOST_LDFLAGS $BOOST_SYSTEM_LIB $BOOST_FILESYSTEM_LIB $BOOST_PROGRAM_OPTIONS_LIB $BOOST_THREAD_LIB"
+BOOST_LIBS="$BOOST_LDFLAGS $BOOST_SYSTEM_LIB $BOOST_FILESYSTEM_LIB $BOOST_PROGRAM_OPTIONS_LIB $BOOST_THREAD_LIB $BOOST_CHRONO_LIB"
 
 dnl Boost >= 1.50 uses sleep_for rather than the now-deprecated sleep, however
 dnl it was broken from 1.50 to 1.52 when backed by nanosleep. Use sleep_for if
 dnl a working version is available, else fall back to sleep. sleep was removed
 dnl after 1.56.
 dnl If neither is available, abort.
-dnl If sleep_for is used, boost_chrono becomes a requirement.
-if test x$ax_cv_boost_chrono = xyes; then
 TEMP_LIBS="$LIBS"
-LIBS="$BOOST_LIBS $BOOST_CHRONO_LIB $LIBS"
+LIBS="$BOOST_LIBS $LIBS"
 TEMP_CPPFLAGS="$CPPFLAGS"
 CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[
@@ -673,12 +676,11 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
    choke me
   #endif
   ]])],
-  [boost_sleep=yes; BOOST_LIBS="$BOOST_LIBS $BOOST_CHRONO_LIB";
+  [boost_sleep=yes;
      AC_DEFINE(HAVE_WORKING_BOOST_SLEEP_FOR, 1, [Define this symbol if boost sleep_for works])],
   [boost_sleep=no])
 LIBS="$TEMP_LIBS"
 CPPFLAGS="$TEMP_CPPFLAGS"
-fi
 
 if test x$boost_sleep != xyes; then
 TEMP_LIBS="$LIBS"
@@ -814,6 +816,13 @@ else
   fi
 fi
 
+CFLAGS_TEMP="$CFLAGS"
+LIBS_TEMP="$LIBS"
+CFLAGS="$CFLAGS $SSL_CFLAGS $CRYPTO_CFLAGS"
+LIBS="$LIBS $SSL_LIBS $CRYPTO_LIBS"
+AC_CHECK_HEADER([openssl/ec.h],, AC_MSG_ERROR(OpenSSL ec header missing),)
+CFLAGS="$CFLAGS_TEMP"
+LIBS="$LIBS_TEMP"
 
 AC_MSG_CHECKING([whether to build bitcoind])
 AM_CONDITIONAL([BUILD_BITCOIND], [test x$build_bitcoind = xyes])
@@ -822,12 +831,28 @@ AC_MSG_RESULT($build_bitcoind)
 if test x$use_ipv6 = xyes; then
   dnl Check for ipv6 build requirements
   AC_MSG_CHECKING(for IPV6 build support)
-  AC_DEFINE(HAVE_IPV6, 1, [Define this symbol if you have ipv6 build support])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+    #if defined(_WINDOWS)
+    #include <winsock2.h>
+    #else
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #endif
+  ]],[[
+    #if !defined(_WINDOWS)
+    struct in6_addr ipv6Addr;
+    struct sockaddr_in6 addr;
+    #endif
+    int temp = socket(AF_INET6, SOCK_STREAM, 0);
+  ]])],
+  [AC_MSG_RESULT(yes); have_ipv6=yes; AC_DEFINE(HAVE_IPV6, 1, [Define this symbol if you have ipv6 build support])],
+  [AC_MSG_RESULT(no)]; have_ipv6=no)
 fi
 AC_LANG_POP
 
 if test "x$use_ccache" != "xno"; then
-  AC_MSG_CHECKING(if ccache should be used)
+  AC_MSG_CHECKING(if ccache should be enabled)
   if test x$CCACHE = x; then
     if test "x$use_ccache" = "xyes"; then
       AC_MSG_ERROR([ccache not found.]);
@@ -842,6 +867,19 @@ if test "x$use_ccache" != "xno"; then
   AC_MSG_RESULT($use_ccache)
 fi
 
+dnl enable wallet
+AC_MSG_CHECKING([if wallet should be enabled])
+if test x$enable_wallet != xno; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE_UNQUOTED([ENABLE_WALLET],[1],[Define to 1 to enable wallet functions])
+
+else
+  AC_MSG_RESULT(no)
+
+  if test "x$use_qt" != "xno"; then
+    AC_MSG_ERROR([Cannot currently build Qt GUI with wallet disabled. Use --without-qt.])
+  fi
+fi
 if test "x$use_ccache" = "xyes"; then
     AX_CHECK_PREPROC_FLAG([-Qunused-arguments],[CPPFLAGS="-Qunused-arguments $CPPFLAGS"])
 fi
@@ -976,8 +1014,12 @@ if test x$use_qt = xyes; then
   fi
 fi
 
+AC_MSG_CHECKING([whether to build test_bitcoin])
 if test x$use_tests = xyes; then
+  AC_MSG_RESULT([yes])
   BUILD_TEST="test"
+else
+  AC_MSG_RESULT([no])
 fi
 
 
@@ -994,7 +1036,7 @@ AC_ARG_WITH([cuda-path],
 AC_SUBST([CUDA_PATH])
 AC_SUBST([CUDA_CFLAGS], ["-I${CUDA_PATH}/include"])
 AC_SUBST([CUDA_LDFLAGS], ["-L${CUDA_PATH}/lib64 -lcudadevrt -lcudart"])
-AC_SUBST([CUDA_ARCH], ["-arch=sm_60 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61 -gencode=arch=compute_62,code=sm_62 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_70,code=compute_70"])
+AC_SUBST([CUDA_ARCH], ["-arch=sm_52 -gencode=arch=compute_52,code=sm_52 -gencode=arch=compute_60,code=sm_60 -gencode=arch=compute_61,code=sm_61 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_86,code=sm_86 -gencode=arch=compute_86,code=compute_86"])
 
 cuda_k=20
 cuda_unroll=8
@@ -1011,11 +1053,16 @@ else
 fi
 
 AM_CONDITIONAL([TARGET_DARWIN], [test x$TARGET_OS = xdarwin])
+AM_CONDITIONAL([BUILD_DARWIN], [test x$BUILD_OS = xdarwin])
 AM_CONDITIONAL([TARGET_WINDOWS], [test x$TARGET_OS = xwindows])
+AM_CONDITIONAL([ENABLE_WALLET],[test x$enable_wallet == xyes])
+AM_CONDITIONAL([ENABLE_TESTS],[test x$use_tests = xyes])
 AM_CONDITIONAL([USE_QRCODE], [test x$use_qr = xyes])
 AM_CONDITIONAL([USE_LCOV],[test x$use_lcov = xyes])
 AM_CONDITIONAL([USE_GPU],[test x$use_gpu = xyes])
 AM_CONDITIONAL([USE_COMPARISON_TOOL],[test x$use_comparison_tool != xno])
+AM_CONDITIONAL([USE_COMPARISON_TOOL_REORG_TESTS],[test x$use_comparison_tool_reorg_test != xno])
+AM_CONDITIONAL([GLIBC_BACK_COMPAT],[test x$use_glibc_compat = xyes])
 
 AC_DEFINE(CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MAJOR, [Major version])
 AC_DEFINE(CLIENT_VERSION_MINOR, _CLIENT_VERSION_MINOR, [Minor version])

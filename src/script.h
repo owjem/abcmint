@@ -1,22 +1,27 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #ifndef H_BITCOIN_SCRIPT
 #define H_BITCOIN_SCRIPT
 
+#include "bignum.h"
+#include "key.h"
+#include "util.h"
+
+#include <stdexcept>
+#include <stdint.h>
 #include <string>
 #include <vector>
 
 #include <boost/foreach.hpp>
 #include <boost/variant.hpp>
 
-#include "keystore.h"
-#include "bignum.h"
-#include "util.h"
 #include "diskpubkeypos.h"
 
 class CCoins;
+class CKeyStore;
 class CTransaction;
 
 static const unsigned int MAX_SCRIPT_ELEMENT_SIZE = 512*1024 ; // bytes
@@ -34,9 +39,9 @@ enum
 enum
 {
     SCRIPT_VERIFY_NONE      = 0,
-    SCRIPT_VERIFY_P2SH      = (1U << 0),
-    SCRIPT_VERIFY_STRICTENC = (1U << 1),
-    SCRIPT_VERIFY_NOCACHE   = (1U << 2),
+    SCRIPT_VERIFY_P2SH      = (1U << 0), // evaluate P2SH (BIP16) subscripts
+    SCRIPT_VERIFY_STRICTENC = (1U << 1), // enforce strict conformance to DER and SEC2 for signatures and pubkeys
+    SCRIPT_VERIFY_NOCACHE   = (1U << 2), // do not store results in signature cache (but do query it)
     SCRIPT_VERIFY_DERSIG    = (1U << 3), // enforce signature encodings as defined by BIP 66 (which is a softfork, while STRICTENC is not)
 };
 
@@ -48,6 +53,7 @@ enum txnouttype
     TX_PUBKEYHASH,
     TX_SCRIPTHASH,
     TX_MULTISIG,
+    TX_NULL_DATA,
 };
 
 class CNoDestination {
@@ -204,6 +210,7 @@ enum opcodetype
 
 
     // template matching params
+    OP_SMALLDATA = 0xf9,
     OP_SMALLINTEGER = 0xfa,
     OP_PUBKEYS = 0xfb,
     OP_PUBKEYHASH = 0xfd,
@@ -247,7 +254,7 @@ inline std::string StackString(const std::vector<std::vector<unsigned char> >& v
 class CScript : public std::vector<unsigned char>
 {
 protected:
-    CScript& push_int64(int64 n)
+    CScript& push_int64(int64_t n)
     {
         if (n == -1 || (n >= 1 && n <= 16))
         {
@@ -261,7 +268,7 @@ protected:
         return *this;
     }
 
-    CScript& push_uint64(uint64 n)
+    CScript& push_uint64(uint64_t n)
     {
         if (n >= 1 && n <= 16)
         {
@@ -298,16 +305,16 @@ public:
 
 
     //explicit CScript(char b) is not portable.  Use 'signed char' or 'unsigned char'.
-    explicit CScript(signed char b)    { operator<<(b); }
-    explicit CScript(short b)          { operator<<(b); }
-    explicit CScript(int b)            { operator<<(b); }
-    explicit CScript(long b)           { operator<<(b); }
-    explicit CScript(int64 b)          { operator<<(b); }
-    explicit CScript(unsigned char b)  { operator<<(b); }
-    explicit CScript(unsigned int b)   { operator<<(b); }
-    explicit CScript(unsigned short b) { operator<<(b); }
-    explicit CScript(unsigned long b)  { operator<<(b); }
-    explicit CScript(uint64 b)         { operator<<(b); }
+    explicit CScript(signed char b)        { operator<<(b); }
+    explicit CScript(short b)              { operator<<(b); }
+    explicit CScript(int b)                { operator<<(b); }
+    explicit CScript(long b)               { operator<<(b); }
+    explicit CScript(long long b)          { operator<<(b); }
+    explicit CScript(unsigned char b)      { operator<<(b); }
+    explicit CScript(unsigned int b)       { operator<<(b); }
+    explicit CScript(unsigned short b)     { operator<<(b); }
+    explicit CScript(unsigned long b)      { operator<<(b); }
+    explicit CScript(unsigned long long b) { operator<<(b); }
 
     explicit CScript(opcodetype b)     { operator<<(b); }
     explicit CScript(const uint256& b) { operator<<(b); }
@@ -316,16 +323,16 @@ public:
 
 
     //CScript& operator<<(char b) is not portable.  Use 'signed char' or 'unsigned char'.
-    CScript& operator<<(signed char b)    { return push_int64(b); }
-    CScript& operator<<(short b)          { return push_int64(b); }
-    CScript& operator<<(int b)            { return push_int64(b); }
-    CScript& operator<<(long b)           { return push_int64(b); }
-    CScript& operator<<(int64 b)          { return push_int64(b); }
-    CScript& operator<<(unsigned char b)  { return push_uint64(b); }
-    CScript& operator<<(unsigned int b)   { return push_uint64(b); }
-    CScript& operator<<(unsigned short b) { return push_uint64(b); }
-    CScript& operator<<(unsigned long b)  { return push_uint64(b); }
-    CScript& operator<<(uint64 b)         { return push_uint64(b); }
+    CScript& operator<<(signed char b)        { return push_int64(b); }
+    CScript& operator<<(short b)              { return push_int64(b); }
+    CScript& operator<<(int b)                { return push_int64(b); }
+    CScript& operator<<(long b)               { return push_int64(b); }
+    CScript& operator<<(long long b)          { return push_int64(b); }
+    CScript& operator<<(unsigned char b)      { return push_uint64(b); }
+    CScript& operator<<(unsigned int b)       { return push_uint64(b); }
+    CScript& operator<<(unsigned short b)     { return push_uint64(b); }
+    CScript& operator<<(unsigned long b)      { return push_uint64(b); }
+    CScript& operator<<(unsigned long long b) { return push_uint64(b); }
 
     CScript& operator<<(opcodetype opcode)
     {
@@ -335,6 +342,12 @@ public:
         return *this;
     }
 
+    CScript& operator<<(const uint160& b)
+    {
+        insert(end(), sizeof(b));
+        insert(end(), (unsigned char*)&b, (unsigned char*)&b + sizeof(b));
+        return *this;
+    }
 
     CScript& operator<<(const uint256& b)
     {
@@ -345,8 +358,12 @@ public:
 
     CScript& operator<<(const CPubKey& key)
     {
-        std::vector<unsigned char> vchKey = key.Raw();
-        return (*this) << vchKey;
+        assert(key.size() < OP_PUSHDATA1);
+        insert(end(), (unsigned char)key.size());
+        insert(end(), key.begin(), key.end());
+        return *this;
+        // std::vector<unsigned char> vchKey = key;
+        // return (*this) << vchKey;
     }
 
     CScript& operator<<(const CBigNum& b)
@@ -627,7 +644,7 @@ protected:
     // form).
     bool IsToKeyID(CKeyID &hash) const;
     bool IsToScriptID(CScriptID &hash) const;
-    bool IsToPubKey(std::vector<unsigned char> &pubkey) const;
+    bool IsToPubKey(CPubKey &pubkey) const;
 
     bool Compress(std::vector<unsigned char> &out) const;
     unsigned int GetSpecialSize(unsigned int nSize) const;
@@ -674,11 +691,12 @@ public:
 bool IsCanonicalPubKey(const std::vector<unsigned char> &vchPubKey, unsigned int flags);
 bool IsCanonicalSignature(const std::vector<unsigned char> &vchSig, unsigned int flags);
 
+bool SplitScript(std::map<std::vector<unsigned char>, std::vector<unsigned char> >& stack, const CScript& script, unsigned int nIn);
 //TODO:: abc pubkey
-bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck = false);
+bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType,const std::map<std::vector<unsigned char>, std::vector<unsigned char>>& mapPubKey);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);
 int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned char> >& vSolutions);
-bool IsStandard(const CScript& scriptPubKey);
+bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
 bool IsMine(const CKeyStore& keystore, const CScript& scriptPubKey);
 bool IsMine(const CKeyStore& keystore, const CTxDestination &dest);
 void ExtractAffectedKeys(const CKeyStore &keystore, const CScript& scriptPubKey, std::vector<CKeyID> &vKeys);
@@ -687,7 +705,7 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
 bool SignSignature(const CKeyStore& keystore, const CScript& fromPubKey, CTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
 bool SignSignature(const CKeyStore& keystore, const CTransaction& txFrom, CTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
 //TODO:: abc pubkey
-bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType, bool isSignCheck = false);
+bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType,const std::map<std::vector<unsigned char>, std::vector<unsigned char>>& mapPubKey);
 
 // Given two sets of signatures for scriptPubKey, possibly with OP_0 placeholders,
 // combine them intelligently and return the result.

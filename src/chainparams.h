@@ -8,16 +8,10 @@
 
 #include "bignum.h"
 #include "uint256.h"
-#include "util.h"
 
 #include <vector>
 
 using namespace std;
-
-struct SeedSpec6 {
-    uint8_t addr[16];
-    uint16_t port;
-};
 
 #define MESSAGE_START_SIZE 4
 typedef unsigned char MessageStartChars[MESSAGE_START_SIZE];
@@ -74,7 +68,7 @@ public:
     virtual const vector<CAddress>& FixedSeeds() const = 0;
     int RPCPort() const { return nRPCPort; }
 protected:
-    CChainParams() {};
+    CChainParams() {}
 
     uint256 hashGenesisBlock;
     MessageStartChars pchMessageStart;

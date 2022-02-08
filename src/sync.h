@@ -1,15 +1,17 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
+// Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #ifndef BITCOIN_SYNC_H
 #define BITCOIN_SYNC_H
 
+#include "threadsafety.h"
+
+#include <boost/thread/condition_variable.hpp>
+#include <boost/thread/locks.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
-#include <boost/thread/locks.hpp>
-#include <boost/thread/condition_variable.hpp>
-#include "threadsafety.h"
 
 
 ////////////////////////////////////////////////
@@ -85,9 +87,12 @@ typedef AnnotatedMixin<boost::mutex> CWaitableCriticalSection;
 #ifdef DEBUG_LOCKORDER
 void EnterCritical(const char* pszName, const char* pszFile, int nLine, void* cs, bool fTry = false);
 void LeaveCritical();
+std::string LocksHeld();
+void AssertLockHeld(std::string strName);
 #else
 void static inline EnterCritical(const char* pszName, const char* pszFile, int nLine, void* cs, bool fTry = false) {}
 void static inline LeaveCritical() {}
+void static inline AssertLockHeld(std::string) {}
 #endif
 
 #ifdef DEBUG_LOCKCONTENTION

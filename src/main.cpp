@@ -1653,7 +1653,7 @@ bool CheckInputs(CTransaction& tx, CValidationState &state, CCoinsViewCache &inp
             map<vector<unsigned char>, vector<unsigned char> > mapPubKey;
             for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 const CScript &scriptSig = tx.vin[i].scriptSig;
-                SplitScript(mapPubKey, scriptSig,i);
+                SplitScript(mapPubKey, scriptSig, i);
             }
             for (std::map<std::vector<unsigned char>, vector<unsigned char>>::iterator iter = mapPubKey.begin(); iter!=mapPubKey.end(); iter++) {
                 // if(iter->second.size()>20){

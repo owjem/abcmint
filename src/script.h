@@ -24,7 +24,7 @@ class CCoins;
 class CKeyStore;
 class CTransaction;
 
-static const unsigned int MAX_SCRIPT_ELEMENT_SIZE = 512*1024 ; // bytes
+static const unsigned int MAX_SCRIPT_ELEMENT_SIZE = 520; // bytes
 
 /** Signature hash types/flags */
 enum
@@ -358,12 +358,11 @@ public:
 
     CScript& operator<<(const CPubKey& key)
     {
-        assert(key.size() < OP_PUSHDATA1);
+        // assert(key.size() < OP_PUSHDATA1);
+        assert(key.size() == RAINBOW_PUBLIC_KEY_SIZE);
         insert(end(), (unsigned char)key.size());
         insert(end(), key.begin(), key.end());
         return *this;
-        // std::vector<unsigned char> vchKey = key;
-        // return (*this) << vchKey;
     }
 
     CScript& operator<<(const CBigNum& b)
@@ -692,6 +691,7 @@ bool IsCanonicalPubKey(const std::vector<unsigned char> &vchPubKey, unsigned int
 bool IsCanonicalSignature(const std::vector<unsigned char> &vchSig, unsigned int flags);
 
 bool SplitScript(std::map<std::vector<unsigned char>, std::vector<unsigned char> >& stack, const CScript& script, unsigned int nIn);
+bool findPubKey(std::vector<unsigned char>& vch, const std::map<std::vector<unsigned char>, std::vector<unsigned char>>& mapPubKey);
 //TODO:: abc pubkey
 bool EvalScript(std::vector<std::vector<unsigned char> >& stack, const CScript& script, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType,const std::map<std::vector<unsigned char>, std::vector<unsigned char>>& mapPubKey);
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);

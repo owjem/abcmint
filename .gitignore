@@ -5,6 +5,10 @@ src/bitcoin
 src/bitcoind
 src/bitcoin-cli
 src/bitcoin-tx
+src/abcmint
+src/abcmintd
+src/abcmint-cli
+src/abcmint-tx
 src/test/test_bitcoin
 src/qt/test/test_bitcoin-qt
 
@@ -75,6 +79,8 @@ src/qt/test/moc*.cpp
 Makefile
 bitcoin-qt
 Bitcoin-Qt.app
+abcmint-qt
+Abcmint-Qt.app
 
 # Unit-tests
 Makefile.test

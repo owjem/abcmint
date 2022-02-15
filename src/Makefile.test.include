@@ -16,6 +16,7 @@ JSON_TEST_FILES= \
   test/data/sig_noncanonical.json \
   test/data/base58_encode_decode.json \
   test/data/base58_keys_invalid.json \
+  test/data/script_invalid_long.json \
   test/data/script_invalid.json \
   test/data/tx_invalid.json \
   test/data/tx_valid.json \
@@ -26,10 +27,27 @@ RAW_TEST_FILES = test/data/alertTests.raw
 GENERATED_TEST_FILES = $(JSON_TEST_FILES:.json=.json.h) $(RAW_TEST_FILES:.raw=.raw.h)
 
 BITCOIN_TESTS =\
+  test/allocator_tests.cpp \
+  test/base32_tests.cpp \
   test/base58_tests.cpp \
+  test/base64_tests.cpp \
+  test/bignum_tests.cpp \
+  test/checkblock_tests.cpp \
+  test/Checkpoints_tests.cpp \
+  test/compress_tests.cpp \
+  test/getarg_tests.cpp \
+  test/hash_tests.cpp \
+  test/hmac_tests.cpp \
+  test/mruset_tests.cpp \
+  test/netbase_tests.cpp \
+  test/pmt_tests.cpp \
   test/script_tests.cpp \
+  test/serialize_tests.cpp \
   test/test_bitcoin.cpp \
-  test/util_tests.cpp
+  test/uint160_tests.cpp \
+  test/uint256_tests.cpp \
+  test/util_tests.cpp \
+  test/wallet_tests.cpp
 
 
 test_test_bitcoin_SOURCES = $(BITCOIN_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
@@ -60,8 +78,8 @@ bitcoin_test_check: $(TEST_BINARY) FORCE
 bitcoin_test_clean : FORCE
 	rm -f $(CLEAN_BITCOIN_TEST) $(test_test_bitcoin_OBJECTS) $(TEST_BINARY)
 
-check-local:
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C secp256k1 check
+# check-local:
+# 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C secp256k1 check
 
 %.json.h: %.json
 	@$(MKDIR_P) $(@D)

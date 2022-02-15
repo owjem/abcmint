@@ -607,9 +607,13 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
     if (!reservekey.GetReservedKey(pubkey))
         return NULL;
 
-    // CScript scriptPubKey = CScript() << pubkey << OP_CHECKSIG;
+    CScript scriptPubKey2 = CScript() << pubkey << OP_CHECKSIG;
     CScript scriptPubKey ;
     scriptPubKey.SetDestination(pubkey.GetID());
+
+    LogPrintf(" ===> [%s] So[%s...%s] \n", __func__, HexStr(scriptPubKey.begin(),scriptPubKey.begin()+20).c_str(), HexStr(scriptPubKey.end()-20,scriptPubKey.end()).c_str());
+    LogPrintf(" ===> [%s] So[%s...%s] \n", __func__, HexStr(scriptPubKey2.begin(),scriptPubKey2.begin()+20).c_str(), HexStr(scriptPubKey2.end()-20,scriptPubKey2.end()).c_str());
+
     return CreateNewBlock(scriptPubKey);
 }
 
@@ -685,6 +689,14 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
         if (!pblocktemplate.get())
             return;
         CBlock *pblock = &pblocktemplate->block;
+
+        if(1){
+            pblock->print();
+            MilliSleep(1000);
+            continue;
+        }
+
+
         IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 
         LogPrintf("[%s] Running BitcoinMiner with %" PRIszu " transactions in block (%u bytes)\n", threadname, pblock->vtx.size(),
@@ -810,4 +822,3 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet, int nThreads)
 }
 
 #endif
-

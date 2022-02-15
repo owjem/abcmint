@@ -26,7 +26,7 @@ bool CMemPos::GetPubKeyPos(const CKeyID& keyID, CDiskPubKeyPos& posOut) const
         if (mi != mapPubKeyPos.end()) {
             const CDiskPubKeyPos* pos = &(mi->second);
             posOut.SetHeight(pos->GetHeight());
-            posOut.SetPubKeyOff(pos->GetPubKeyOffset());
+            posOut.SetPubKeyOffset(pos->GetPubKeyOffset());
             return true;
         }
     }

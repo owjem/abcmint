@@ -1,4 +1,3 @@
-#include "uint256.h"
 #include "util.h"
 
 #include "sync.h"
@@ -10,19 +9,7 @@
 
 using namespace std;
 
-
 BOOST_AUTO_TEST_SUITE(util_tests)
-
-BOOST_AUTO_TEST_CASE(util_random)
-{
-    uint256 hash;
-	for (size_t i = 0; i < 33; i++)
-	{
-		hash = GetRandHash(i);
-
-        printf("[%02zu] %s \n",i,hash.GetHex().c_str());
-	}
-}
 
 BOOST_AUTO_TEST_CASE(util_criticalsection)
 {

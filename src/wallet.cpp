@@ -1644,6 +1644,8 @@ void CWallet::ReserveKeyFromKeyPool(int64_t& nIndex, CKeyPool& keypool)
         if (!HaveKey(keypool.vchPubKey.GetID()))
             throw runtime_error("ReserveKeyFromKeyPool() : unknown key in key pool");
         assert(keypool.vchPubKey.IsValid());
+        string address = CBitcoinAddress(keypool.vchPubKey.GetID()).ToString();
+        LogPrintf(" ===> keypool.PubKey [%s] \n", address.c_str());
         LogPrintf("keypool reserve %"PRId64"\n", nIndex);
     }
 }

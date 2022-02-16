@@ -539,7 +539,7 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
     ++nExtraNonce;
     unsigned int nHeight = pindexPrev->nHeight+1; // Height first in coinbase required for block.version=2
     // pblock->vtx[0].vin[0].scriptSig = (CScript() << nHeight << CBigNum(nExtraNonce)) + COINBASE_FLAGS;
-    pblock->vtx[0].vin[0].scriptSig = (CScript() << nHeight << CBigNum(nExtraNonce));
+    pblock->vtx[0].vin[0].scriptSig = (CScript() << nHeight << CScriptNum(nExtraNonce));
     assert(pblock->vtx[0].vin[0].scriptSig.size() <= 200 * 1024);
 
     pblock->hashMerkleRoot = pblock->BuildMerkleTree();
@@ -698,7 +698,7 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
 
         IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 
-        LogPrintf("[%s] Running BitcoinMiner with %" PRIszu " transactions in block (%u bytes)\n", threadname, pblock->vtx.size(),
+        LogPrintf("[%s] Running BitcoinMiner with %u transactions in block (%u bytes)\n", threadname, pblock->vtx.size(),
                ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
 
         //

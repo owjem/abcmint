@@ -62,8 +62,7 @@ BITCOIN_CORE_H = \
   addrman.h \
   alert.h \
   allocators.h \
-  base58.h \
-  bignum.h \
+  base58.h bignum.h \
   bloom.h \
   chainparams.h \
   checkpoints.h \
@@ -83,7 +82,6 @@ BITCOIN_CORE_H = \
   limitedmap.h \
   main.h \
   miner.h \
-  miner/common.h \
   mruset.h \
   netbase.h \
   net.h \
@@ -105,6 +103,7 @@ BITCOIN_CORE_H = \
   version.h \
   walletdb.h \
   wallet.h \
+  miner/common.h \
   idxlut.h \
   diskpubkeypos.h
 
@@ -164,9 +163,7 @@ libbitcoin_server_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS)
 libbitcoin_server_a_SOURCES = \
   addrman.cpp \
   alert.cpp \
-  rpcserver.cpp \
   bloom.cpp \
-  chainparams.cpp \
   checkpoints.cpp \
   coins.cpp \
   init.cpp \
@@ -181,6 +178,7 @@ libbitcoin_server_a_SOURCES = \
   rpcmisc.cpp \
   rpcnet.cpp \
   rpcrawtransaction.cpp \
+  rpcserver.cpp \
   txdb.cpp \
   txmempool.cpp \
   $(JSON_H) \
@@ -199,10 +197,11 @@ libbitcoin_wallet_a_SOURCES = \
 # libbitcoin_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 libbitcoin_common_a_CPPFLAGS = $(BITCOIN_INCLUDES)
 libbitcoin_common_a_SOURCES = \
-  miner/common.cpp \
+  base58.cpp \
   allocators.cpp \
   chainparams.cpp \
   core.cpp \
+  miner/common.cpp \
   diskpubkeypos.cpp \
   hash.cpp \
   key.cpp \

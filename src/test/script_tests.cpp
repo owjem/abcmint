@@ -1,4 +1,3 @@
-#include "boost/test/unit_test_log.hpp"
 #include "script.h"
 
 #include "data/script_invalid.json.h"

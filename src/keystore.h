@@ -10,7 +10,6 @@
 #include "sync.h"
 
 #include <boost/signals2/signal.hpp>
-// #include "diskpubkeypos.h"
 
 class CScript;
 
@@ -37,13 +36,10 @@ public:
     virtual bool AddCScript(const CScript& redeemScript) =0;
     virtual bool HaveCScript(const CScriptID &hash) const =0;
     virtual bool GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const =0;
-
-    // virtual bool GetPubKeyPos(const CKeyID &address, CDiskPubKeyPos& posOut) const =0;
 };
 
 typedef std::map<CKeyID, CKey> KeyMap;
 typedef std::map<CScriptID, CScript > ScriptMap;
-// typedef std::map<CKeyID, CDiskPubKeyPos> PubKeyPosMap;
 
 /** Basic key store, that keeps keys in an address->secret map */
 class CBasicKeyStore : public CKeyStore
@@ -51,7 +47,6 @@ class CBasicKeyStore : public CKeyStore
 protected:
     KeyMap mapKeys;
     ScriptMap mapScripts;
-    // PubKeyPosMap mapPubKeyPos;
 
 public:
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey);
@@ -92,31 +87,6 @@ public:
         }
         return false;
     }
-
-    // bool AddPubKeyPos2Map(const CKeyID &keyID, const CDiskPubKeyPos& pos)
-    // {
-    // 	{
-    //         LOCK(cs_KeyStore);
-    //         mapPubKeyPos[keyID] = pos;
-    // 	}
-    //     return true;
-    // }
-
-    // bool GetPubKeyPos(const CKeyID &keyID, CDiskPubKeyPos& posOut) const
-    // {
-    //     {
-    //         LOCK(cs_KeyStore);
-    //         PubKeyPosMap::const_iterator mi = mapPubKeyPos.find(keyID);
-    //         if (mi != mapPubKeyPos.end()) {
-    //             const CDiskPubKeyPos* pos = &(mi->second);
-    //             posOut.nHeight = pos->nHeight;
-    //             posOut.nPubKeyOffset = pos->nPubKeyOffset;
-    //             return true;
-    //         }
-    //     }
-    //     return false;
-    // }
-
     virtual bool AddCScript(const CScript& redeemScript);
     virtual bool HaveCScript(const CScriptID &hash) const;
     virtual bool GetCScript(const CScriptID &hash, CScript& redeemScriptOut) const;

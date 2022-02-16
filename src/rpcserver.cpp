@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2013 The Bitcoin developers
+// Copyright (c) 2009-2014 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -8,8 +8,8 @@
 #include "base58.h"
 #include "init.h"
 #include "main.h"
-#include "util.h"
 #include "ui_interface.h"
+#include "util.h"
 #ifdef ENABLE_WALLET
 #include "wallet.h"
 #endif
@@ -38,6 +38,7 @@ static asio::io_service* rpc_io_service = NULL;
 static map<string, boost::shared_ptr<deadline_timer> > deadlineTimers;
 static ssl::context* rpc_ssl_context = NULL;
 static boost::thread_group* rpc_worker_group = NULL;
+static boost::asio::io_service::work *rpc_dummy_work = NULL;
 
 void RPCTypeCheck(const Array& params,
                   const list<Value_type>& typesExpected,
@@ -68,12 +69,12 @@ void RPCTypeCheck(const Object& o,
     {
         const Value& v = find_value(o, t.first);
         if (!fAllowNull && v.type() == null_type)
-            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing %s", t.first.c_str()));
+            throw JSONRPCError(RPC_TYPE_ERROR, strprintf("Missing %s", t.first));
 
         if (!((v.type() == t.second) || (fAllowNull && (v.type() == null_type))))
         {
             string err = strprintf("Expected type %s for %s, got %s",
-                                   Value_type_name[t.second], t.first.c_str(), Value_type_name[v.type()]);
+                                   Value_type_name[t.second], t.first, Value_type_name[v.type()]);
             throw JSONRPCError(RPC_TYPE_ERROR, err);
         }
     }
@@ -175,7 +176,7 @@ string CRPCTable::help(string strCommand) const
         }
     }
     if (strRet == "")
-        strRet = strprintf("help: unknown command: %s\n", strCommand.c_str());
+        strRet = strprintf("help: unknown command: %s\n", strCommand);
     strRet = strRet.substr(0,strRet.size()-1);
     return strRet;
 }
@@ -237,7 +238,6 @@ static const CRPCCommand vRPCCommands[] =
     { "getrawmempool",          &getrawmempool,          true,      false,      false },
     { "getblock",               &getblock,               false,     false,      false },
     { "getblockhash",           &getblockhash,           false,     false,      false },
-    { "settxfee",               &settxfee,               false,     false,      true },
     { "getrawtransaction",      &getrawtransaction,      false,     false,      false },
     { "createrawtransaction",   &createrawtransaction,   false,     false,      false },
     { "decoderawtransaction",   &decoderawtransaction,   false,     false,      false },
@@ -253,6 +253,9 @@ static const CRPCCommand vRPCCommands[] =
     { "getmininginfo",          &getmininginfo,          true,      false,      false },
     { "getblocktemplate",       &getblocktemplate,       true,      false,      false },
     { "submitblock",            &submitblock,            false,     false,      false },
+    { "validateaddress",        &validateaddress,        true,      false,      false },
+    { "createmultisig",         &createmultisig,         true,      true ,      false },
+    { "verifymessage",          &verifymessage,          false,     false,      false },
 
 #ifdef ENABLE_WALLET
     /* Wallet */
@@ -273,19 +276,17 @@ static const CRPCCommand vRPCCommands[] =
     { "walletpassphrasechange", &walletpassphrasechange, false,     false,      true },
     { "walletlock",             &walletlock,             true,      false,      true },
     { "encryptwallet",          &encryptwallet,          false,     false,      true },
-    { "validateaddress",        &validateaddress,        true,      false,      false },
     { "getbalance",             &getbalance,             false,     false,      true },
+    { "getunconfirmedbalance",  &getunconfirmedbalance,  false,     false,      true },
     { "move",                   &movecmd,                false,     false,      true },
     { "sendfrom",               &sendfrom,               false,     false,      true },
     { "sendmany",               &sendmany,               false,     false,      true },
     { "getpublickeypos",        &getpublickeypos,        false,     false,      true },
     { "addmultisigaddress",     &addmultisigaddress,     false,     false,      true },
-    { "createmultisig",         &createmultisig,         true,      true ,      false },
     { "gettransaction",         &gettransaction,         false,     false,      true },
     { "listtransactions",       &listtransactions,       false,     false,      true },
     { "listaddressgroupings",   &listaddressgroupings,   false,     false,      true },
     { "signmessage",            &signmessage,            false,     false,      true },
-    { "verifymessage",          &verifymessage,          false,     false,      false },
     { "listaccounts",           &listaccounts,           false,     false,      true },
     { "listsinceblock",         &listsinceblock,         false,     false,      true },
     { "dumpkey",                &dumpkey,                true,      false,      true },
@@ -297,6 +298,7 @@ static const CRPCCommand vRPCCommands[] =
     { "listunspent",            &listunspent,            false,     false,      true },
     { "lockunspent",            &lockunspent,            false,     false,      true },
     { "listlockunspent",        &listlockunspent,        false,     false,      true },
+    { "settxfee",               &settxfee,               false,     false,      true },
 
     /* Wallet-enabled mining */
     { "getgenerate",            &getgenerate,            true,      false,      false },
@@ -514,9 +516,9 @@ void StartRPCThreads()
               "If the file does not exist, create it with owner-readable-only file permissions.\n"
               "It is also recommended to set alertnotify so you are notified of problems;\n"
               "for example: alertnotify=echo %%s | mail -s \"Bitcoin Alert\" admin@foo.com\n"),
-                strWhatAmI.c_str(),
-                GetConfigFile().string().c_str(),
-                EncodeBase58(&rand_pwd[0],&rand_pwd[0]+32).c_str()),
+                strWhatAmI,
+                GetConfigFile().string(),
+                EncodeBase58(&rand_pwd[0],&rand_pwd[0]+32)),
                 "", CClientUIInterface::MSG_ERROR);
         StartShutdown();
         return;
@@ -535,12 +537,12 @@ void StartRPCThreads()
         filesystem::path pathCertFile(GetArg("-rpcsslcertificatechainfile", "server.cert"));
         if (!pathCertFile.is_complete()) pathCertFile = filesystem::path(GetDataDir()) / pathCertFile;
         if (filesystem::exists(pathCertFile)) rpc_ssl_context->use_certificate_chain_file(pathCertFile.string());
-        else LogPrintf("ThreadRPCServer ERROR: missing server certificate file %s\n", pathCertFile.string().c_str());
+        else LogPrintf("ThreadRPCServer ERROR: missing server certificate file %s\n", pathCertFile.string());
 
         filesystem::path pathPKFile(GetArg("-rpcsslprivatekeyfile", "server.pem"));
         if (!pathPKFile.is_complete()) pathPKFile = filesystem::path(GetDataDir()) / pathPKFile;
         if (filesystem::exists(pathPKFile)) rpc_ssl_context->use_private_key_file(pathPKFile.string(), ssl::context::pem);
-        else LogPrintf("ThreadRPCServer ERROR: missing server private key file %s\n", pathPKFile.string().c_str());
+        else LogPrintf("ThreadRPCServer ERROR: missing server private key file %s\n", pathPKFile.string());
 
         string strCiphers = GetArg("-rpcsslciphers", "TLSv1.2+HIGH:TLSv1+HIGH:!SSLv2:!aNULL:!eNULL:!3DES:@STRENGTH");
         SSL_CTX_set_cipher_list(rpc_ssl_context->impl(), strCiphers.c_str());
@@ -609,6 +611,19 @@ void StartRPCThreads()
         rpc_worker_group->create_thread(boost::bind(&asio::io_service::run, rpc_io_service));
 }
 
+void StartDummyRPCThread()
+{
+    if(rpc_io_service == NULL)
+    {
+        rpc_io_service = new asio::io_service();
+        /* Create dummy "work" to keep the thread from exiting when no timeouts active,
+         * see http://www.boost.org/doc/libs/1_51_0/doc/html/boost_asio/reference/io_service.html#boost_asio.reference.io_service.stopping_the_io_service_from_running_out_of_work */
+        rpc_dummy_work = new asio::io_service::work(*rpc_io_service);
+        rpc_worker_group = new boost::thread_group();
+        rpc_worker_group->create_thread(boost::bind(&asio::io_service::run, rpc_io_service));
+    }
+}
+
 void StopRPCThreads()
 {
     if (rpc_io_service == NULL) return;
@@ -617,6 +632,7 @@ void StopRPCThreads()
     rpc_io_service->stop();
     if (rpc_worker_group != NULL)
         rpc_worker_group->join_all();
+    delete rpc_dummy_work; rpc_dummy_work = NULL;
     delete rpc_worker_group; rpc_worker_group = NULL;
     delete rpc_ssl_context; rpc_ssl_context = NULL;
     delete rpc_io_service; rpc_io_service = NULL;
@@ -670,7 +686,7 @@ void JSONRequest::parse(const Value& valRequest)
         throw JSONRPCError(RPC_INVALID_REQUEST, "Method must be a string");
     strMethod = valMethod.get_str();
     if (strMethod != "getwork" && strMethod != "getblocktemplate")
-        LogPrint("rpc", "ThreadRPCServer method=%s\n", strMethod.c_str());
+        LogPrint("rpc", "ThreadRPCServer method=%s\n", strMethod);
 
     // Parse params
     Value valParams = find_value(request, "params");
@@ -745,7 +761,7 @@ void ServiceConnection(AcceptedConnection *conn)
         }
         if (!HTTPAuthorized(mapHeaders))
         {
-            LogPrintf("ThreadRPCServer incorrect password attempt from %s\n", conn->peer_address_to_string().c_str());
+            LogPrintf("ThreadRPCServer incorrect password attempt from %s\n", conn->peer_address_to_string());
             /* Deter brute-forcing short passwords.
                If this results in a DoS the user really
                shouldn't have their RPC port exposed. */

@@ -1,16 +1,16 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2013 The Bitcoin developers
+// Copyright (c) 2009-2014 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include "base58.h"
-#include "rpcserver.h"
-#include "init.h"
-#include "net.h"
-#include "uint256.h"
 #include "core.h"
-#include "main.h"
+#include "init.h"
 #include "keystore.h"
+#include "main.h"
+#include "net.h"
+#include "rpcserver.h"
+#include "uint256.h"
 #ifdef ENABLE_WALLET
 #include "wallet.h"
 #endif
@@ -522,7 +522,7 @@ Value signrawtransaction(const Array& params, bool fHelp)
             "\nArguments:\n"
             "1. \"hexstring\"     (string, required) The transaction hex string\n"
             "2. \"prevtxs\"       (string, optional) An json array of previous dependent transaction outputs\n"
-            "     [               (json array of json objects)\n"
+            "     [               (json array of json objects, or 'null' if none provided)\n"
             "       {\n"
             "         \"txid\":\"id\",             (string, required) The transaction id\n"
             "         \"vout\":n,                  (numeric, required) The output number\n"
@@ -532,7 +532,7 @@ Value signrawtransaction(const Array& params, bool fHelp)
             "       ,...\n"
             "    ]\n"
             "3. \"privatekeys\"     (string, optional) A json array of base58-encoded private keys for signing\n"
-            "    [                  (json array of strings)\n"
+            "    [                  (json array of strings, or 'null' if none provided)\n"
             "      \"privatekey\"   (string) private key in base58-encoding\n"
             "      ,...\n"
             "    ]\n"

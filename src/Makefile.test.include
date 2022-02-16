@@ -49,12 +49,26 @@ BITCOIN_TESTS =\
   test/util_tests.cpp \
   test/wallet_tests.cpp
 
+  # TODO
+  # test/accounting_tests.cpp
+  # test/alert_tests.cpp
+  # test/bip32_tests.cpp
+  # test/canonical_tests.cpp
+  # test/DoS_tests.cpp
+  # test/multisig_tests.cpp
+  # test/rpc_wallet_tests.cpp
+  # test/rpc_tests.cpp
+  # test/script_P2SH_tests.cpp
+  # test/sighash_tests.cpp
+  # test/sigopcount_tests.cpp
+  # test/transaction_tests.cpp
 
 test_test_bitcoin_SOURCES = $(BITCOIN_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
 test_test_bitcoin_CPPFLAGS = $(BITCOIN_INCLUDES) -I$(builddir)/test/ $(TESTDEFS)
 test_test_bitcoin_LDADD = \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_WALLET) \
   $(LIBMINER) \
   $(LIBPQCRYPTO)
 

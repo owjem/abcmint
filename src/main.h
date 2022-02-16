@@ -19,6 +19,7 @@
 #include "sync.h"
 #include "txmempool.h"
 #include "uint256.h"
+#include "diskpubkeypos.h"
 
 #include <algorithm>
 #include <exception>
@@ -35,14 +36,19 @@ class CInv;
 
 /** The maximum allowed size for a serialized block, in bytes (network rule) */
 static const unsigned int MAX_BLOCK_SIZE = 0x800000; // 8 MiB
-/** The maximum size for mined blocks */
-static const unsigned int MAX_BLOCK_SIZE_GEN = MAX_BLOCK_SIZE/2;
+/** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
+static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 0x800000; // 8 MiB
+static const unsigned int DEFAULT_BLOCK_MIN_SIZE = 0;
+/** Default for -blockprioritysize, maximum space for zero/low-fee transactions **/
+static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE = 50000;
 /** The maximum size for transactions we're willing to relay/mine */
-static const unsigned int MAX_STANDARD_TX_SIZE = MAX_BLOCK_SIZE_GEN/5;
+static const unsigned int MAX_STANDARD_TX_SIZE = MAX_BLOCK_SIZE/10;
 /** The maximum allowed number of signature check operations in a block (network rule) */
 static const unsigned int MAX_BLOCK_SIGOPS = MAX_BLOCK_SIZE/50;
 /** The maximum number of orphan transactions kept in memory */
 static const unsigned int MAX_ORPHAN_TRANSACTIONS = MAX_BLOCK_SIZE/100;
+/** The maximum number of orphan blocks kept in memory */
+static const unsigned int MAX_ORPHAN_BLOCKS = 750;
 /** The maximum size of a blk?????.dat file  */
 static const unsigned int MAX_BLOCKFILE_SIZE = 0x8000000; // 128 MiB
 /** The pre-allocation chunk size for blk?????.dat files (since 0.8) */
@@ -55,10 +61,6 @@ static const int COINBASE_MATURITY = 100;
 static const unsigned int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20 1985 UTC
 /** Maximum number of script-checking threads allowed */
 static const int MAX_SCRIPTCHECK_THREADS = 16;
-/** Default amount of block size reserved for high-priority transactions (in bytes) */
-static const int DEFAULT_BLOCK_PRIORITY_SIZE = 27000;
-/** Default for -blockmaxsize, maximum size for mined blocks **/
-static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 0x800000; // 8 MiB
 #ifdef USE_UPNP
 static const int fHaveUPnP = true;
 #else
@@ -77,12 +79,6 @@ static const unsigned char REJECT_CHECKPOINT = 0x43;
 
 
 extern CScript COINBASE_FLAGS;
-
-
-
-
-
-
 extern CCriticalSection cs_main;
 extern CTxMemPool mempool;
 extern std::map<uint256, CBlockIndex*> mapBlockIndex;
@@ -96,11 +92,7 @@ extern bool fBenchmark;
 extern int nScriptCheckThreads;
 extern bool fTxIndex;
 extern unsigned int nCoinCacheSize;
-extern bool fHaveGUI;
 extern CMemPos* pmemPos;
-
-// Settings
-extern int64_t nTransactionFee;
 
 // Minimum disk space required - used in CheckDiskSpace()
 static const uint64_t nMinDiskSpace = 52428800;
@@ -172,10 +164,8 @@ bool IsInitialBlockDownload();
 std::string GetWarnings(std::string strFor);
 /** Retrieve a transaction (from memory pool, or from disk, if possible) */
 bool GetTransaction(const uint256 &hash, CTransaction &tx, uint256 &hashBlock, bool fAllowSlow = false);
-/** Connect/disconnect blocks until pindexNew is the new tip of the active block chain */
-bool SetBestChain(CValidationState &state, CBlockIndex* pindexNew);
 /** Find the best known block, and make it the tip of the block chain */
-bool ConnectBestBlock(CValidationState &state);
+bool ActivateBestChain(CValidationState &state);
 int64_t GetBlockValue(int nHeight, int64_t nFees);
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock);
 
@@ -184,18 +174,19 @@ void UpdateTime(CBlockHeader& block, const CBlockIndex* pindexPrev);
 /** Create a new block index entry for a given block hash */
 CBlockIndex * InsertBlockIndex(uint256 hash);
 /** Verify a signature */
-// bool VerifySignature(const CCoins& txFrom, CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType);
+bool VerifySignature(const CCoins& txFrom, const CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType);
 /** Abort with a message */
 bool AbortNode(const std::string &msg);
 /** Get statistics from node state */
 bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
 
 /** (try to) add transaction to memory pool **/
-bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, CTransaction &tx, bool fLimitFree,
+bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransaction &tx, bool fLimitFree,
                         bool* pfMissingInputs, bool fRejectInsaneFee=false);
 
 
 bool GetPubKeyByPos(CDiskPubKeyPos pos, CPubKey& pubKey);
+void CombinePubkey(map<vector<unsigned char>, vector<unsigned char>>&  mapPubKey, const CTransaction& tx);
 bool CheckSolution(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce, unsigned int nTime = 1538270779);
 
 
@@ -288,8 +279,7 @@ int64_t GetMinFee(const CTransaction& tx, unsigned int nBytes, bool fAllowFree, 
         @param[in] mapInputs    Map of previous transactions that have outputs we're spending
         @return True if all inputs (scriptSigs) use only standard transaction forms
     */
-//TODO:: abc pubkey
-bool AreInputsStandard(CTransaction& tx, CCoinsViewCache& mapInputs);
+bool AreInputsStandard(const CTransaction& tx, CCoinsViewCache& mapInputs);
 
 /** Count ECDSA signature operations the old-fashioned (pre-0.6) way
     @return number of sigops this transaction's outputs will produce when spent
@@ -316,8 +306,7 @@ inline bool AllowFree(double dPriority)
 // Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
 // This does not modify the UTXO set. If pvChecks is not NULL, script checks are pushed onto it
 // instead of being performed inline.
-//TODO:: abc pubkey
-bool CheckInputs(CTransaction& tx, CValidationState &state, CCoinsViewCache &view, bool fScriptChecks = true,
+bool CheckInputs(const CTransaction& tx, CValidationState &state, CCoinsViewCache &view, bool fScriptChecks = true,
                  unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC,
                  std::vector<CScriptCheck> *pvChecks = NULL);
 
@@ -349,7 +338,7 @@ public:
         // Open history file to append
         CAutoFile fileout = CAutoFile(OpenUndoFile(pos), SER_DISK, CLIENT_VERSION);
         if (!fileout)
-            return error("CBlockUndo::WriteToDisk() : OpenUndoFile failed");
+            return error("CBlockUndo::WriteToDisk : OpenUndoFile failed");
 
         // Write index header
         unsigned int nSize = fileout.GetSerializeSize(*this);
@@ -358,7 +347,7 @@ public:
         // Write undo data
         long fileOutPos = ftell(fileout);
         if (fileOutPos < 0)
-            return error("CBlockUndo::WriteToDisk() : ftell failed");
+            return error("CBlockUndo::WriteToDisk : ftell failed");
         pos.nPos = (unsigned int)fileOutPos;
         fileout << *this;
 
@@ -381,7 +370,7 @@ public:
         // Open history file to read
         CAutoFile filein = CAutoFile(OpenUndoFile(pos, true), SER_DISK, CLIENT_VERSION);
         if (!filein)
-            return error("CBlockUndo::ReadFromDisk() : OpenBlockFile failed");
+            return error("CBlockUndo::ReadFromDisk : OpenBlockFile failed");
 
         // Read block
         uint256 hashChecksum;
@@ -390,7 +379,7 @@ public:
             filein >> hashChecksum;
         }
         catch (std::exception &e) {
-            return error("%s() : deserialize or I/O error", __PRETTY_FUNCTION__);
+            return error("%s : Deserialize or I/O error - %s", __PRETTY_FUNCTION__, e.what());
         }
 
         // Verify checksum
@@ -398,7 +387,7 @@ public:
         hasher << hashBlock;
         hasher << *this;
         if (hashChecksum != hasher.GetHash())
-            return error("CBlockUndo::ReadFromDisk() : checksum mismatch");
+            return error("CBlockUndo::ReadFromDisk : Checksum mismatch");
 
         return true;
     }
@@ -411,8 +400,7 @@ class CScriptCheck
 {
 private:
     CScript scriptPubKey;
-    //TODO:: abc pubkey
-    CTransaction *ptxTo;
+    const CTransaction *ptxTo;
     unsigned int nIn;
     unsigned int nFlags;
     int nHashType;
@@ -420,9 +408,7 @@ private:
 
 public:
     CScriptCheck() {}
-
-    //TODO:: abc pubkey
-    CScriptCheck(const CCoins& txFromIn, CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, int nHashTypeIn,const map<vector<unsigned char>, vector<unsigned char>>& mapPubKeyIn) :
+    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, int nHashTypeIn,const map<vector<unsigned char>, vector<unsigned char>>& mapPubKeyIn) :
         scriptPubKey(txFromIn.vout[txToIn.vin[nInIn].prevout.n].scriptPubKey),
         ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), nHashType(nHashTypeIn), mapPubKey(mapPubKeyIn) { }
 
@@ -441,6 +427,8 @@ public:
 /** A transaction with a merkle branch linking it to the block chain. */
 class CMerkleTx : public CTransaction
 {
+private:
+    int GetDepthInMainChainINTERNAL(CBlockIndex* &pindexRet) const;
 public:
     uint256 hashBlock;
     std::vector<uint256> vMerkleBranch;
@@ -479,9 +467,14 @@ public:
 
 
     int SetMerkleBranch(const CBlock* pblock=NULL);
+
+    // Return depth of transaction in blockchain:
+    // -1  : not in blockchain, and not in memory pool (conflicted transaction)
+    //  0  : in memory pool, waiting to be included in a block
+    // >=1 : this many blocks deep in the main chain
     int GetDepthInMainChain(CBlockIndex* &pindexRet) const;
     int GetDepthInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChain(pindexRet); }
-    bool IsInMainChain() const { return GetDepthInMainChain() > 0; }
+    bool IsInMainChain() const { CBlockIndex *pindexRet; return GetDepthInMainChainINTERNAL(pindexRet) > 0; }
     int GetBlocksToMaturity() const;
     bool AcceptToMemoryPool(bool fLimitFree=true);
 };
@@ -734,6 +727,8 @@ public:
     unsigned int nBits;
     uint256 nNonce;
 
+    // (memory only) Sequencial id assigned to distinguish order in which blocks are received.
+    uint32_t nSequenceId;
 
     CBlockIndex()
     {
@@ -747,6 +742,7 @@ public:
         nTx = 0;
         nChainTx = 0;
         nStatus = 0;
+        nSequenceId = 0;
 
         nVersion       = 0;
         hashMerkleRoot = 0;
@@ -767,6 +763,7 @@ public:
         nTx = 0;
         nChainTx = 0;
         nStatus = 0;
+        nSequenceId = 0;
 
         nVersion       = block.nVersion;
         hashMerkleRoot = block.hashMerkleRoot;
@@ -982,31 +979,33 @@ public:
                  unsigned char _chRejectCode=0, std::string _strRejectReason="") {
         return DoS(0, ret, _chRejectCode, _strRejectReason);
     }
-    bool Error() {
+    bool Error(std::string strRejectReasonIn="") {
+        if (mode == MODE_VALID)
+            strRejectReason = strRejectReasonIn;
         mode = MODE_ERROR;
         return false;
     }
     bool Abort(const std::string &msg) {
         AbortNode(msg);
-        return Error();
+        return Error(msg);
     }
-    bool IsValid() {
+    bool IsValid() const {
         return mode == MODE_VALID;
     }
-    bool IsInvalid() {
+    bool IsInvalid() const {
         return mode == MODE_INVALID;
     }
-    bool IsError() {
+    bool IsError() const {
         return mode == MODE_ERROR;
     }
-    bool IsInvalid(int &nDoSOut) {
+    bool IsInvalid(int &nDoSOut) const {
         if (IsInvalid()) {
             nDoSOut = nDoS;
             return true;
         }
         return false;
     }
-    bool CorruptionPossible() {
+    bool CorruptionPossible() const {
         return corruptionPossible;
     }
     unsigned char GetRejectCode() const { return chRejectCode; }
@@ -1073,6 +1072,8 @@ public:
 /** The currently-connected chain of blocks. */
 extern CChain chainActive;
 
+/** The currently best known chain of headers (some of which may be invalid). */
+extern CChain chainMostWork;
 
 /** Global variable that points to the active CCoinsView (protected by cs_main) */
 extern CCoinsViewCache *pcoinsTip;

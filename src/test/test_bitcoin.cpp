@@ -2,12 +2,12 @@
 
 
 
-#include "db.h"
 #include "main.h"
 #include "txdb.h"
 #include "ui_interface.h"
 #include "util.h"
 #ifdef ENABLE_WALLET
+#include "db.h"
 #include "wallet.h"
 #endif
 
@@ -26,7 +26,7 @@ struct TestingSetup {
     boost::thread_group threadGroup;
 
     TestingSetup() {
-        fPrintToDebugger = true; // don't want to write to debug.log file
+        fPrintToDebugLog = true; // don't want to write to debug.log file
         noui_connect();
 #ifdef ENABLE_WALLET
         bitdb.MakeMock();
@@ -79,3 +79,4 @@ void StartShutdown()
 {
   exit(0);
 }
+

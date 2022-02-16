@@ -30,6 +30,8 @@
  * Use the buttons <code>Namespaces</code>, <code>Classes</code> or <code>Files</code> at the top of the page to start navigating the code.
  */
 
+static bool fDaemon;
+
 void DetectShutdownThread(boost::thread_group* threadGroup)
 {
     bool fShutdown = ShutdownRequested();
@@ -78,7 +80,7 @@ bool AppInit(int argc, char* argv[])
         if (mapArgs.count("-?") || mapArgs.count("--help"))
         {
             // First part of help message is specific to bitcoind / RPC client
-            std::string strUsage = _("Bitcoin version") + " " + FormatFullVersion() + "\n\n" +
+            std::string strUsage = _("Bitcoin Core Daemon") + " " + _("version") + " " + FormatFullVersion() + "\n\n" +
                 _("Usage:") + "\n" +
                   "  bitcoind [options]                     " + _("Start Bitcoin server") + "\n" +
                 _("Usage (deprecated, use bitcoin-cli):") + "\n" +
@@ -108,6 +110,8 @@ bool AppInit(int argc, char* argv[])
         fDaemon = GetBoolArg("-daemon", false);
         if (fDaemon)
         {
+            fprintf(stdout, "Bitcoin server starting\n");
+
             // Daemonize
             pid_t pid = fork();
             if (pid < 0)
@@ -127,9 +131,10 @@ bool AppInit(int argc, char* argv[])
                 fprintf(stderr, "Error: setsid() returned %d errno %d\n", sid, errno);
         }
 #endif
+        SoftSetBoolArg("-server", true);
 
         detectShutdownThread = new boost::thread(boost::bind(&DetectShutdownThread, &threadGroup));
-        fRet = AppInit2(threadGroup, true);
+        fRet = AppInit2(threadGroup);
     }
     catch (std::exception& e) {
         PrintExceptionContinue(&e, "AppInit()");

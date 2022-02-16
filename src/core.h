@@ -156,8 +156,8 @@ public:
         // to spend something, then we consider it dust.
         // A typical txout is 34 bytes big, and will
         // need a CTxIn of at least 148 bytes to spend,
-        // so dust is a txout less than 54 uBTC
-        // (5460 satoshis) with default nMinRelayTxFee
+        // so dust is a txout less than 546 satoshis 
+        // with default nMinRelayTxFee.
         return ((nValue*1000)/(3*((int)GetSerializeSize(SER_DISK,0)+148)) < nMinRelayTxFee);
     }
 
@@ -190,8 +190,6 @@ public:
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
     unsigned int nLockTime;
-    //TODO:: abc pubkey
-    std::vector< std::vector<unsigned char> > vPubKeys; //for reused public, not serialize
 
     CTransaction()
     {
@@ -213,8 +211,6 @@ public:
         vin.clear();
         vout.clear();
         nLockTime = 0;
-        //TODO:: abc pubkey
-        vPubKeys.clear();
     }
 
     bool IsNull() const

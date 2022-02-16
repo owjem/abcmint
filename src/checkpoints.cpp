@@ -42,11 +42,11 @@ namespace Checkpoints
         ( 11111, uint256("0xae23a3406fbce0049505c3cf2d3ca0e384e27e6ccc45988c556fce4e98b70c01"))
         ( 12345, uint256("0x6a89732f27c4c4d3503fd3c641934c29c924bb2f3459f6e865312e3888fc7b3d"))
         // ( 33333, uint256("0xac9dcce1697e5cb651f69adb92e9e6afdbba49bb28ad72c879b44f047dce1cfc"))
-        // ( 74000, uint256("0x0000000000573993a3c9e41ce34471c079dcf5f52a0e824a81e7f953b8661a20"))
-        // (105000, uint256("0x00000000000291ce28027faea320c8d2b054b2e0fe44a773f3eefb151d6bdc97"))
-        // (134444, uint256("0x00000000000005b12ffd4cd315cd34ffd4a594f430ac814c91184a0d42d2b0fe"))
-        // (168000, uint256("0x000000000000099e61ea72015e79632f216fe6cb33d7899acb35b75c8303b763"))
-        // (193000, uint256("0x000000000000059f452a5f7340de6682a977387c17010ff6e6c3bd83ca8b1317"))
+        // ( 74000, uint256("0x75210af6c9da2f571b2b1be267430badccabfaf04b161b316e5d90262cb3b233"))
+        // (105000, uint256("0xeffc18ca60ddd30f6b9b36d7fd53863d462505ccf0d2c219a24809e039a4841a"))
+        // (134444, uint256("0xbff69a439c692cb1a640c81fe27aeb1fdf47893793e6ec3c73163c49a13aa320"))
+        // (168000, uint256("0xab04e7ff5560557480f54dba569a9d0faae93e3df963388d649b1ba2c4fcb2cb"))
+        // (193000, uint256("0x19e519cb02884a556aacee06a35f1755211052a9104360c6ce51d2bd13b90990"))
         // (210000, uint256("0x000000000000048b95347e83192f69cf0366076336c639f9b7228e9ba171342e"))
         // (216116, uint256("0x00000000000001b4f4b433e81ee46494af945cf96014816a4e2370f11b23df4e"))
         // (225430, uint256("0x00000000000001c108384350f74090433e7fcf79a606b8e797f065b130575932"))
@@ -113,7 +113,7 @@ namespace Checkpoints
 
         double fWorkBefore = 0.0; // Amount of work done before pindex
         double fWorkAfter = 0.0;  // Amount of work left after pindex (estimated)
-        // Work is defined as: 1.0 per transaction before the last checkoint, and
+        // Work is defined as: 1.0 per transaction before the last checkpoint, and
         // fSigcheckVerificationFactor per transaction after.
 
         const CCheckpointData &data = Checkpoints();

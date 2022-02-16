@@ -110,30 +110,6 @@ Value getdifficulty(const Array& params, bool fHelp)
 }
 
 
-Value settxfee(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() < 1 || params.size() > 1)
-        throw runtime_error(
-            "settxfee amount\n"
-            "\nSet the transaction fee. 'amount' is a real and is rounded to the nearest 0.00000001\n"
-            "\nArguments:\n"
-            "1. amount         (numeric, required) The transaction fee in btc rounded to the nearest 0.00000001\n"
-            "\nResult\n"
-            "true|false        (boolean) Returns true if successful\n"
-            "\nExamples:\n"
-            + HelpExampleCli("settxfee", "0.00001")
-            + HelpExampleRpc("settxfee", "0.00001")
-        );
-
-    // Amount
-    int64_t nAmount = 0;
-    if (params[0].get_real() != 0.0)
-        nAmount = AmountFromValue(params[0]);        // rejects 0.0 amounts
-
-    nTransactionFee = nAmount;
-    return true;
-}
-
 Value getrawmempool(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() > 1)
@@ -417,8 +393,8 @@ Value verifychain(const Array& params, bool fHelp)
             "verifychain ( checklevel numblocks )\n"
             "\nVerifies blockchain database.\n"
             "\nArguments:\n"
-            "1. checklevel   (numeric, optional, default=3) The level\n"
-            "2. numblocks    (numeric, optional, 288) The number of blocks\n"
+            "1. checklevel   (numeric, optional, 0-4, default=3) How thorough the block verification is.\n"
+            "2. numblocks    (numeric, optional, default=288, 0=all) The number of blocks to check.\n"
             "\nResult:\n"
             "true|false       (boolean) Verified or not\n"
             "\nExamples:\n"

@@ -62,6 +62,8 @@ public:
 
         /** Force blocking, modal message box dialog (not just OS notification) */
         MODAL               = 0x10000000U,
+        /** Don't bring GUI to foreground. Use for messages during initialization */
+        NOSHOWGUI           = 0x20000000U,
 
         /** Predefined combinations for certain default usage cases */
         MSG_INFORMATION = ICON_INFORMATION,
@@ -71,9 +73,6 @@ public:
 
     /** Show message box. */
     boost::signals2::signal<bool (const std::string& message, const std::string& caption, unsigned int style), boost::signals2::last_value<bool> > ThreadSafeMessageBox;
-
-    /** Ask the user whether they want to pay a fee or not. */
-    boost::signals2::signal<bool (int64_t nFeeRequired), boost::signals2::last_value<bool> > ThreadSafeAskFee;
 
     /** Progress message during initialization. */
     boost::signals2::signal<void (const std::string &message)> InitMessage;

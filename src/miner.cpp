@@ -8,7 +8,9 @@
 #include "core.h"
 #include "main.h"
 #include "net.h"
+#ifdef ENABLE_WALLET
 #include "wallet.h"
+#endif
 #include "miner/common.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -23,7 +25,7 @@
 static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 randomNonce, CBlockIndex* pindexPrev, int deviceID, int deviceCount, uint64_t& solm, char* threadname)
 {
 
-    LogPrintf("[%s] =============> hash: %s diff: %d, randomNonce: %s, height: %d, deviceID: %d, deviceCount: %d, solm: %ld \n", threadname, hash.ToString().c_str(), nBits, randomNonce.ToString().c_str(), pindexPrev->nHeight , deviceID, deviceCount, solm);
+    LogPrintf("[%s] =============> hash: %s diff: %d, randomNonce: %s, height: %d, deviceID: %d, deviceCount: %d, solm: %ld \n", threadname, hash.ToString(), nBits, randomNonce.ToString(), pindexPrev->nHeight , deviceID, deviceCount, solm);
 
     unsigned int mEquations = nBits;
     unsigned int nUnknowns = nBits + 8;
@@ -121,7 +123,7 @@ static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 
         LogPrintf("[%s] =============> solm: %ld \n", threadname, solm);
         LogPrintf("[%s] =============> foundSolution: %ld \n", threadname, foundSolution);
         nonce = uint256(foundSolution);
-        LogPrintf("[%s] =============> nonce: %s\n", threadname, nonce.ToString().c_str());
+        LogPrintf("[%s] =============> nonce: %s\n", threadname, nonce.ToString());
         uint256 fixSolution = nonce;
         uint8_t x[newNumVariables];
         Uint256ToSolutionBits(x, newNumVariables, fixSolution);
@@ -251,9 +253,9 @@ public:
     void print() const
     {
         LogPrintf("COrphan(hash=%s, dPriority=%.1f, dFeePerKb=%.1f)\n",
-               ptx->GetHash().ToString().c_str(), dPriority, dFeePerKb);
+               ptx->GetHash().ToString(), dPriority, dFeePerKb);
         BOOST_FOREACH(uint256 hash, setDependsOn)
-            LogPrintf("   setDependsOn %s\n", hash.ToString().c_str());
+            LogPrintf("   setDependsOn %s\n", hash.ToString());
     }
 };
 
@@ -317,7 +319,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 
     // Minimum block size you want to create; block will be filled with free transactions
     // until there are no more or the block reaches this size:
-    unsigned int nBlockMinSize = GetArg("-blockminsize", 0);
+    unsigned int nBlockMinSize = GetArg("-blockminsize", DEFAULT_BLOCK_MIN_SIZE);
     nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
 
     // Collect memory pool transactions into the block
@@ -339,7 +341,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
              mi != mempool.mapTx.end(); ++mi)
         {
             const CTransaction& tx = mi->second.GetTx();
-            if (tx.IsCoinBase() || !IsFinalTx(tx))
+            if (tx.IsCoinBase() || !IsFinalTx(tx, pindexPrev->nHeight + 1))
                 continue;
 
             COrphan* porphan = NULL;
@@ -419,9 +421,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             // Take highest priority transaction off the priority queue:
             double dPriority = vecPriority.front().get<0>();
             double dFeePerKb = vecPriority.front().get<1>();
-            const CTransaction& _tx = *(vecPriority.front().get<2>());
-
-            CTransaction tx(_tx);
+            const CTransaction& tx = *(vecPriority.front().get<2>());
 
             std::pop_heap(vecPriority.begin(), vecPriority.end(), comparer);
             vecPriority.pop_back();
@@ -437,7 +437,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                 continue;
 
             // Skip free transactions if we're past the minimum block size:
-            if (fSortedByFee && (dFeePerKb < CTransaction::nMinTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
+            if (fSortedByFee && (dFeePerKb < CTransaction::nMinRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
                 continue;
 
             // Prioritize by fee once past the priority size or we run out of high-priority
@@ -460,8 +460,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
                 continue;
 
             CValidationState state;
-            //TODO:: abc pubkey
-            tx.vPubKeys.clear();
             if (!CheckInputs(tx, state, view, true, SCRIPT_VERIFY_P2SH))
                 continue;
 
@@ -481,7 +479,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
             if (fPrintPriority)
             {
                 LogPrintf("priority %.1f feeperkb %.1f txid %s\n",
-                       dPriority, dFeePerKb, tx.GetHash().ToString().c_str());
+                       dPriority, dFeePerKb, tx.GetHash().ToString());
             }
 
             // Add transactions that depend on this one to the priority queue
@@ -504,7 +502,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
 
         nLastBlockTx = nBlockTx;
         nLastBlockSize = nBlockSize;
-        LogPrintf("CreateNewBlock(): total size %"PRIu64"\n", nBlockSize);
+        LogPrintf("CreateNewBlock(): total size %u\n", nBlockSize);
 
         pblock->vtx[0].vout[0].nValue = GetBlockValue(pindexPrev->nHeight+1, nFees);
         pblocktemplate->vTxFees[0] = -nFees;
@@ -611,8 +609,8 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
     CScript scriptPubKey ;
     scriptPubKey.SetDestination(pubkey.GetID());
 
-    LogPrintf(" ===> [%s] So[%s...%s] \n", __func__, HexStr(scriptPubKey.begin(),scriptPubKey.begin()+20).c_str(), HexStr(scriptPubKey.end()-20,scriptPubKey.end()).c_str());
-    LogPrintf(" ===> [%s] So[%s...%s] \n", __func__, HexStr(scriptPubKey2.begin(),scriptPubKey2.begin()+20).c_str(), HexStr(scriptPubKey2.end()-20,scriptPubKey2.end()).c_str());
+    LogPrintf(" ===> [%s] So[%s...%s] \n", __func__, HexStr(scriptPubKey.begin(),scriptPubKey.begin()+20), HexStr(scriptPubKey.end()-20,scriptPubKey.end()));
+    LogPrintf(" ===> [%s] So[%s...%s] \n", __func__, HexStr(scriptPubKey2.begin(),scriptPubKey2.begin()+20), HexStr(scriptPubKey2.end()-20,scriptPubKey2.end()));
 
     return CreateNewBlock(scriptPubKey);
 }
@@ -625,14 +623,14 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
     //// debug print
     LogPrintf("BitcoinMiner:\n");
     pblock->print();
-    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue).c_str());
+    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue));
 
     // Found a solution
     {
         LOCK(cs_main);
         if (pblock->hashPrevBlock != chainActive.Tip()->GetBlockHash()) {
-            LogPrintf("\n\n ***********hashBestChain****************** %s \n\n", chainActive.Tip()->GetBlockHash().ToString().c_str());
-            LogPrintf("\n\n ***********pblock->hashPrevBlock****************** %s \n\n", pblock->hashPrevBlock.ToString().c_str());
+            LogPrintf("\n\n ***********hashBestChain****************** %s \n\n", chainActive.Tip()->GetBlockHash().ToString());
+            LogPrintf("\n\n ***********pblock->hashPrevBlock****************** %s \n\n", pblock->hashPrevBlock.ToString());
             return error("BitcoinMiner : generated block is stale");
         }
 
@@ -690,12 +688,13 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
             return;
         CBlock *pblock = &pblocktemplate->block;
 
-        if(1){
-            pblock->print();
-            MilliSleep(1000);
-            continue;
-        }
-
+        // if(1){
+        //     pblock->print();
+        //     MilliSleep(1000);
+        //     continue;
+        // }
+        pblock->print();
+        LogPrintf(" ===> [%s]miner new jop start ===========================================\n", __func__);
 
         IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 

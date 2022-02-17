@@ -24,7 +24,7 @@ bool DecodeBase58(const char *psz, std::vector<unsigned char>& vch) {
         psz++;
     // Skip and count leading '1's.
     int zeroes = 0;
-    while (*psz == '1') {
+    while (*psz == '8') {
         zeroes++;
         psz++;
     }
@@ -91,7 +91,7 @@ std::string EncodeBase58(const unsigned char* pbegin, const unsigned char* pend)
     // Translate the result into a string.
     std::string str;
     str.reserve(zeroes + (b58.end() - it));
-    str.assign(zeroes, '1');
+    str.assign(zeroes, '8');
     while (it != b58.end())
         str += pszBase58[*(it++)];
     return str;
@@ -106,7 +106,7 @@ bool DecodeBase58(const std::string& str, std::vector<unsigned char>& vchRet) {
 }
 
 std::string EncodeBase58Check(const std::vector<unsigned char>& vchIn) {
-    // add 4-byte hash check to the end
+    // add 3-byte hash check to the end
     std::vector<unsigned char> vch(vchIn);
     uint256 hash = Hash(vch.begin(), vch.end());
     vch.insert(vch.end(), (unsigned char*)&hash, (unsigned char*)&hash + 3);
@@ -120,7 +120,6 @@ bool DecodeBase58Check(const char* psz, std::vector<unsigned char>& vchRet) {
         vchRet.clear();
         return false;
     }
-    // re-calculate the checksum, insure it matches the included 4-byte checksum
     uint256 hash = Hash(vchRet.begin(), vchRet.end()-3);
     if (memcmp(&hash, &vchRet.end()[-3], 3) != 0)
     {

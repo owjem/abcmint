@@ -62,6 +62,9 @@ inline bool DecodeBase58Check(const char* psz, std::vector<unsigned char>& vchRe
  */
 inline bool DecodeBase58Check(const std::string& str, std::vector<unsigned char>& vchRet);
 
+std::string EncodeBase58_old(const unsigned char* pbegin, const unsigned char* pend);
+bool DecodeBase58_old(const char *psz, std::vector<unsigned char>& vch);
+
 /**
  * Base class for all base58-encoded data
  */

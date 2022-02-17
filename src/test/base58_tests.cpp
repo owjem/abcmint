@@ -30,7 +30,8 @@ extern Array read_json(const std::string& jsondata);
 
 BOOST_AUTO_TEST_SUITE(base58_tests)
 
-BOOST_AUTO_TEST_CASE(decodeBase58Check) {
+BOOST_AUTO_TEST_CASE(decodeBase58Checka) {
+    fPrintToConsole = true;
     Array tests = read_json(std::string(json_tests::wallet_decode_check, json_tests::wallet_decode_check + sizeof(json_tests::wallet_decode_check)));
     std::vector<unsigned char> result;
 
@@ -49,6 +50,40 @@ BOOST_AUTO_TEST_CASE(decodeBase58Check) {
         std::string base58string = test[1].get_str();
         if(sourcedata.size() < 50){
             BOOST_CHECK_MESSAGE(address.SetString(sourcedata), sourcedata);
+            BOOST_TEST_MESSAGE(address.SetString(sourcedata));
+            address.GetKeyID(keyID);
+            BOOST_CHECK_MESSAGE(keyID.ToString() == base58string, strTest);
+        }else{
+            BOOST_CHECK_MESSAGE(!address.SetString(sourcedata), sourcedata);
+            address.GetKeyID(keyID);
+            BOOST_CHECK_MESSAGE(!(keyID.ToString() == base58string), address.ToString());
+        }
+    }
+
+}
+
+#if 0
+BOOST_AUTO_TEST_CASE(decodeBase58Check) {
+    fPrintToConsole = true;
+    Array tests = read_json(std::string(json_tests::wallet_decode_check, json_tests::wallet_decode_check + sizeof(json_tests::wallet_decode_check)));
+    std::vector<unsigned char> result;
+
+    CBitcoinAddress address;
+	CKeyID keyID;
+    BOOST_FOREACH(Value& tv, tests)
+    {
+        Array test = tv.get_array();
+        std::string strTest = write_string(tv, false);
+        if (test.size() < 2) // Allow for extra stuff (useful for comments)
+        {
+            BOOST_ERROR("Bad test: " << strTest);
+            continue;
+        }
+        std::string sourcedata = test[0].get_str();
+        std::string base58string = test[1].get_str();
+        if(sourcedata.size() < 50){
+            BOOST_CHECK_MESSAGE(address.SetString(sourcedata), sourcedata);
+            BOOST_TEST_MESSAGE(address.SetString(sourcedata));
             address.GetKeyID(keyID);
             BOOST_CHECK_MESSAGE(keyID.ToString() == base58string, strTest);
         }else{
@@ -103,7 +138,15 @@ BOOST_AUTO_TEST_CASE(base58_DecodeBase58)
     }
 
     BOOST_CHECK(!DecodeBase58("invalid", result));
+
+    // check that DecodeBase58 skips whitespace, but still fails with unexpected non-whitespace at the end.
+    BOOST_CHECK(!DecodeBase58(" \t\n\v\f\r skip \r\f\v\n\t a", result));
+    BOOST_CHECK( DecodeBase58(" \t\n\v\f\r skip \r\f\v\n\t ", result));
+    std::vector<unsigned char> expected = ParseHex("971a55");
+    BOOST_CHECK_EQUAL_COLLECTIONS(result.begin(), result.end(), expected.begin(), expected.end());
 }
+
+#endif
 
 #if 0
 // Visitor to check address type
@@ -264,7 +307,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_gen)
                 continue;
             }
             CBitcoinAddress addrOut;
-            BOOST_CHECK_MESSAGE(boost::apply_visitor(CBitcoinAddressVisitor(&addrOut), dest), "encode dest: " + strTest);
+            BOOST_CHECK_MESSAGE(addrOut.Set(dest), "encode dest: " + strTest);
             BOOST_CHECK_MESSAGE(addrOut.ToString() == exp_base58string, "mismatch: " + strTest);
         }
     }
@@ -272,7 +315,7 @@ BOOST_AUTO_TEST_CASE(base58_keys_valid_gen)
     // Visiting a CNoDestination must fail
     CBitcoinAddress dummyAddr;
     CTxDestination nodest = CNoDestination();
-    BOOST_CHECK(!boost::apply_visitor(CBitcoinAddressVisitor(&dummyAddr), nodest));
+    BOOST_CHECK(!dummyAddr.Set(nodest));
 
     SelectParams(CChainParams::MAIN);
 }

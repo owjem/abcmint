@@ -2,13 +2,13 @@
 // Copyright (c) 2009-2013 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
 #ifndef BITCOIN_MINER_H
 #define BITCOIN_MINER_H
 
 #include "miner/idxlut.h"
 #include "uint256.h"
 #include <stdint.h>
-//#include "main.h"
 
 class CBlock;
 class CBlockIndex;
@@ -21,7 +21,7 @@ class CWallet;
 extern uint64_t nLastBlockTx;
 extern uint64_t nLastBlockSize;
 
-int64_t GetBlockValue(int nHeight, int64_t nFees);
+// int64_t GetBlockValue(int nHeight, int64_t nFees);
 
 /** Calculate the minimum amount of work a received block needs, without knowing its direct parent */
 // unsigned int ComputeMinWork(unsigned int nBase, int64_t nTime);

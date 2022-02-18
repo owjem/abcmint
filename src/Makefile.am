@@ -26,6 +26,7 @@ BITCOIN_CONFIG_INCLUDES=-I$(builddir)/config
 BITCOIN_INCLUDES=-I$(builddir) -I$(builddir)/obj $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS) $(CUDA_CFLAGS)
 
 LIBBITCOIN_SERVER=libbitcoin_server.a
+LIBBITCOIN_WALLET=libbitcoin_wallet.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
 LIBBITCOIN_CLI=libbitcoin_cli.a
 LIBBITCOINQT=qt/libbitcoinqt.a
@@ -37,6 +38,7 @@ LIBMINER=miner/libminer.a
 # But to build the less dependent modules first, we manually select their order here:
 EXTRA_LIBRARIES = \
   libbitcoin_common.a \
+  libbitcoin_wallet.a \
   libbitcoin_server.a \
   libbitcoin_cli.a \
   miner/libminer.a \
@@ -48,9 +50,9 @@ BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
 bin_PROGRAMS =
 TESTS =
 
-  bin_PROGRAMS += bitcoind
+  bin_PROGRAMS += abcmintd
 
-  bin_PROGRAMS += bitcoin-cli
+  bin_PROGRAMS += abcmint-cli
 
 # SUBDIRS = . $(BUILD_QT) $(BUILD_TEST)
 # DIST_SUBDIRS = . qt
@@ -60,19 +62,15 @@ BITCOIN_CORE_H = \
   addrman.h \
   alert.h \
   allocators.h \
-  base58.h \
-  bignum.h \
+  base58.h bignum.h \
   bloom.h \
-  rpcclient.h \
-  rpcprotocol.h \
-  rpcserver.h \
   chainparams.h \
   checkpoints.h \
   checkqueue.h \
   clientversion.h \
   coincontrol.h \
-  compat.h \
   coins.h \
+  compat.h \
   core.h \
   crypter.h \
   db.h \
@@ -84,24 +82,28 @@ BITCOIN_CORE_H = \
   limitedmap.h \
   main.h \
   miner.h \
-  miner/common.h \
   mruset.h \
   netbase.h \
   net.h \
   noui.h \
   protocol.h \
+  rpcclient.h \
+  rpcprotocol.h \
+  rpcserver.h \
   script.h \
   serialize.h \
   sync.h \
   threadsafety.h \
+  tinyformat.h \
   txdb.h \
   txmempool.h \
   ui_interface.h \
   uint256.h \
   util.h \
   version.h \
-  wallet.h \
   walletdb.h \
+  wallet.h \
+  miner/common.h \
   idxlut.h \
   diskpubkeypos.h
 
@@ -161,13 +163,9 @@ libbitcoin_server_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS)
 libbitcoin_server_a_SOURCES = \
   addrman.cpp \
   alert.cpp \
-  rpcserver.cpp \
   bloom.cpp \
-  chainparams.cpp \
   checkpoints.cpp \
   coins.cpp \
-  crypter.cpp \
-  db.cpp \
   init.cpp \
   keystore.cpp \
   leveldbwrapper.cpp \
@@ -176,33 +174,42 @@ libbitcoin_server_a_SOURCES = \
   net.cpp \
   noui.cpp \
   rpcblockchain.cpp \
-  rpcdump.cpp \
   rpcmining.cpp \
+  rpcmisc.cpp \
   rpcnet.cpp \
   rpcrawtransaction.cpp \
-  rpcwallet.cpp \
+  rpcserver.cpp \
   txdb.cpp \
   txmempool.cpp \
+  $(JSON_H) \
+  $(BITCOIN_CORE_H) $(PQCRYPTO_H) $(MINER_H) $(GPUMINING_H)
+
+libbitcoin_wallet_a_SOURCES = \
+  db.cpp \
+  crypter.cpp \
+  rpcdump.cpp \
+  rpcwallet.cpp \
   wallet.cpp \
   walletdb.cpp \
-  $(JSON_H) $(BITCOIN_CORE_H) $(PQCRYPTO_H) $(MINER_H) $(GPUMINING_H)
+  $(BITCOIN_CORE_H)
 
 # common: shared between bitcoind, and bitcoin-qt and non-server tools
 # libbitcoin_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 libbitcoin_common_a_CPPFLAGS = $(BITCOIN_INCLUDES)
 libbitcoin_common_a_SOURCES = \
-  miner/common.cpp \
+  base58.cpp \
   allocators.cpp \
   chainparams.cpp \
   core.cpp \
+  miner/common.cpp \
   diskpubkeypos.cpp \
   hash.cpp \
   key.cpp \
   netbase.cpp \
   protocol.cpp \
   rpcprotocol.cpp \
-  sync.cpp \
   script.cpp \
+  sync.cpp \
   util.cpp \
   version.cpp \
   $(BITCOIN_CORE_H)
@@ -297,15 +304,15 @@ miner_libminer_a_CPPFLAGS = $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 endif
 
 # bitcoind binary #
-bitcoind_SOURCES = bitcoind.cpp
-bitcoind_CPPFLAGS = $(BITCOIN_INCLUDES)
-bitcoind_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+abcmintd_SOURCES = bitcoind.cpp
+abcmintd_CPPFLAGS = $(BITCOIN_INCLUDES)
+abcmintd_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-bitcoind_SOURCES += bitcoind-res.rc
+abcmintd_SOURCES += bitcoind-res.rc
 endif
 
-bitcoind_LDADD = \
+abcmintd_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_COMMON) \
@@ -314,35 +321,38 @@ bitcoind_LDADD = \
   $(LIBMINER) \
   $(LIBPQCRYPTO)
 
-bitcoind_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS)
+
+abcmintd_LDADD += $(LIBBITCOIN_WALLET)
+
+abcmintd_LDADD += $(BOOST_LIBS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS)
 #
 
 # bitcoin-cli binary #
-bitcoin_cli_SOURCES = bitcoin-cli.cpp
-bitcoin_cli_CPPFLAGS = $(BITCOIN_INCLUDES)
-bitcoin_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
+abcmint_cli_SOURCES = bitcoin-cli.cpp
+abcmint_cli_CPPFLAGS = $(BITCOIN_INCLUDES)
+abcmint_cli_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS)
 
 if TARGET_WINDOWS
-bitcoin_cli_SOURCES += bitcoin-cli-res.rc
+abcmint_cli_SOURCES += bitcoin-cli-res.rc
 endif
 
-bitcoin_cli_LDADD = \
+abcmint_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBBITCOIN_COMMON) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
   $(LIBPQCRYPTO)
 
-bitcoin_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS)
-bitcoin_cli_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS)
+abcmint_cli_LDADD += $(BOOST_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS)
+abcmint_cli_LDADD += $(BDB_LIBS) $(MINIUPNPC_LIBS)
 #
 
 
 if USE_GPU
-bitcoind_LDADD += obj/gpumining.o
-bitcoind_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
-# bitcoin_cli_LDADD += obj/gpumining.o
-# bitcoin_cli_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
+abcmintd_LDADD += obj/gpumining.o
+abcmintd_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
+# abcmint_cli_LDADD += obj/gpumining.o
+# abcmint_cli_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 endif
 
 

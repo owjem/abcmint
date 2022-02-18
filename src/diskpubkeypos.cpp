@@ -26,7 +26,7 @@ bool CMemPos::GetPubKeyPos(const CKeyID& keyID, CDiskPubKeyPos& posOut) const
         if (mi != mapPubKeyPos.end()) {
             const CDiskPubKeyPos* pos = &(mi->second);
             posOut.SetHeight(pos->GetHeight());
-            posOut.SetPubKeyOff(pos->GetPubKeyOffset());
+            posOut.SetPubKeyOffset(pos->GetPubKeyOffset());
             return true;
         }
     }
@@ -192,10 +192,10 @@ bool CMemPos::GetPossbyHeight(const unsigned int& nHeight, std::set<CDiskPubKeyP
 
 //     if (!pmemPos->GetPubKeyPos(keyID, pos)) {
 //         if (!FindPubKeyPos(strPubKey, pos)) {
-//             LogPrintf("[%s] public key %s not found in block chain! \n", __func__, address.c_str());
+//             LogPrintf("[%s] public key %s not found in block chain! \n", __func__, address);
 //             found = false;
 //         } else {
-//             LogPrintf("[%s] public key %s found at height=%d, offset=%u. \n", __func__, address.c_str(), pos.nHeight, pos.nPubKeyOffset);
+//             LogPrintf("[%s] public key %s found at height=%d, offset=%u. \n", __func__, address, pos.nHeight, pos.nPubKeyOffset);
 //             pmemPos->AddPubKeyPos2Map(keyID, pos);
 //             found = true;
 //         }
@@ -205,7 +205,7 @@ bool CMemPos::GetPossbyHeight(const unsigned int& nHeight, std::set<CDiskPubKeyP
 //         LogPrintf("[%s] public key pos is not null, height=%u, offset=%u. checking! \n", __func__, pos.nHeight, pos.nPubKeyOffset);
 //         if (!GetPubKeyByPos(pos, diskPubKey)) {
 //             LogPrintf("[%s] can't get public key %s at height=%u, offset=%u. will find again! \n", __func__,
-//                 address.c_str(), pos.nHeight, pos.nPubKeyOffset);
+//                 address, pos.nHeight, pos.nPubKeyOffset);
 //             pos.SetNull();
 //         } else if (diskPubKey != pubKey) {
 //             LogPrintf("[%s] public key foud but not equal, will find again! \n", __func__);
@@ -215,17 +215,17 @@ bool CMemPos::GetPossbyHeight(const unsigned int& nHeight, std::set<CDiskPubKeyP
 //         if (pos.IsNull()) {
 //             //find again
 //             if (!FindPubKeyPos(strPubKey, pos)) {
-//                 LogPrintf("[%s] find again, public key %s not found in block chain! \n", __func__, address.c_str());
+//                 LogPrintf("[%s] find again, public key %s not found in block chain! \n", __func__, address);
 //                 found = false;
 //             } else {
 //                 LogPrintf("[%s] find again, public key %s found at height=%d, offset=%u. \n", __func__,
-//                     address.c_str(), pos.nHeight, pos.nPubKeyOffset);
+//                     address, pos.nHeight, pos.nPubKeyOffset);
 //                 pmemPos->AddPubKeyPos2Map(keyID, pos);
 //                 found = true;
 //             }
 //         } else {
 //             LogPrintf("[%s] public key %s found and match at height=%d, offset=%u. \n", __func__,
-//                 address.c_str(), pos.nHeight, pos.nPubKeyOffset);
+//                 address, pos.nHeight, pos.nPubKeyOffset);
 //             found = true;
 //         }
 //     }
@@ -251,12 +251,12 @@ bool CMemPos::GetPossbyHeight(const unsigned int& nHeight, std::set<CDiskPubKeyP
 
 //                 CPubKey pubKey;
 //                 if (!pwalletMain->GetPubKey(keyID, pubKey)) {
-//                     LogPrintf("[%s] address %s not found in wallet.\n", __func__, address.c_str());
+//                     LogPrintf("[%s] address %s not found in wallet.\n", __func__, address);
 //                     continue;
 //                 }
 
 //                 if(!UpdatePubKeyPos(pubKey, address, keyID)) {
-//                     LogPrintf("[%s] address %s update public key position is not in active chain util you create a transaction.\n", __func__, address.c_str());
+//                     LogPrintf("[%s] address %s update public key position is not in active chain util you create a transaction.\n", __func__, address);
 //                     allPosFound = false;
 //                     continue;
 //                 } else {

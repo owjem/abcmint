@@ -43,9 +43,9 @@ public:
 
   unsigned int GetPubKeyOffset() const { return nPubKeyOffset; }
 
-  void SetPubKeyOff(const unsigned int nPubKeyOffsetIn) { nPubKeyOffset = nPubKeyOffsetIn; }
+  void SetPubKeyOffset(const unsigned int nPubKeyOffsetIn) { nPubKeyOffset = nPubKeyOffsetIn; }
 
-  void SetPubKeyOff(const std::vector<unsigned char> nPubKeyOffsetIn) {
+  void SetPubKeyOffset(const std::vector<unsigned char> nPubKeyOffsetIn) {
     memcpy(&nPubKeyOffset, &nPubKeyOffsetIn[0], nPubKeyOffsetIn.size() * sizeof(nPubKeyOffsetIn[0]));
     bswap_32(nPubKeyOffset);
   }

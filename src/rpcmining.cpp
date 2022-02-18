@@ -5,13 +5,14 @@
 
 #include "rpcserver.h"
 #include "chainparams.h"
-#include "db.h"
 #include "init.h"
 #include "net.h"
 #include "main.h"
 #include "miner.h"
+#ifdef ENABLE_WALLET
+#include "db.h"
 #include "wallet.h"
-
+#endif
 #include <stdint.h>
 
 #include "json/json_spirit_utils.h"
@@ -54,7 +55,10 @@ void ShutdownRPCMining()
 // or from the last difficulty change if 'lookup' is nonpositive.
 // If 'height' is nonnegative, compute the estimate at the time when a given block was found.
 Value GetNetworkHashPS(int lookup, int height) {
-    CBlockIndex *pb = chainActive[height];
+    CBlockIndex *pb = chainActive.Tip();
+
+    if (height >= 0 && height < chainActive.Height())
+        pb = chainActive[height];
 
     if (pb == NULL || !pb->nHeight)
         return 0;
@@ -84,7 +88,7 @@ Value GetNetworkHashPS(int lookup, int height) {
     uint256 workDiff = pb->nChainWork - pb0->nChainWork;
     int64_t timeDiff = maxTime - minTime;
 
-    return (boost::int64_t)(workDiff.getdouble() / timeDiff);
+    return (int64_t)(workDiff.getdouble() / timeDiff);
 }
 
 Value getnetworkhashps(const Array& params, bool fHelp)
@@ -200,6 +204,7 @@ Value setgenerate(const Array& params, bool fHelp)
     else // Not -regtest: start generate thread, return immediately
     {
         mapArgs["-gen"] = (fGenerate ? "1" : "0");
+        mapArgs ["-genproclimit"] = itostr(nGenProcLimit);
         GenerateBitcoins(fGenerate, pwalletMain, nGenProcLimit);
     }
 
@@ -221,8 +226,8 @@ Value gethashespersec(const Array& params, bool fHelp)
         );
 
     if (GetTimeMillis() - nHPSTimerStart > 8000)
-        return (boost::int64_t)0;
-    return (boost::int64_t)dHashesPerSec;
+        return (int64_t)0;
+    return (int64_t)dHashesPerSec;
 }
 #endif
 

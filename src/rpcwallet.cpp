@@ -1,5 +1,5 @@
 // Copyright (c) 2010 Satoshi Nakamoto
-// Copyright (c) 2009-2013 The Bitcoin developers
+// Copyright (c) 2009-2014 The Bitcoin developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -45,15 +45,20 @@ void WalletTxToJSON(const CWalletTx& wtx, Object& entry)
     entry.push_back(Pair("confirmations", confirms));
     if (wtx.IsCoinBase())
         entry.push_back(Pair("generated", true));
-    if (confirms)
+    if (confirms > 0)
     {
         entry.push_back(Pair("blockhash", wtx.hashBlock.GetHex()));
         entry.push_back(Pair("blockindex", wtx.nIndex));
-        entry.push_back(Pair("blocktime", (boost::int64_t)(mapBlockIndex[wtx.hashBlock]->nTime)));
+        entry.push_back(Pair("blocktime", (int64_t)(mapBlockIndex[wtx.hashBlock]->nTime)));
     }
-    entry.push_back(Pair("txid", wtx.GetHash().GetHex()));
-    entry.push_back(Pair("time", (boost::int64_t)wtx.GetTxTime()));
-    entry.push_back(Pair("timereceived", (boost::int64_t)wtx.nTimeReceived));
+    uint256 hash = wtx.GetHash();
+    entry.push_back(Pair("txid", hash.GetHex()));
+    Array conflicts;
+    BOOST_FOREACH(const uint256& conflict, wtx.GetConflicts())
+        conflicts.push_back(conflict.GetHex());
+    entry.push_back(Pair("walletconflicts", conflicts));
+    entry.push_back(Pair("time", wtx.GetTxTime()));
+    entry.push_back(Pair("timereceived", (int64_t)wtx.nTimeReceived));
     BOOST_FOREACH(const PAIRTYPE(string,string)& item, wtx.mapValue)
         entry.push_back(Pair(item.first, item.second));
 }
@@ -313,7 +318,7 @@ Value sendtoaddress(const Array& params, bool fHelp)
             "                             to which you're sending the transaction. This is not part of the \n"
             "                             transaction, just kept in your wallet.\n"
             "\nResult:\n"
-            "\"transactionid\"  (string) The transaction id. (view at https://blockchain.info/tx/[transactionid])\n"
+            "\"transactionid\"  (string) The transaction id.\n"
             "\nExamples:\n"
             + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1")
             + HelpExampleCli("sendtoaddress", "\"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.1 \"donation\" \"seans outpost\"")
@@ -441,62 +446,6 @@ Value signmessage(const Array& params, bool fHelp)
     return EncodeBase64(&vchSig[0], vchSig.size());
 }
 
-Value verifymessage(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() != 3)
-        throw runtime_error(
-            "verifymessage \"bitcoinaddress\" \"signature\" \"message\"\n"
-            "\nVerify a signed message\n"
-            "\nArguments:\n"
-            "1. \"bitcoinaddress\"  (string, required) The bitcoin address to use for the signature.\n"
-            "2. \"signature\"       (string, required) The signature provided by the signer in base 64 encoding (see signmessage).\n"
-            "3. \"message\"         (string, required) The message that was signed.\n"
-            "\nResult:\n"
-            "true|false   (boolean) If the signature is verified or not.\n"
-            "\nExamples:\n"
-            "\nUnlock the wallet for 30 seconds\n"
-            + HelpExampleCli("walletpassphrase", "\"mypassphrase\" 30") +
-            "\nCreate the signature\n"
-            + HelpExampleCli("signmessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XZ\" \"my message\"") +
-            "\nVerify the signature\n"
-            + HelpExampleCli("verifymessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XZ\" \"signature\" \"my message\"") +
-            "\nAs json rpc\n"
-            + HelpExampleRpc("verifymessage", "\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XZ\", \"signature\", \"my message\"")
-        );
-
-    string strAddress  = params[0].get_str();
-    string strSign     = params[1].get_str();
-    string strMessage  = params[2].get_str();
-
-    CBitcoinAddress addr(strAddress);
-    if (!addr.IsValid())
-        throw JSONRPCError(RPC_TYPE_ERROR, "Invalid address");
-
-    CKeyID keyID;
-    if (!addr.GetKeyID(keyID))
-        throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
-
-    bool fInvalid = false;
-    vector<unsigned char> vchSig = DecodeBase64(strSign.c_str(), &fInvalid);
-
-    if (fInvalid)
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Malformed base64 encoding");
-
-    CHashWriter ss(SER_GETHASH, 0);
-    ss << strMessageMagic;
-    ss << strMessage;
-
-    CPubKey pubkey;
-    if (!pwalletMain->GetPubKey(keyID, pubkey))
-        throw JSONRPCError(RPC_WALLET_ERROR, "Private key not available");
-
-    if (!pubkey.Verify(ss.GetHash(), vchSig))
-        return false;
-
-    return (pubkey.GetID() == keyID);
-}
-
-
 Value getreceivedbyaddress(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
@@ -611,7 +560,7 @@ int64_t GetAccountBalance(CWalletDB& walletdb, const string& strAccount, int nMi
     for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
     {
         const CWalletTx& wtx = (*it).second;
-        if (!IsFinalTx(wtx))
+        if (!IsFinalTx(wtx) || wtx.GetBlocksToMaturity() > 0 || wtx.GetDepthInMainChain() < 0)
             continue;
 
         int64_t nReceived, nSent, nFee;
@@ -645,13 +594,15 @@ Value getbalance(const Array& params, bool fHelp)
             "Note that the account \"\" is not the same as leaving the parameter out.\n"
             "The server total may be different to the balance in the default \"\" account.\n"
             "\nArguments:\n"
-            "1. \"account\"      (string, optional) The selected account. It may be the default account using \"\".\n"
+            "1. \"account\"      (string, optional) The selected account, or \"*\" for entire wallet. It may be the default account using \"\".\n"
             "2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n"
             "\nResult:\n"
             "amount              (numeric) The total amount in btc received for this account.\n"
             "\nExamples:\n"
             "\nThe total amount in the server across all accounts\n"
             + HelpExampleCli("getbalance", "") +
+            "\nThe total amount in the server across all accounts, with at least 5 confirmations\n"
+            + HelpExampleCli("getbalance", "\"*\" 6") +
             "\nThe total amount in the default account with at least 1 confirmation\n"
             + HelpExampleCli("getbalance", "\"\"") +
             "\nThe total amount in the account named tabby with at least 6 confirmations\n"
@@ -675,7 +626,7 @@ Value getbalance(const Array& params, bool fHelp)
         for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
         {
             const CWalletTx& wtx = (*it).second;
-            if (!wtx.IsConfirmed())
+            if (!wtx.IsTrusted() || wtx.GetBlocksToMaturity() > 0)
                 continue;
 
             int64_t allFee;
@@ -700,6 +651,15 @@ Value getbalance(const Array& params, bool fHelp)
     int64_t nBalance = GetAccountBalance(strAccount, nMinDepth);
 
     return ValueFromAmount(nBalance);
+}
+
+Value getunconfirmedbalance(const Array &params, bool fHelp)
+{
+    if (fHelp || params.size() > 0)
+        throw runtime_error(
+                "getunconfirmedbalance\n"
+                "Returns the server's total unconfirmed balance\n");
+    return ValueFromAmount(pwalletMain->GetUnconfirmedBalance());
 }
 
 
@@ -787,7 +747,7 @@ Value sendfrom(const Array& params, bool fHelp)
             "                                     to which you're sending the transaction. This is not part of the transaction, \n"
             "                                     it is just kept in your wallet.\n"
             "\nResult:\n"
-            "\"transactionid\"        (string) The transaction id. (view at https://blockchain.info/tx/[transactionid])\n"
+            "\"transactionid\"        (string) The transaction id.\n"
             "\nExamples:\n"
             "\nSend 0.01 btc from the default account to the address, must have at least 1 confirmation\n"
             + HelpExampleCli("sendfrom", "\"\" \"1M72Sfpbz1BPpXFHz9m3CdqATR44Jvaydd\" 0.01") +
@@ -847,7 +807,7 @@ Value sendmany(const Array& params, bool fHelp)
             "4. \"comment\"             (string, optional) A comment\n"
             "\nResult:\n"
             "\"transactionid\"          (string) The transaction id for the send. Only 1 transaction is created regardless of \n"
-            "                                    the number of addresses. See https://blockchain.info/tx/[transactionid]\n"
+            "                                    the number of addresses.\n"
             "\nExamples:\n"
             "\nSend two amounts to two different addresses:\n"
             + HelpExampleCli("sendmany", "\"tabby\" \"{\\\"1D1ZrZNe3JUo7ZycKEYQQiQAWd9y54F4XZ\\\":0.01,\\\"1353tsE8YMTA4EuV7dgUXGjNFf9KpVvKHz\\\":0.02}\"") +
@@ -910,76 +870,8 @@ Value sendmany(const Array& params, bool fHelp)
     return wtx.GetHash().GetHex();
 }
 
-//
-// Used by addmultisigaddress / createmultisig:
-//
-static CScript _createmultisig(const Array& params)
-{
-    int nRequired = params[0].get_int();
-    const Array& keys = params[1].get_array();
-
-    // Gather public keys
-    if (nRequired < 1)
-        throw runtime_error("a multisignature address must require at least one key to redeem");
-    if ((int)keys.size() < nRequired)
-        throw runtime_error(
-            strprintf("not enough keys supplied "
-                      "(got %" PRIszu " keys, but need at least %d to redeem)", keys.size(), nRequired));
-    std::vector<CDiskPubKeyPos> vPubKeyPos;
-    vPubKeyPos.resize(keys.size());
-    for (unsigned int i = 0; i < keys.size(); i++)
-    {
-        const std::string& ks = keys[i].get_str();
-        if (IsHex(ks) && ks.length() == RAINBOW_PUBLIC_KEY_POS_SIZE*2)
-        {
-            CDiskPubKeyPos pos;
-            pos<< ParseHex(ks);
-            CPubKey vchPubKey;
-            bool ret = GetPubKeyByPos(pos, vchPubKey);
-            if (!ret || !vchPubKey.IsValid())
-                throw runtime_error(" can't find public key at position: "+ks);
-            vPubKeyPos[i] = pos;
-        }
-        else
-        {
-            throw runtime_error(" Invalid public key position: "+ks);
-        }
-    }
-    CScript result;
-    result.SetMultisig(nRequired, vPubKeyPos);
-    return result;
-}
-
-Value getpublickeypos(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() != 1 )
-    {
-        string msg = "getpublickeypos <address>\n"
-            "the bitcoin public key is too large, translate it to position in the block chain by this interface \n"
-            "the public key should ever be used in P2PKH transation and accepted to the block chain, with depth >= 120 blocks \n"
-            "just input the address, the public key will be found by the input address\n";
-        throw runtime_error(msg);
-    }
-
-    std::string strAddress = params[0].get_str();
-    CBitcoinAddress address(strAddress);
-    if (!address.IsValid())
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid Bitcoin address");
-
-    CKeyID keyID;
-    if (!address.GetKeyID(keyID))
-        throw JSONRPCError(RPC_TYPE_ERROR, "Address does not refer to key");
-
-    CPubKey pubKey;
-    if (!pwalletMain->GetPubKey(keyID, pubKey))
-        throw JSONRPCError(RPC_WALLET_ERROR, "address not found in wallet.");
-
-    CDiskPubKeyPos pos;
-    if (!pmemPos->GetPubKeyPos(strAddress, pos))
-        throw JSONRPCError(RPC_WALLET_ERROR, "can't get public key position");
-
-    return HexStr(pos.ToVector());
-}
+// Defined in rpcmisc.cpp
+extern CScript _createmultisig_redeemScript(const Array& params);
 
 Value addmultisigaddress(const Array& params, bool fHelp)
 {
@@ -1016,55 +908,12 @@ Value addmultisigaddress(const Array& params, bool fHelp)
         strAccount = AccountFromValue(params[2]);
 
     // Construct using pay-to-script-hash:
-    CScript inner = _createmultisig(params);
+    CScript inner = _createmultisig_redeemScript(params);
     CScriptID innerID = inner.GetID();
     pwalletMain->AddCScript(inner);
 
     pwalletMain->SetAddressBook(innerID, strAccount, "send");
     return CBitcoinAddress(innerID).ToString();
-}
-
-Value createmultisig(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() < 2 || params.size() > 2)
-    {
-        string msg = "createmultisig nrequired [\"key\",...]\n"
-            "\nCreates a multi-signature address with n signature of m keys required.\n"
-            "It returns a json object with the address and redeemScript.\n"
-
-            "\nArguments:\n"
-            "1. nrequired      (numeric, required) The number of required signatures out of the n keys or addresses.\n"
-            "2. \"keys\"       (string, required) A json array of keys which are bitcoin addresses or hex-encoded public keys\n"
-            "     [\n"
-            "       \"key\"    (string) bitcoin address or hex-encoded public key\n"
-            "       ,...\n"
-            "     ]\n"
-
-            "\nResult:\n"
-            "{\n"
-            "  \"address\":\"multisigaddress\",  (string) The value of the new multisig address.\n"
-            "  \"redeemScript\":\"script\"       (string) The string value of the hex-encoded redemption script.\n"
-            "}\n"
-
-            "\nExamples:\n"
-            "\nCreate a multisig address from 2 addresses\n"
-            + HelpExampleCli("createmultisig", "2 \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"") +
-            "\nAs a json rpc call\n"
-            + HelpExampleRpc("icreatemultisig", "2, \"[\\\"16sSauSf5pF2UkUwvKGq4qjNRzBZYqgEL5\\\",\\\"171sgjn4YtPu27adkKGrdDwzRTxnRkBfKV\\\"]\"")
-        ;
-        throw runtime_error(msg);
-    }
-
-    // Construct using pay-to-script-hash:
-    CScript inner = _createmultisig(params);
-    CScriptID innerID = inner.GetID();
-    CBitcoinAddress address(innerID);
-
-    Object result;
-    result.push_back(Pair("address", address.ToString()));
-    result.push_back(Pair("redeemScript", HexStr(inner.begin(), inner.end())));
-
-    return result;
 }
 
 
@@ -1297,7 +1146,9 @@ void ListTransactions(const CWalletTx& wtx, const string& strAccount, int nMinDe
                         entry.push_back(Pair("category", "generate"));
                 }
                 else
+                {
                     entry.push_back(Pair("category", "receive"));
+                }
                 entry.push_back(Pair("amount", ValueFromAmount(r.second)));
                 if (fLong)
                     WalletTxToJSON(wtx, entry);
@@ -1316,7 +1167,7 @@ void AcentryToJSON(const CAccountingEntry& acentry, const string& strAccount, Ar
         Object entry;
         entry.push_back(Pair("account", acentry.strAccount));
         entry.push_back(Pair("category", "move"));
-        entry.push_back(Pair("time", (boost::int64_t)acentry.nTime));
+        entry.push_back(Pair("time", acentry.nTime));
         entry.push_back(Pair("amount", ValueFromAmount(acentry.nCreditDebit)));
         entry.push_back(Pair("otheraccount", acentry.strOtherAccount));
         entry.push_back(Pair("comment", acentry.strComment));
@@ -1358,8 +1209,7 @@ Value listtransactions(const Array& params, bool fHelp)
             "                                          category of transactions.\n"
             "    \"blockindex\": n,          (numeric) The block index containing the transaction. Available for 'send' and 'receive'\n"
             "                                          category of transactions.\n"
-            "    \"txid\": \"transactionid\", (string) The transaction id (see https://blockchain.info/tx/[transactionid]. Available \n"
-            "                                          for 'send' and 'receive' category of transactions.\n"
+            "    \"txid\": \"transactionid\", (string) The transaction id. Available for 'send' and 'receive' category of transactions.\n"
             "    \"time\": xxx,              (numeric) The transaction time in seconds since epoch (midnight Jan 1 1970 GMT).\n"
             "    \"timereceived\": xxx,      (numeric) The time received in seconds since epoch (midnight Jan 1 1970 GMT). Available \n"
             "                                          for 'send' and 'receive' category of transactions.\n"
@@ -1473,11 +1323,14 @@ Value listaccounts(const Array& params, bool fHelp)
         string strSentAccount;
         list<pair<CTxDestination, int64_t> > listReceived;
         list<pair<CTxDestination, int64_t> > listSent;
+        int nDepth = wtx.GetDepthInMainChain();
+        if (wtx.GetBlocksToMaturity() > 0 || nDepth < 0)
+            continue;
         wtx.GetAmounts(listReceived, listSent, nFee, strSentAccount);
         mapAccountBalances[strSentAccount] -= nFee;
         BOOST_FOREACH(const PAIRTYPE(CTxDestination, int64_t)& s, listSent)
             mapAccountBalances[strSentAccount] -= s.second;
-        if (wtx.GetDepthInMainChain() >= nMinDepth)
+        if (nDepth >= nMinDepth)
         {
             BOOST_FOREACH(const PAIRTYPE(CTxDestination, int64_t)& r, listReceived)
                 if (pwalletMain->mapAddressBook.count(r.first))
@@ -1521,7 +1374,7 @@ Value listsinceblock(const Array& params, bool fHelp)
             "    \"blockhash\": \"hashvalue\",     (string) The block hash containing the transaction. Available for 'send' and 'receive' category of transactions.\n"
             "    \"blockindex\": n,          (numeric) The block index containing the transaction. Available for 'send' and 'receive' category of transactions.\n"
             "    \"blocktime\": xxx,         (numeric) The block time in seconds since epoch (1 Jan 1970 GMT).\n"
-            "    \"txid\": \"transactionid\",  (string) The transaction id (see https://blockchain.info/tx/[transactionid]. Available for 'send' and 'receive' category of transactions.\n"
+            "    \"txid\": \"transactionid\",  (string) The transaction id. Available for 'send' and 'receive' category of transactions.\n"
             "    \"time\": xxx,              (numeric) The transaction time in seconds since epoch (Jan 1 1970 GMT).\n"
             "    \"timereceived\": xxx,      (numeric) The time received in seconds since epoch (Jan 1 1970 GMT). Available for 'send' and 'receive' category of transactions.\n"
             "    \"comment\": \"...\",       (string) If a comment is associated with the transaction.\n"
@@ -1593,7 +1446,7 @@ Value gettransaction(const Array& params, bool fHelp)
             "  \"blockhash\" : \"hash\",  (string) The block hash\n"
             "  \"blockindex\" : xx,       (numeric) The block index\n"
             "  \"blocktime\" : ttt,       (numeric) The time in seconds since epoch (1 Jan 1970 GMT)\n"
-            "  \"txid\" : \"transactionid\",   (string) The transaction id, see also https://blockchain.info/tx/[transactionid]\n"
+            "  \"txid\" : \"transactionid\",   (string) The transaction id.\n"
             "  \"time\" : ttt,            (numeric) The transaction time in seconds since epoch (1 Jan 1970 GMT)\n"
             "  \"timereceived\" : ttt,    (numeric) The time received in seconds since epoch (1 Jan 1970 GMT)\n"
             "  \"details\" : [\n"
@@ -1604,7 +1457,8 @@ Value gettransaction(const Array& params, bool fHelp)
             "      \"amount\" : x.xxx                  (numeric) The amount in btc\n"
             "    }\n"
             "    ,...\n"
-            "  ]\n"
+            "  ],\n"
+            "  \"hex\" : \"data\"         (string) Raw data for transaction\n"
             "}\n"
 
             "\nbExamples\n"
@@ -1634,6 +1488,11 @@ Value gettransaction(const Array& params, bool fHelp)
     Array details;
     ListTransactions(wtx, "*", 0, false, details);
     entry.push_back(Pair("details", details));
+
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+    ssTx << static_cast<CTransaction>(wtx);
+    string strHex = HexStr(ssTx.begin(), ssTx.end());
+    entry.push_back(Pair("hex", strHex));
 
     return entry;
 }
@@ -1709,6 +1568,9 @@ Value walletpassphrase(const Array& params, bool fHelp)
             "\nArguments:\n"
             "1. \"passphrase\"     (string, required) The wallet passphrase\n"
             "2. timeout            (numeric, required) The time to keep the decryption key in seconds.\n"
+            "\nNote:\n"
+            "Issuing the walletpassphrase command while the wallet is already unlocked will set a new unlock\n"
+            "time that overrides the old one.\n"
             "\nExamples:\n"
             "\nunlock the wallet for 60 seconds\n"
             + HelpExampleCli("walletpassphrase", "\"my pass phrase\" 60") +
@@ -1720,8 +1582,6 @@ Value walletpassphrase(const Array& params, bool fHelp)
 
     if (fHelp)
         return true;
-    if (!fServer)
-        throw JSONRPCError(RPC_SERVER_NOT_STARTED, "Error: RPC server was not started, use server=1 to change this.");
     if (!pwalletMain->IsCrypted())
         throw JSONRPCError(RPC_WALLET_WRONG_ENC_STATE, "Error: running with an unencrypted wallet, but walletpassphrase was called.");
 
@@ -1880,94 +1740,13 @@ Value encryptwallet(const Array& params, bool fHelp)
     return "wallet encrypted; Bitcoin server stopping, restart to run with encrypted wallet. The keypool has been flushed, you need to make a new backup.";
 }
 
-class DescribeAddressVisitor : public boost::static_visitor<Object>
-{
-public:
-    Object operator()(const CNoDestination &dest) const { return Object(); }
-
-    Object operator()(const CKeyID &keyID) const {
-        Object obj;
-        CPubKey vchPubKey;
-        pwalletMain->GetPubKey(keyID, vchPubKey);
-        obj.push_back(Pair("isscript", false));
-        obj.push_back(Pair("pubkey", HexStr(vchPubKey)));
-        obj.push_back(Pair("iscompressed", vchPubKey.IsCompressed()));
-        return obj;
-    }
-
-    Object operator()(const CScriptID &scriptID) const {
-        Object obj;
-        obj.push_back(Pair("isscript", true));
-        CScript subscript;
-        pwalletMain->GetCScript(scriptID, subscript);
-        std::vector<CTxDestination> addresses;
-        txnouttype whichType;
-        int nRequired;
-        ExtractDestinations(subscript, whichType, addresses, nRequired);
-        obj.push_back(Pair("script", GetTxnOutputType(whichType)));
-        obj.push_back(Pair("hex", HexStr(subscript.begin(), subscript.end())));
-        Array a;
-        BOOST_FOREACH(const CTxDestination& addr, addresses)
-            a.push_back(CBitcoinAddress(addr).ToString());
-        obj.push_back(Pair("addresses", a));
-        if (whichType == TX_MULTISIG)
-            obj.push_back(Pair("sigsrequired", nRequired));
-        return obj;
-    }
-};
-
-Value validateaddress(const Array& params, bool fHelp)
-{
-    if (fHelp || params.size() != 1)
-        throw runtime_error(
-            "validateaddress \"bitcoinaddress\"\n"
-            "\nReturn information about the given bitcoin address.\n"
-            "\nArguments:\n"
-            "1. \"bitcoinaddress\"     (string, required) The bitcoin address to validate\n"
-            "\nResult:\n"
-            "{\n"
-            "  \"isvalid\" : true|false,         (boolean) If the address is valid or not. If not, this is the only property returned.\n"
-            "  \"address\" : \"bitcoinaddress\", (string) The bitcoin address validated\n"
-            "  \"ismine\" : true|false,          (boolean) If the address is yours or not\n"
-            "  \"isscript\" : true|false,        (boolean) If the key is a script\n"
-            "  \"pubkey\" : \"publickeyhex\",    (string) The hex value of the raw public key\n"
-            "  \"iscompressed\" : true|false,    (boolean) If the address is compressed\n"
-            "  \"account\" : \"account\"         (string) The account associated with the address, \"\" is the default account\n"
-            "}\n"
-            "\nExamples:\n"
-            + HelpExampleCli("validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
-            + HelpExampleRpc("validateaddress", "\"1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc\"")
-        );
-
-    CBitcoinAddress address(params[0].get_str());
-    bool isValid = address.IsValid();
-
-    Object ret;
-    ret.push_back(Pair("isvalid", isValid));
-    if (isValid)
-    {
-        CTxDestination dest = address.Get();
-        string currentAddress = address.ToString();
-        ret.push_back(Pair("address", currentAddress));
-        bool fMine = pwalletMain ? IsMine(*pwalletMain, dest) : false;
-        ret.push_back(Pair("ismine", fMine));
-        if (fMine) {
-            Object detail = boost::apply_visitor(DescribeAddressVisitor(), dest);
-            ret.insert(ret.end(), detail.begin(), detail.end());
-        }
-        if (pwalletMain && pwalletMain->mapAddressBook.count(dest))
-            ret.push_back(Pair("account", pwalletMain->mapAddressBook[dest].name));
-    }
-    return ret;
-}
-
 Value lockunspent(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(
             "lockunspent unlock [{\"txid\":\"txid\",\"vout\":n},...]\n"
             "\nUpdates list of temporarily unspendable outputs.\n"
-            "Temporarily lock (lock=true) or unlock (lock=false) specified transaction outputs.\n"
+            "Temporarily lock (unlock=false) or unlock (unlock=true) specified transaction outputs.\n"
             "A locked transaction output will not be chosen by automatic coin selection, when spending bitcoins.\n"
             "Locks are stored in memory only. Nodes start with zero locked outputs, and the locked output list\n"
             "is always cleared (by virtue of process exit) when a node stops or fails.\n"
@@ -2082,4 +1861,59 @@ Value listlockunspent(const Array& params, bool fHelp)
     }
 
     return ret;
+}
+
+Value settxfee(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 1 || params.size() > 1)
+        throw runtime_error(
+            "settxfee amount\n"
+            "\nSet the transaction fee per kB.\n"
+            "\nArguments:\n"
+            "1. amount         (numeric, required) The transaction fee in BTC/kB rounded to the nearest 0.00000001\n"
+            "\nResult\n"
+            "true|false        (boolean) Returns true if successful\n"
+            "\nExamples:\n"
+            + HelpExampleCli("settxfee", "0.00001")
+            + HelpExampleRpc("settxfee", "0.00001")
+        );
+
+    // Amount
+    int64_t nAmount = 0;
+    if (params[0].get_real() != 0.0)
+        nAmount = AmountFromValue(params[0]);        // rejects 0.0 amounts
+
+    nTransactionFee = nAmount;
+    return true;
+}
+
+Value getwalletinfo(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+            "getwalletinfo\n"
+            "Returns an object containing various wallet state info.\n"
+            "\nResult:\n"
+            "{\n"
+            "  \"walletversion\": xxxxx,     (numeric) the wallet version\n"
+            "  \"balance\": xxxxxxx,         (numeric) the total bitcoin balance of the wallet\n"
+            "  \"txcount\": xxxxxxx,         (numeric) the total number of transactions in the wallet\n"
+            "  \"keypoololdest\": xxxxxx,    (numeric) the timestamp (seconds since GMT epoch) of the oldest pre-generated key in the key pool\n"
+            "  \"keypoolsize\": xxxx,        (numeric) how many new keys are pre-generated\n"
+            "  \"unlocked_until\": ttt,      (numeric) the timestamp in seconds since epoch (midnight Jan 1 1970 GMT) that the wallet is unlocked for transfers, or 0 if the wallet is locked\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getwalletinfo", "")
+            + HelpExampleRpc("getwalletinfo", "")
+        );
+
+    Object obj;
+    obj.push_back(Pair("walletversion", pwalletMain->GetVersion()));
+    obj.push_back(Pair("balance",       ValueFromAmount(pwalletMain->GetBalance())));
+    obj.push_back(Pair("txcount",       (int)pwalletMain->mapWallet.size()));
+    obj.push_back(Pair("keypoololdest", pwalletMain->GetOldestKeyPoolTime()));
+    obj.push_back(Pair("keypoolsize",   (int)pwalletMain->GetKeyPoolSize()));
+    if (pwalletMain->IsCrypted())
+        obj.push_back(Pair("unlocked_until", nWalletUnlockTime));
+    return obj;
 }

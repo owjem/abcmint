@@ -101,9 +101,9 @@ public:
         assert(genesis.hashMerkleRoot == uint256("0xaef6a6cb3767fa5d965b10f9d1e3e183ddea21a5f7ffce9bd7a86c065e7c6865"));
 
         // uint256 hash = uint256("0xcea89aa6adb81572f8b9e5f9b5d0184cbbc25208164cb1547decf3655da9dc77");
-        // LogPrintf("%s\n", hash.ToString().c_str());
-        // LogPrintf("%s\n", hashGenesisBlock.ToString().c_str());
-        // LogPrintf("%s\n", genesis.hashMerkleRoot.ToString().c_str());
+        // LogPrintf("%s\n", hash.ToString());
+        // LogPrintf("%s\n", hashGenesisBlock.ToString());
+        // LogPrintf("%s\n", genesis.hashMerkleRoot.ToString());
 
         vSeeds.push_back(CDNSSeedData("abcmint-bohr.com", "abcmint-bohr.com"));
         vSeeds.push_back(CDNSSeedData("abcmint-einstein.com", "abcmint-einstein.com"));

@@ -1,0 +1,33 @@
+// Copyright (c) 2011-2013 The Bitcoin Core developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include "uint256.h"
+#include <string>
+
+#include <stdint.h>
+
+#include <boost/test/unit_test.hpp>
+
+BOOST_AUTO_TEST_SUITE(uint256_tests)
+
+BOOST_AUTO_TEST_CASE(uint256_equality)
+{
+    uint256 num1 = 10;
+    uint256 num2 = 11;
+    BOOST_CHECK(num1+1 == num2);
+
+    uint64_t num3 = 10;
+    BOOST_CHECK(num1 == num3);
+    BOOST_CHECK(num1+num2 == num3+num2);
+}
+
+BOOST_AUTO_TEST_CASE(uint256_hex)
+{
+    std::string hexStr = "d35583ed493a5eee756931353144f558e6a9ab3ad6024a63ced7f10daf7faad9";
+    uint256 num1;
+    num1.SetHex(hexStr);
+    BOOST_CHECK(num1.GetHex() == hexStr);
+}
+
+BOOST_AUTO_TEST_SUITE_END()

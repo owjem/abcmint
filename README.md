@@ -1,9 +1,9 @@
 Abcmint integration/staging tree
-================================
+=====================================
 
 http://www.abcmint.org
 
-Copyright (c) 2018 ABCMintCore Developers
+Copyright (c) 2018 ABCMint Core Developers
 
 What is Abcmint?
 ----------------

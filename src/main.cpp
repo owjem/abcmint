@@ -7,6 +7,7 @@
 
 #include "addrman.h"
 #include "alert.h"
+#include "base58.h"
 #include "chainparams.h"
 #include "checkpoints.h"
 #include "checkqueue.h"
@@ -38,6 +39,7 @@ using namespace boost;
 CCriticalSection cs_main;
 
 CTxMemPool mempool;
+bool fUsedDefaultKey = false;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
 CChain chainActive;
@@ -1174,6 +1176,7 @@ void CombinePubkey(map<vector<unsigned char>, vector<unsigned char>>&  mapPubKey
         const CScript &scriptSig = tx.vin[i].scriptSig;
         SplitScript(mapPubKey, scriptSig, i);
     }
+    LogPrintf(" ===> mapPubKey  size(%ld) \n",  mapPubKey.size());
     for (std::map<std::vector<unsigned char>, vector<unsigned char>>::iterator iter = mapPubKey.begin(); iter!=mapPubKey.end(); iter++) {
         CDiskPubKeyPos pos;
         pos << iter->first;
@@ -1182,6 +1185,9 @@ void CombinePubkey(map<vector<unsigned char>, vector<unsigned char>>&  mapPubKey
             if(GetPubKeyByPos(pos, pubkey))
                 iter->second.insert(iter->second.end(), pubkey.begin(), pubkey.end());
         }
+        CPubKey pubkey(iter->second);
+        CKeyID keyid= pubkey.GetID();
+        LogPrintf(" ===> mapPubKey  [%s] [%s] size(%ld) \n", HexStr(iter->first.begin(), iter->first.end()), CBitcoinAddress(keyid).ToString(), iter->second.size());
     }
 }
 
@@ -1841,19 +1847,8 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, CCoinsViewCach
         // still computed and checked, and any change will be caught at the next checkpoint.
         if (fScriptChecks) {
             map<vector<unsigned char>, vector<unsigned char> > mapPubKey;
-            for (unsigned int i = 0; i < tx.vin.size(); i++) {
-                const CScript &scriptSig = tx.vin[i].scriptSig;
-                SplitScript(mapPubKey, scriptSig, i);
-            }
-            for (std::map<std::vector<unsigned char>, vector<unsigned char>>::iterator iter = mapPubKey.begin(); iter!=mapPubKey.end(); iter++) {
-                CDiskPubKeyPos pos;
-                pos << iter->first;
-                if( 0<=pos.GetHeight() && pos.GetHeight() < 0xffffffff){
-                    CPubKey pubkey;
-                    if(GetPubKeyByPos(pos, pubkey))
-                        iter->second.insert(iter->second.end(), pubkey.begin(), pubkey.end());
-                }
-            }
+            CombinePubkey(mapPubKey, tx);
+
             for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 const COutPoint &prevout = tx.vin[i].prevout;
                 const CCoins &coins = inputs.GetCoins(prevout.hash);

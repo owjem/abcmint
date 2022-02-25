@@ -404,12 +404,14 @@ class CReserveKey
 protected:
     CWallet* pwallet;
     int64_t nIndex;
+    bool fUsedDefaultKey;
     CPubKey vchPubKey;
 public:
-    CReserveKey(CWallet* pwalletIn)
+    CReserveKey(CWallet* pwalletIn, bool fUsedDefaultKeyIn=false)
     {
         nIndex = -1;
         pwallet = pwalletIn;
+        fUsedDefaultKey = fUsedDefaultKeyIn;
     }
 
     ~CReserveKey()

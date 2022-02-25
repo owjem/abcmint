@@ -605,12 +605,9 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
     if (!reservekey.GetReservedKey(pubkey))
         return NULL;
 
-    CScript scriptPubKey2 = CScript() << pubkey << OP_CHECKSIG;
-    CScript scriptPubKey ;
-    scriptPubKey.SetDestination(pubkey.GetID());
+    CScript scriptPubKey = CScript() << OP_DUP << OP_HASH256 << pubkey.GetID() << OP_EQUALVERIFY << OP_CHECKSIG;
 
-    LogPrintf(" ===> [%s] So[%s...%s] \n", __func__, HexStr(scriptPubKey.begin(),scriptPubKey.begin()+20), HexStr(scriptPubKey.end()-20,scriptPubKey.end()));
-    LogPrintf(" ===> [%s] So[%s...%s] \n", __func__, HexStr(scriptPubKey2.begin(),scriptPubKey2.begin()+20), HexStr(scriptPubKey2.end()-20,scriptPubKey2.end()));
+    LogPrintf(" ===> [%s] So[%s] \n", __func__, scriptPubKey.ToString().c_str());
 
     return CreateNewBlock(scriptPubKey);
 }
@@ -665,8 +662,9 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
     SetDevice(deviceID);
 #endif
 
+    unsigned int nUsedDefaultKey = GetArg("-useddefaultkey", true);
     // Each thread has its own key and counter
-    CReserveKey reservekey(pwallet);
+    CReserveKey reservekey(pwallet, nUsedDefaultKey);
     unsigned int nExtraNonce = 0;
 
     try { while (true) {
@@ -688,11 +686,6 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
             return;
         CBlock *pblock = &pblocktemplate->block;
 
-        // if(1){
-        //     pblock->print();
-        //     MilliSleep(1000);
-        //     continue;
-        // }
         pblock->print();
         LogPrintf(" ===> [%s]miner new jop start ===========================================\n", __func__);
 

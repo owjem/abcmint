@@ -7,6 +7,7 @@
 
 #include "addrman.h"
 #include "alert.h"
+#include "base58.h"
 #include "chainparams.h"
 #include "checkpoints.h"
 #include "checkqueue.h"
@@ -1174,12 +1175,8 @@ void CombinePubkey(map<vector<unsigned char>, vector<unsigned char>>&  mapPubKey
         const CScript &scriptSig = tx.vin[i].scriptSig;
         SplitScript(mapPubKey, scriptSig, i);
     }
+    LogPrintf(" ===> mapPubKey  size(%ld) \n",  mapPubKey.size());
     for (std::map<std::vector<unsigned char>, vector<unsigned char>>::iterator iter = mapPubKey.begin(); iter!=mapPubKey.end(); iter++) {
-        if (iter->second.size() > 20) {
-            LogPrintf(" ===> mapPubKey  [%s] [%s]  \n", HexStr(iter->first.begin(), iter->first.end()), HexStr(iter->second.begin(), iter->second.begin() + 20));
-        } else {
-            LogPrintf(" ===> mapPubKey  [%s] [%s]  \n", HexStr(iter->first.begin(), iter->first.end()), HexStr(iter->second.begin(), iter->second.end()));
-        }
         CDiskPubKeyPos pos;
         pos << iter->first;
         if( 0<=pos.GetHeight() && pos.GetHeight() < 0xffffffff){
@@ -1187,7 +1184,9 @@ void CombinePubkey(map<vector<unsigned char>, vector<unsigned char>>&  mapPubKey
             if(GetPubKeyByPos(pos, pubkey))
                 iter->second.insert(iter->second.end(), pubkey.begin(), pubkey.end());
         }
-        LogPrintf(" ===> mapPubKey  [%s] [%s]  \n", HexStr(iter->first.begin(), iter->first.end()), HexStr(iter->second.begin(), iter->second.begin()+20));
+        CPubKey pubkey(iter->second);
+        CKeyID keyid= pubkey.GetID();
+        LogPrintf(" ===> mapPubKey  [%s] [%s] size(%ld) \n", HexStr(iter->first.begin(), iter->first.end()), CBitcoinAddress(keyid).ToString(), iter->second.size());
     }
 }
 
@@ -1847,26 +1846,8 @@ bool CheckInputs(const CTransaction& tx, CValidationState &state, CCoinsViewCach
         // still computed and checked, and any change will be caught at the next checkpoint.
         if (fScriptChecks) {
             map<vector<unsigned char>, vector<unsigned char> > mapPubKey;
-            for (unsigned int i = 0; i < tx.vin.size(); i++) {
-                const CScript &scriptSig = tx.vin[i].scriptSig;
-                SplitScript(mapPubKey, scriptSig, i);
-            }
-            for (std::map<std::vector<unsigned char>, vector<unsigned char>>::iterator iter = mapPubKey.begin(); iter!=mapPubKey.end(); iter++) {
-                // if(iter->second.size()>20){
-                //     LogPrintf(" ===> mapPubKey  [%s] [%s]  \n", HexStr(iter->first.begin(), iter->first.end()), HexStr(iter->second.begin(), iter->second.begin()+20)  );
-                // }else
-                // {
-                //     LogPrintf(" ===> mapPubKey  [%s] [%s]  \n", HexStr(iter->first.begin(), iter->first.end()), HexStr(iter->second.begin(), iter->second.end())  );
-                // }
-                CDiskPubKeyPos pos;
-                pos << iter->first;
-                if( 0<=pos.GetHeight() && pos.GetHeight() < 0xffffffff){
-                    CPubKey pubkey;
-                    if(GetPubKeyByPos(pos, pubkey))
-                        iter->second.insert(iter->second.end(), pubkey.begin(), pubkey.end());
-                }
-                // LogPrintf(" ===> mapPubKey  [%s] [%s]  \n", HexStr(iter->first.begin(), iter->first.end()), HexStr(iter->second.begin(), iter->second.begin()+20)  );
-            }
+            CombinePubkey(mapPubKey, tx);
+
             for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 const COutPoint &prevout = tx.vin[i].prevout;
                 const CCoins &coins = inputs.GetCoins(prevout.hash);
@@ -2270,7 +2251,7 @@ bool static DisconnectTip(CValidationState &state) {
     BOOST_FOREACH(const CTransaction &tx, block.vtx) {
         // ignore validation errors in resurrected transactions
         list<CTransaction> removed;
-        CValidationState stateDummy; 
+        CValidationState stateDummy;
         if (!tx.IsCoinBase())
             if (!AcceptToMemoryPool(mempool, stateDummy, tx, false, NULL))
                 mempool.remove(tx, removed, true);
@@ -4672,8 +4653,8 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         // in flight for over two minutes, since we first had a chance to
         // process an incoming block.
         int64_t nNow = GetTimeMicros();
-        if (!pto->fDisconnect && state.nBlocksInFlight && 
-            state.nLastBlockReceive < state.nLastBlockProcess - BLOCK_DOWNLOAD_TIMEOUT*1000000 && 
+        if (!pto->fDisconnect && state.nBlocksInFlight &&
+            state.nLastBlockReceive < state.nLastBlockProcess - BLOCK_DOWNLOAD_TIMEOUT*1000000 &&
             state.vBlocksInFlight.front().nTime < state.nLastBlockProcess - 2*BLOCK_DOWNLOAD_TIMEOUT*1000000) {
             LogPrintf("Peer %s is stalling block download, disconnecting\n", state.name.c_str());
             pto->fDisconnect = true;

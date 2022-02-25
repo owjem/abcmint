@@ -285,7 +285,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, co
     vector<bool> vfExec;
     vector<valtype> altstack;
 
-    LogPrintf(" ===> [%s][%d] Op[%s]  size [%ld] \n", __func__, nIn, GetOpName(opcode), script.size());
+    // LogPrintf(" ===> [%s][%d] Op[%s]  size [%ld] \n", __func__, nIn, GetOpName(opcode), script.size());
     if (script.size() > 1000000)
         return false;
     int nOpCount = 0;
@@ -304,7 +304,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, co
             if (vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE && vchPushValue.size() != RAINBOW_PUBLIC_KEY_SIZE)
                 return false;
 
-            LogPrintf(" ===> [%s][%d] Op[%s]  size [%ld] Size limits[%ld] \n", __func__, nIn, GetOpName(opcode), vchPushValue.size(), stack.size() + altstack.size());
+            // LogPrintf(" ===> [%s][%d] Op[%s]  size [%ld] Size limits[%ld] \n", __func__, nIn, GetOpName(opcode), vchPushValue.size(), stack.size() + altstack.size());
             // Note how OP_RESERVED does not count towards the opcode limit.
             if (opcode > OP_16 && ++nOpCount > 201)
                 return false;
@@ -1730,15 +1730,15 @@ void ExtractAffectedKeys(const CKeyStore &keystore, const CScript& scriptPubKey,
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const CTransaction& txTo, unsigned int nIn,
                   unsigned int flags, int nHashType, const map<vector<unsigned char>, vector<unsigned char>>& mapPubKey)
 {
-    scriptSig.print();
-    scriptPubKey.print();
-    LogPrintf(" ===> [%s][%d] flags[%d] nHashType[%d] scriptSig.size[%ld] scriptPubKey.size[%ld]\n", __func__, nIn, flags, nHashType, scriptSig.size(), scriptPubKey.size() );
+    // scriptSig.print();
+    // scriptPubKey.print();
+    // LogPrintf(" ===> [%s][%d] flags[%d] nHashType[%d] scriptSig.size[%ld] scriptPubKey.size[%ld]\n", __func__, nIn, flags, nHashType, scriptSig.size(), scriptPubKey.size() );
 
     vector<vector<unsigned char> > stack, stackCopy;
     if (!EvalScript(stack, scriptSig, txTo, nIn, flags, nHashType, mapPubKey))
         return false;
 
-    LogPrintf(" ===> [%s][%d] ===========================================================\n", __func__, nIn );
+    // LogPrintf(" ===> [%s][%d] ===========================================================\n", __func__, nIn );
     if (flags & SCRIPT_VERIFY_P2SH)
         stackCopy = stack;
     if (!EvalScript(stack, scriptPubKey, txTo, nIn, flags, nHashType, mapPubKey))

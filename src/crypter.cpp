@@ -162,6 +162,7 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
                 return false;
 
 
+            LogPrintf(" ===> vchSecret.size[%ld] ", vchSecret.size() );
             if (vchSecret.size() != RAINBOW_PRIVATE_KEY_SIZE)
                 return false;
             CKey key;
@@ -226,6 +227,7 @@ bool CCryptoKeyStore::GetKey(const CKeyID &address, CKey& keyOut) const
             if (!DecryptSecret(vMasterKey, vchCryptedSecret, vchPubKey.GetHash(), vchSecret))
                 return false;
 
+            LogPrintf(" ===> GetKey vchSecret.size[%ld] ", vchSecret.size() );
             if (vchSecret.size() != RAINBOW_PRIVATE_KEY_SIZE)
                 return false;
             keyOut.SetPubKey(vchPubKey);

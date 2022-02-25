@@ -380,12 +380,12 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
 
             pwallet->AddToWallet(wtx, true);
             //// debug print
-            //LogPrintf("LoadWallet  %s\n", wtx.GetHash().ToString());
-            //LogPrintf(" %12d  %s  %s  %s\n",
-            //    wtx.vout[0].nValue,
-            //    DateTimeStrFormat("%Y-%m-%d %H:%M:%S", wtx.GetBlockTime()),
-            //    wtx.hashBlock.ToString(),
-            //    wtx.mapValue["message"]);
+            LogPrintf("LoadWallet  %s\n", wtx.GetHash().ToString());
+            LogPrintf(" %12d  %s  %s  %s\n",
+               wtx.vout[0].nValue,
+               DateTimeStrFormat("%Y-%m-%d %H:%M:%S", wtx.GetTxTime()),
+               wtx.hashBlock.ToString(),
+               wtx.mapValue["message"]);
         }
         else if (strType == "acentry")
         {
@@ -457,6 +457,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 fSkipCheck = true;
             }
 
+            LogPrintf(" ===> PubKey [%s]\n",
+               CBitcoinAddress(vchPubKey.GetID()).ToString());
+
             if (!key.Load(pkey, vchPubKey, fSkipCheck))
             {
                 strErr = "Error reading wallet database: CPrivKey corrupt";
@@ -516,6 +519,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         else if (strType == "defaultkey")
         {
             ssValue >> pwallet->vchDefaultKey;
+
+            LogPrintf(" ===> DefaultKey [%s]\n",
+               CBitcoinAddress(pwallet->vchDefaultKey.GetID()).ToString());
         }
         else if (strType == "pool")
         {
@@ -531,6 +537,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CKeyID keyid = keypool.vchPubKey.GetID();
             if (pwallet->mapKeyMetadata.count(keyid) == 0)
                 pwallet->mapKeyMetadata[keyid] = CKeyMetadata(keypool.nTime);
+
+            LogPrintf(" ===> Pool[%ld][%s]\n", nIndex,
+               CBitcoinAddress(keyid).ToString());
         }
         else if (strType == "version")
         {

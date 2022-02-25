@@ -662,9 +662,8 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
     SetDevice(deviceID);
 #endif
 
-    unsigned int nUsedDefaultKey = GetArg("-useddefaultkey", true);
     // Each thread has its own key and counter
-    CReserveKey reservekey(pwallet, nUsedDefaultKey);
+    CReserveKey reservekey(pwallet, fUsedDefaultKey);
     unsigned int nExtraNonce = 0;
 
     try { while (true) {

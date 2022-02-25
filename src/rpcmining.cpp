@@ -32,7 +32,7 @@ void InitRPCMining()
         return;
 
     // getwork/getblocktemplate mining rewards paid here:
-    pMiningKey = new CReserveKey(pwalletMain);
+    pMiningKey = new CReserveKey(pwalletMain, fUsedDefaultKey);
 }
 
 void ShutdownRPCMining()

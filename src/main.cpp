@@ -39,6 +39,7 @@ using namespace boost;
 CCriticalSection cs_main;
 
 CTxMemPool mempool;
+bool fUsedDefaultKey = false;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
 CChain chainActive;

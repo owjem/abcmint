@@ -19,6 +19,8 @@
 
 #include "diskpubkeypos.h"
 
+extern CMemPos* pmemPos;
+
 class CCoins;
 class CKeyStore;
 class CTransaction;
@@ -474,7 +476,6 @@ public:
 
     CScript& operator<<(const CPubKey& key)
     {
-        // assert(key.size() < OP_PUSHDATA1);
         assert(key.size() == RAINBOW_PUBLIC_KEY_SIZE);
         insert(end(), (unsigned char)key.size());
         insert(end(), key.begin(), key.end());
@@ -803,8 +804,8 @@ bool IsMine(const CKeyStore& keystore, const CTxDestination &dest);
 void ExtractAffectedKeys(const CKeyStore &keystore, const CScript& scriptPubKey, std::vector<CKeyID> &vKeys);
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet);
 bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<CTxDestination>& addressRet, int& nRequiredRet);
-bool SignSignature(const CKeyStore& keystore, const CScript& fromPubKey, CTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
-bool SignSignature(const CKeyStore& keystore, const CTransaction& txFrom, CTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
+bool SignSignature(std::map<std::vector<unsigned char>, std::vector<unsigned char>>& mapPubKey, const CKeyStore& keystore, const CScript& fromPubKey, CTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
+bool SignSignature(std::map<std::vector<unsigned char>, std::vector<unsigned char>>& mapPubKey, const CKeyStore& keystore, const CTransaction& txFrom, CTransaction& txTo, unsigned int nIn, int nHashType=SIGHASH_ALL);
 //TODO:: abc pubkey
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType,const std::map<std::vector<unsigned char>, std::vector<unsigned char>>& mapPubKey);
 

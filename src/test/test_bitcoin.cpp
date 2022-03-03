@@ -6,6 +6,7 @@
 
 
 
+#include "diskpubkeypos.h"
 #include "main.h"
 #include "txdb.h"
 #include "ui_interface.h"
@@ -20,6 +21,7 @@
 
 
 CWallet* pwalletMain;
+// CMemPos* pmemPos;
 
 extern bool fPrintToConsole;
 extern void noui_connect();
@@ -44,6 +46,7 @@ struct TestingSetup {
         InitBlockIndex();
 #ifdef ENABLE_WALLET
         bool fFirstRun;
+        CMemPosInit();
         pwalletMain = new CWallet("wallet.dat");
         pwalletMain->LoadWallet(fFirstRun);
         RegisterWallet(pwalletMain);
@@ -88,4 +91,3 @@ bool ShutdownRequested()
 {
   return false;
 }
-

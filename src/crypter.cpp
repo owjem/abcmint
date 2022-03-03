@@ -4,6 +4,7 @@
 
 #include "crypter.h"
 
+#include "base58.h"
 #include "script.h"
 
 #include <string>
@@ -161,15 +162,17 @@ bool CCryptoKeyStore::Unlock(const CKeyingMaterial& vMasterKeyIn)
             if(!DecryptSecret(vMasterKeyIn, vchCryptedSecret, vchPubKey.GetHash(), vchSecret))
                 return false;
 
-
-            LogPrintf(" ===> vchSecret.size[%ld] ", vchSecret.size() );
             if (vchSecret.size() != RAINBOW_PRIVATE_KEY_SIZE)
                 return false;
             CKey key;
             key.Set(vchSecret.begin(), vchSecret.end(), vchPubKey.IsCompressed());
-            if (key.GetPubKey() == vchPubKey)
-                break;
-            return false;
+
+            // the private key and public key of the current version of rainbow algorithm
+            // are generated at the same time. The public key cannot be deduced from
+            // the private key again
+            // if (key.GetPubKey() == vchPubKey)
+            //     break;
+            // return false;
         }
         vMasterKey = vMasterKeyIn;
     }
@@ -227,7 +230,6 @@ bool CCryptoKeyStore::GetKey(const CKeyID &address, CKey& keyOut) const
             if (!DecryptSecret(vMasterKey, vchCryptedSecret, vchPubKey.GetHash(), vchSecret))
                 return false;
 
-            LogPrintf(" ===> GetKey vchSecret.size[%ld] ", vchSecret.size() );
             if (vchSecret.size() != RAINBOW_PRIVATE_KEY_SIZE)
                 return false;
             keyOut.SetPubKey(vchPubKey);
@@ -269,6 +271,7 @@ bool CCryptoKeyStore::EncryptKeys(CKeyingMaterial& vMasterKeyIn)
             CPubKey vchPubKey = key.GetPubKey();
             CKeyingMaterial vchSecret(key.begin(), key.end());
             std::vector<unsigned char> vchCryptedSecret;
+
             if (!EncryptSecret(vMasterKeyIn, vchSecret, vchPubKey.GetHash(), vchCryptedSecret))
                 return false;
             if (!AddCryptedKey(vchPubKey, vchCryptedSecret))

@@ -2,18 +2,21 @@
 
 #include "diskpubkeypos.h"
 #include "base58.h"
-#include "main.h"
 #include "util.h"
 #include "init.h"
 #include "wallet.h"
 
 CMemPos* pmemPos;
 
-bool CMemPos::AddPubKeyPos2Map(const CKeyID& keyID, const CDiskPubKeyPos& pos)
+
+bool CMemPos::AddPubKeyPos2Map(const CKeyID& keyID, const CDiskPubKeyPos& pubKeyPos)
 {
     {
         LOCK(cs_CMemPos);
-        mapPubKeyPos[keyID] = pos;
+        if(!mapPubKeyPos[keyID].IsNull() && pubKeyPos.GetHeight() <= mapPubKeyPos[keyID].GetHeight())
+            return false;
+
+        mapPubKeyPos[keyID] = pubKeyPos;
     }
     return true;
 }
@@ -22,12 +25,17 @@ bool CMemPos::GetPubKeyPos(const CKeyID& keyID, CDiskPubKeyPos& posOut) const
 {
     {
         LOCK(cs_CMemPos);
-        PubKeyPosMap::const_iterator mi = mapPubKeyPos.find(keyID);
-        if (mi != mapPubKeyPos.end()) {
-            const CDiskPubKeyPos* pos = &(mi->second);
-            posOut.SetHeight(pos->GetHeight());
-            posOut.SetPubKeyOffset(pos->GetPubKeyOffset());
-            return true;
+        CDiskPubKeyPos pos;
+        if(!mapPubKeyPos.empty()){
+            PubKeyPosMap::const_iterator mi = mapPubKeyPos.find(keyID);
+            if (mi != mapPubKeyPos.end()) {
+                LogPrintf(" ===> GetPubKeyPos 1  ");
+                const CDiskPubKeyPos* pos = &(mi->second);
+                posOut.SetHeight(pos->GetHeight());
+                posOut.SetPubKeyOffset(pos->GetPubKeyOffset());
+                return true;
+            }
+                LogPrintf(" ===> GetPubKeyPos 2 ");
         }
     }
     return false;
@@ -48,6 +56,125 @@ bool CMemPos::GetPossbyHeight(const unsigned int& nHeight, std::set<CDiskPubKeyP
     }
     return false;
 }
+
+unsigned int CMemPos::GetPosCount() const
+{
+    // LOCK(cs_CMemPos);
+    return mapPubKeyPos.size();
+}
+
+
+// bool CMemPos::CachePubKeyPos(const CBlockIndex* pBlockIndex)
+// {
+//     FILE* file = OpenBlockFile(pBlockIndex->GetBlockPos(), true);
+//     if (NULL == file)
+//         return error("%s() : open file blk%d.dat at %u error", __PRETTY_FUNCTION__, pBlockIndex->nFile, pBlockIndex->nDataPos);
+
+//     CAutoFile filein(file, SER_DISK, CLIENT_VERSION);
+
+//     // Read block
+//     CBlock block;
+//     try {
+//         filein >> block;
+//     }
+//     catch (const std::exception& e) {
+//         return error("%s: Deserialize or I/O error - %s, file blk%d.dat at %u", __func__, e.what(),
+//                         pBlockIndex->nFile, pBlockIndex->nDataPos);
+//     }
+
+//     unsigned int offset = sizeof(CBlockHeader); //block header
+//     unsigned int nTxCount = block.vtx.size();
+//     offset += GetSizeOfCompactSize(nTxCount);
+
+//     for (unsigned int i=0; i<nTxCount; i++)
+//     {
+//         const CTransaction &tx = block.vtx[i];
+//         unsigned int offsetVin = sizeof(tx.nVersion); // the vin offset
+
+//         unsigned int nVinSize = tx.vin.size();
+//         offsetVin += GetSizeOfCompactSize(nVinSize);
+
+//         for (unsigned int i = 0; i < nVinSize; i++) {
+//             CTxIn txIn = tx.vin[i];
+
+//             unsigned int nScriptSigSize = txIn.scriptSig.size();
+
+//             if(splitScript(txIn.scriptSig, i, pBlockIndex->nHeight))
+//             {
+
+//             }else{
+//                 offsetVin += ::GetSerializeSize(txIn, SER_DISK, CLIENT_VERSION);
+//             }
+//             //compare the pubkey in the scripts with the input pubKeyIn
+//             std::string strScripts = HexStr(txIn.scriptSig);
+//             std::size_t found = strScripts.find(pubKeyIn);
+//             if (found!=std::string::npos) {
+
+//                 pubKeyPos.nHeight = pBlockIndex->nHeight;
+
+//                 offsetVin += sizeof(COutPoint); //transation hash length + prevout index length
+//                 offsetVin += GetSizeOfCompactSize(nScriptSigSize);
+//                 pubKeyPos.nPubKeyOffset = offset + offsetVin + found/2; // the offset in the current block, 2 hex char for one byte
+//                 unsigned int npubKeyLength = GetSizeOfCompactSize(pubKeyIn.length());
+//                 LogPrintf("public key found: offset:%u, offsetVin:%u, found:%lu, npubKeyLength:%u. \n",
+//                         offset, offsetVin, found, npubKeyLength);
+//                 pubKeyPos.nPubKeyOffset -= npubKeyLength;
+//                 return true;
+//             } else {
+//                 offsetVin += ::GetSerializeSize(txIn, SER_DISK, CLIENT_VERSION);
+//             }
+//         }
+
+//         offset += GetSerializeSize(tx, SER_DISK, CLIENT_VERSION); //CTransaction length
+//     }
+
+//     //still no transation contain this pubkey in the block chain
+//     return false;
+// }
+
+
+// bool CMemPos::splitScript(const CScript& script, unsigned int nIn, unsigned int nHeight) {
+//     CScript::const_iterator pc = script.begin();
+//     CScript::const_iterator pend = script.end();
+
+//     vector<bool> vfExec;
+//     opcodetype opcode;
+//     vector<unsigned char> vchPushValue;
+//     if (script.size() > 1000000)
+//         return false;
+
+//     try
+//     {
+//         while (pc < pend)
+//         {
+//             if (!script.GetOp(pc, opcode, vchPushValue))
+//                 return false;
+//             if (vchPushValue.size() != RAINBOW_PUBLIC_KEY_SIZE)
+//                 return false;
+//             if (0 <= opcode && opcode <= OP_PUSHDATA4){
+
+//                 CPubKey pubKey;
+//                 unsigned int vchsize = vchPushValue.size();
+
+//                 vector<unsigned char> vch;
+
+//                 CDiskPubKeyPos pos(nHeight, 0);
+//                 vch = pos.Raw();
+
+//                 // LogPrintf(" ===> [%s][%d] [%s] \n", __func__, i, HexStr(vch));
+//                 // stack.insert(make_pair(vch, vchPushValue));
+
+
+//             }
+//         }
+//     }
+//     catch (...)
+//     {
+//         return false;
+//     }
+
+//     return true;
+// }
 
 // bool FindPubKeyPos(std::string& pubKeyIn, CDiskPubKeyPos& pubKeyPos)
 // {
@@ -130,7 +257,6 @@ bool CMemPos::GetPossbyHeight(const unsigned int& nHeight, std::set<CDiskPubKeyP
 //         return error("%s() : can't find block at height: %u", __PRETTY_FUNCTION__, pos.nHeight);
 //     }
 
-//     //in scripts, the public key is deserialize as
 //     //4e (21 52 02 00) (e2 b8 8a 76 1b 0d d7 8e b3...)--4e is the opcode, (21 52 02 00) is the length
 //     CDiskBlockPos blockPos(pblockindex->nFile , pblockindex->nDataPos + pos.nPubKeyOffset);
 //     FILE* pFile = OpenBlockFile(blockPos, true);
@@ -287,3 +413,8 @@ bool CMemPos::GetPossbyHeight(const unsigned int& nHeight, std::set<CDiskPubKeyP
 // {
 //     threadGroup.create_thread(boost::bind(&PubKeyScanner, pwalletMain));
 // }
+
+
+void CMemPosInit(){
+    pmemPos = new CMemPos();
+}

@@ -147,10 +147,6 @@ public:
     {
         if(size() != RAINBOW_PUBLIC_KEY_SIZE) return false;
         if(vch[0] == 0xff && vch[1] == 0xff && vch[2] == 0xff && vch[3] == 0) return false;
-
-        // for (unsigned int i=0; i<8; i++)
-        //     printf(" ===> x %d vch[%02x]", i, vch[i] );
-
         return true;
     }
     // fully validate whether this is a valid public key (more expensive than IsValid())

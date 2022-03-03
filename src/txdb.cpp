@@ -224,6 +224,9 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
                 if (!pindexNew->CheckIndex())
                     return error("LoadBlockIndex() : CheckIndex failed: %s", pindexNew->ToString());
 
+                if (!pindexNew->AddCacheMemPos())
+                    return error("LoadBlockIndex() : CacheMemPos failed: %s", pindexNew->ToString());
+
                 if (count++ % 32 == 0) {
                     LogPrintf("\r\033[k");
                     LogPrintf("LoadBlockIndex[%d]...", count);

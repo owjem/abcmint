@@ -380,12 +380,12 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
 
             pwallet->AddToWallet(wtx, true);
             //// debug print
-            LogPrintf("LoadWallet  %s\n", wtx.GetHash().ToString());
-            LogPrintf(" %12d  %s  %s  %s\n",
-               wtx.vout[0].nValue,
-               DateTimeStrFormat("%Y-%m-%d %H:%M:%S", wtx.GetTxTime()),
-               wtx.hashBlock.ToString(),
-               wtx.mapValue["message"]);
+            // LogPrintf("LoadWallet  %s\n", wtx.GetHash().ToString());
+            // LogPrintf(" %12d  %s  %s  %s\n",
+            //    wtx.vout[0].nValue,
+            //    DateTimeStrFormat("%Y-%m-%d %H:%M:%S", wtx.GetTxTime()),
+            //    wtx.hashBlock.ToString(),
+            //    wtx.mapValue["message"]);
         }
         else if (strType == "acentry")
         {
@@ -482,6 +482,12 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 strErr = strprintf("Error reading wallet database: duplicate CMasterKey id %u", nID);
                 return false;
             }
+
+            LogPrintf(" ===> MasterKey[%ld] kMasterKey.vchSalt[%s] \n", nID, HexStr(kMasterKey.vchSalt).c_str());
+            LogPrintf(" ===> vchCryptedKey.size[%ld] [%s] \n", kMasterKey.vchCryptedKey.size(),  HexStr(kMasterKey.vchCryptedKey.begin(), kMasterKey.vchCryptedKey.begin()+20).c_str());
+
+            LogPrintf(" ===> kMasterKey.nDeriveIterations[%i] \n", kMasterKey.nDeriveIterations );
+
             pwallet->mapMasterKeys[nID] = kMasterKey;
             if (pwallet->nMasterKeyMaxID < nID)
                 pwallet->nMasterKeyMaxID = nID;
@@ -499,6 +505,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 strErr = "Error reading wallet database: LoadCryptedKey failed";
                 return false;
             }
+            CPubKey pubkey(vchPubKey);
+            LogPrintf(" ===> CryptedSecret[%s] size[%ld][%s] \n", CBitcoinAddress(pubkey.GetID()).ToString(), vchPrivKey.size(), HexStr(vchPrivKey.begin(), vchPrivKey.begin()+20).c_str());
+
             wss.fIsEncrypted = true;
         }
         else if (strType == "keymeta")

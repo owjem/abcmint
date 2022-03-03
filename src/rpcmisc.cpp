@@ -241,7 +241,7 @@ Value getpublickeypos(const Array& params, bool fHelp)
     if (!pmemPos->GetPubKeyPos(strAddress, pos))
         throw JSONRPCError(RPC_WALLET_ERROR, "can't get public key position");
 
-    return HexStr(pos.ToVector());
+    return HexStr(pos.Raw());
 }
 
 Value createmultisig(const Array& params, bool fHelp)

@@ -25,8 +25,6 @@
 static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 randomNonce, CBlockIndex* pindexPrev, int deviceID, int deviceCount, uint64_t& solm, char* threadname)
 {
 
-    LogPrintf("[%s] =============> hash: %s diff: %d, randomNonce: %s, height: %d, deviceID: %d, deviceCount: %d, solm: %ld \n", threadname, hash.ToString(), nBits, randomNonce.ToString(), pindexPrev->nHeight , deviceID, deviceCount, solm);
-
     unsigned int mEquations = nBits;
     unsigned int nUnknowns = nBits + 8;
     unsigned int nTerms = 1 + (nUnknowns + 1) * (nUnknowns) / 2;
@@ -68,8 +66,6 @@ static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 
     uint64_t upBound = std::min((uint64_t)(deviceID + 1) * balance, (uint64_t)(1 << nFix));
     uint64_t downBound = deviceID * balance;
 
-    LogPrintf("[%s] =============> balance: %ld, upBound: %ld, downBound: %ld  \n", threadname, balance, upBound, downBound);
-
     int p = nUnknowns - nFix;
     int npartial;
     uint8_t fixvalue;
@@ -87,7 +83,6 @@ static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 
         LogPrintf("ERROR: SearchSolution malloc failure!");
     }
 
-    LogPrintf("[%s] =============> newNumVariables: %d, newNumEquations: %d, newNumTerms: %d  \n", threadname, newNumVariables, newNumEquations, newNumTerms);
     // int searchTimes = 0;
     for (solm = downBound; solm < (uint64_t)upBound; solm++) {
         if (pindexPrev != chainActive.Tip())
@@ -120,10 +115,7 @@ static uint256 GPUMinerSearchSolution(uint256 hash, unsigned int nBits, uint256 
         foundSolution = GPUSearchSolution(coefficients, newNumVariables, mEquations);
         if(foundSolution==0) continue;
 
-        LogPrintf("[%s] =============> solm: %ld \n", threadname, solm);
-        LogPrintf("[%s] =============> foundSolution: %ld \n", threadname, foundSolution);
         nonce = uint256(foundSolution);
-        LogPrintf("[%s] =============> nonce: %s\n", threadname, nonce.ToString());
         uint256 fixSolution = nonce;
         uint8_t x[newNumVariables];
         Uint256ToSolutionBits(x, newNumVariables, fixSolution);
@@ -604,11 +596,7 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
     CPubKey pubkey;
     if (!reservekey.GetReservedKey(pubkey))
         return NULL;
-
     CScript scriptPubKey = CScript() << OP_DUP << OP_HASH256 << pubkey.GetID() << OP_EQUALVERIFY << OP_CHECKSIG;
-
-    LogPrintf(" ===> [%s] So[%s] \n", __func__, scriptPubKey.ToString().c_str());
-
     return CreateNewBlock(scriptPubKey);
 }
 
@@ -684,9 +672,6 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
         if (!pblocktemplate.get())
             return;
         CBlock *pblock = &pblocktemplate->block;
-
-        pblock->print();
-        LogPrintf(" ===> [%s]miner new jop start ===========================================\n", __func__);
 
         IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 

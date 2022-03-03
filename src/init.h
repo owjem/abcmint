@@ -6,6 +6,7 @@
 #ifndef BITCOIN_INIT_H
 #define BITCOIN_INIT_H
 
+#include "diskpubkeypos.h"
 #include <string>
 
 class CWallet;
@@ -16,6 +17,8 @@ namespace boost {
 
 extern std::string strWalletFile;
 extern CWallet* pwalletMain;
+extern CMemPos* pmemPos;
+
 
 void StartShutdown();
 bool ShutdownRequested();

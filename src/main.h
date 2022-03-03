@@ -198,9 +198,8 @@ bool GetPubKeyByPos(CDiskPubKeyPos pos, CPubKey& pubKey);
 void CombinePubkey(map<vector<unsigned char>, vector<unsigned char>>&  mapPubKey, const CTransaction& tx);
 bool CheckSolution(uint256 hash, unsigned int nBits, uint256 preblockhash, int nblockversion, uint256 nNonce, unsigned int nTime = 1538270779);
 
-
-
-
+bool CacheMemPos(const CBlockIndex *pindex);
+bool FindPubkeyFromScript(const CScript& script, const unsigned int nHeight, const unsigned int noffset, const unsigned int noffsetVin);
 
 
 
@@ -849,6 +848,11 @@ public:
         uint256 tempHash = initHash ^ hashMerkleRoot;
         uint256 seedHash = Hash(BEGIN(tempHash), END(tempHash));
         return CheckProofOfWork(seedHash, nBits, initHash, nVersion, nNonce, nTime);
+    }
+
+    bool AddCacheMemPos() const
+    {
+        return CacheMemPos(this);
     }
 
     enum { nMedianTimeSpan=11 };

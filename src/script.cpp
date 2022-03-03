@@ -13,6 +13,7 @@
 #include "sync.h"
 #include "uint256.h"
 #include "util.h"
+#include "base58.h"
 
 #include <boost/foreach.hpp>
 #include <boost/tuple/tuple.hpp>
@@ -285,7 +286,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, co
     vector<bool> vfExec;
     vector<valtype> altstack;
 
-    // LogPrintf(" ===> [%s][%d] Op[%s]  size [%ld] \n", __func__, nIn, GetOpName(opcode), script.size());
     if (script.size() > 1000000)
         return false;
     int nOpCount = 0;
@@ -301,10 +301,9 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, co
             //
             if (!script.GetOp(pc, opcode, vchPushValue))
                 return false;
-            if (vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE && vchPushValue.size() != RAINBOW_PUBLIC_KEY_SIZE)
+            if (vchPushValue.size() != RAINBOW_PUBLIC_KEY_SIZE && vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE)
                 return false;
 
-            // LogPrintf(" ===> [%s][%d] Op[%s]  size [%ld] Size limits[%ld] \n", __func__, nIn, GetOpName(opcode), vchPushValue.size(), stack.size() + altstack.size());
             // Note how OP_RESERVED does not count towards the opcode limit.
             if (opcode > OP_16 && ++nOpCount > 201)
                 return false;
@@ -827,8 +826,8 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, co
                     }
 
                     ////// debug print
-                    //PrintHex(vchSig.begin(), vchSig.end(), "sig: %s\n");
-                    //PrintHex(vchPubKey.begin(), vchPubKey.end(), "pubkey: %s\n");
+                    // PrintHex(vchSig.begin(), vchSig.end(), "sig: %s\n");
+                    // PrintHex(vchPubKey.begin(), vchPubKey.end(), "pubkey: %s\n");
 
                     // Subset of script starting at the most recent codeseparator
                     CScript scriptCode(pbegincodehash, pend);
@@ -860,7 +859,6 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, co
                 case OP_CHECKMULTISIGVERIFY:
                 {
                     // ([sig ...] num_of_signatures [pubkey ...] num_of_pubkeys -- bool)
-                    LogPrintf(" ===> [%s][%d] Op[%d][%s] \n", __func__, nIn, opcode, GetOpName(opcode));
 
                     int i = 1;
                     if ((int)stack.size() < i)
@@ -976,11 +974,9 @@ bool SplitScript(map<vector<unsigned char>, vector<unsigned char> >& stack, cons
         {
             if (!script.GetOp(pc, opcode, vchPushValue))
                 return false;
-            if (vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE && vchPushValue.size() != RAINBOW_PUBLIC_KEY_SIZE)
+            if (vchPushValue.size() != RAINBOW_PUBLIC_KEY_SIZE && vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE)
                 return false;
-            // LogPrintf(" ===> [%s][%d] Op[%d][%s]  size [%ld] \n", __func__, nIn, opcode, GetOpName(opcode), vchPushValue.size());
             if (0 <= opcode && opcode <= OP_PUSHDATA4){
-                    CPubKey pubKey;
                     unsigned int vchsize = vchPushValue.size();
                     switch(vchsize){
                         case RAINBOW_PUBLIC_KEY_POS_SIZE:
@@ -1001,7 +997,6 @@ bool SplitScript(map<vector<unsigned char>, vector<unsigned char> >& stack, cons
                             CDiskPubKeyPos pos(0xffffffff, i);
                             vch = pos.Raw();
 
-                            // LogPrintf(" ===> [%s][%d] [%s] \n", __func__, i, HexStr(vch));
                             stack.insert(make_pair(vch, vchPushValue));
                         }
                         break;
@@ -1434,7 +1429,7 @@ bool SignN(const vector<valtype>& multisigdata, const CKeyStore& keystore, uint2
 // unless whichTypeRet is TX_SCRIPTHASH, in which case scriptSigRet is the redemption script.
 // Returns false if scriptPubKey could not be completely satisfied.
 //
-bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash, int nHashType,
+bool Solver( map<vector<unsigned char>, vector<unsigned char>>& mapPubKey, const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash, int nHashType,
                   CScript& scriptSigRet, txnouttype& whichTypeRet)
 {
     scriptSigRet.clear();
@@ -1458,59 +1453,42 @@ bool Solver(const CKeyStore& keystore, const CScript& scriptPubKey, uint256 hash
             return false;
         else
         {
+            CDiskPubKeyPos pos;
             CPubKey vch;
             keystore.GetPubKey(keyID, vch);
-            scriptSigRet << vch;
+
+            if (pmemPos->GetPubKeyPos(keyID, pos)) {
+                scriptSigRet << pos.Raw();
+            }else{
+                pos.SetNull();
+                unsigned int index = 0;
+                bool reused = false;
+                for (std::map<std::vector<unsigned char>, vector<unsigned char>>::iterator iter = mapPubKey.begin(); iter!=mapPubKey.end(); iter++) {
+                    pos << iter->first;
+                    CPubKey pubkey(iter->second);
+                    if(pos.GetHeight() == 0xFFFFFFFF)
+                    {
+                        if(pubkey == vch){
+                            pos.SetPubKeyOffset(index);
+                            reused = true;
+                            break;
+                        }
+                        index++;
+                    }
+                }
+                if (reused) {
+                    scriptSigRet << pos.PubKeyOffsetRaw();
+                }else{
+                    scriptSigRet << vch.Raw();
+                }
+            }
+            std::map<std::vector<unsigned char>, vector<unsigned char>>::const_iterator mi = mapPubKey.find(pos.Raw());
+            if (mi == mapPubKey.end())
+            {
+                mapPubKey.insert(make_pair(pos.Raw(), vch.Raw()));
+            }
         }
         return true;
-        // keyID = CKeyID(uint256(vSolutions[0]));
-        // if (!Sign1(keyID, keystore, hash, nHashType, scriptSigRet))
-        //     return false;
-        // else
-        // {
-
-        //     CPubKey vchPubKey;
-        //     keystore.GetPubKey(keyID, vchPubKey);
-        //     // scriptSigRet << vch;
-        //     //TODO:: abc pubkey
-        //      LogPrintf(" ===> Solver  %s ", keyID.GetHex());
-
-        //     unsigned int index = 0;
-        //     bool reused = false;
-        //     for (std::vector< std::vector<unsigned char> >::iterator it = vPubKeys.begin() ; it != vPubKeys.end(); ++it) {
-        //         const vector<unsigned char> vPubKey = *it;
-        //         if (vPubKey == vchPubKey) {
-        //             reused = true;
-        //             break;
-        //         }
-        //         index++;
-        //     }
-
-        //     if (reused) {
-        //         std::vector<unsigned char> v;
-        //         unsigned char* ch = (unsigned char*)&index;
-        //         unsigned int i =0;
-        //         while(i < sizeof(index)) {
-        //             v.push_back(*ch);
-        //             i++;
-        //             ch++;
-        //         }
-        //         scriptSigRet<<v;
-        //     } else {
-        //         CDiskPubKeyPos pos;
-        //         // string address = CBitcoinAddress(keyID).ToString();
-
-        //         if (!pmemPos->GetPubKeyPos(keyID, pos)) {
-        //             scriptSigRet << vchPubKey;
-
-        //             //only push for P2PKH, vch is the public key，don't push public key position
-        //             vPubKeys.push_back(vchPubKey.Raw());
-        //         } else {
-        //             scriptSigRet << pos.ToVector();
-        //         }
-        //     }
-        //     return true;
-        // }
     case TX_SCRIPTHASH:
         return keystore.GetCScript(uint256(vSolutions[0]), scriptSigRet);
 
@@ -1730,15 +1708,10 @@ void ExtractAffectedKeys(const CKeyStore &keystore, const CScript& scriptPubKey,
 bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const CTransaction& txTo, unsigned int nIn,
                   unsigned int flags, int nHashType, const map<vector<unsigned char>, vector<unsigned char>>& mapPubKey)
 {
-    // scriptSig.print();
-    // scriptPubKey.print();
-    // LogPrintf(" ===> [%s][%d] flags[%d] nHashType[%d] scriptSig.size[%ld] scriptPubKey.size[%ld]\n", __func__, nIn, flags, nHashType, scriptSig.size(), scriptPubKey.size() );
-
     vector<vector<unsigned char> > stack, stackCopy;
     if (!EvalScript(stack, scriptSig, txTo, nIn, flags, nHashType, mapPubKey))
         return false;
 
-    // LogPrintf(" ===> [%s][%d] ===========================================================\n", __func__, nIn );
     if (flags & SCRIPT_VERIFY_P2SH)
         stackCopy = stack;
     if (!EvalScript(stack, scriptPubKey, txTo, nIn, flags, nHashType, mapPubKey))
@@ -1776,7 +1749,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
 }
 
 
-bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CTransaction& txTo, unsigned int nIn, int nHashType)
+bool SignSignature(map<vector<unsigned char>, vector<unsigned char>>& mapPubKey, const CKeyStore &keystore, const CScript& fromPubKey, CTransaction& txTo, unsigned int nIn, int nHashType)
 {
     assert(nIn < txTo.vin.size());
     CTxIn& txin = txTo.vin[nIn];
@@ -1786,7 +1759,7 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CTransa
     uint256 hash = SignatureHash(fromPubKey, txTo, nIn, nHashType);
 
     txnouttype whichType;
-    if (!Solver(keystore, fromPubKey, hash, nHashType, txin.scriptSig, whichType))
+    if (!Solver(mapPubKey, keystore, fromPubKey, hash, nHashType, txin.scriptSig, whichType))
         return false;
 
     if (whichType == TX_SCRIPTHASH)
@@ -1801,24 +1774,23 @@ bool SignSignature(const CKeyStore &keystore, const CScript& fromPubKey, CTransa
 
         txnouttype subType;
         bool fSolved =
-            Solver(keystore, subscript, hash2, nHashType, txin.scriptSig, subType) && subType != TX_SCRIPTHASH;
+            Solver(mapPubKey, keystore, subscript, hash2, nHashType, txin.scriptSig, subType) && subType != TX_SCRIPTHASH;
         // Append serialized subscript whether or not it is completely signed:
         txin.scriptSig << static_cast<valtype>(subscript);
         if (!fSolved) return false;
     }
-    map<vector<unsigned char>, vector<unsigned char>> mapPubKey;
     // Test solution
     return VerifyScript(txin.scriptSig, fromPubKey, txTo, nIn, SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_STRICTENC, 0, mapPubKey);
 }
 
-bool SignSignature(const CKeyStore &keystore, const CTransaction& txFrom, CTransaction& txTo, unsigned int nIn, int nHashType)
+bool SignSignature(map<vector<unsigned char>, vector<unsigned char>>& mapPubKey, const CKeyStore &keystore, const CTransaction& txFrom, CTransaction& txTo, unsigned int nIn, int nHashType)
 {
     assert(nIn < txTo.vin.size());
     CTxIn& txin = txTo.vin[nIn];
     assert(txin.prevout.n < txFrom.vout.size());
     const CTxOut& txout = txFrom.vout[txin.prevout.n];
 
-    return SignSignature(keystore, txout.scriptPubKey, txTo, nIn, nHashType);
+    return SignSignature(mapPubKey, keystore, txout.scriptPubKey, txTo, nIn, nHashType);
 }
 
 static CScript PushAll(const vector<valtype>& values)
@@ -2089,7 +2061,7 @@ void CScript::SetMultisig(int nRequired, const std::vector<CDiskPubKeyPos>& vPub
 
     *this << EncodeOP_N(nRequired);
     BOOST_FOREACH(const CDiskPubKeyPos& pos, vPubKeyPos)
-        *this << (pos.ToVector());
+        *this << (pos.Raw());
     *this << EncodeOP_N(vPubKeyPos.size()) << OP_CHECKMULTISIG;
 }
 

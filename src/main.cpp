@@ -1176,7 +1176,6 @@ void CombinePubkey(map<vector<unsigned char>, vector<unsigned char>>&  mapPubKey
         const CScript &scriptSig = tx.vin[i].scriptSig;
         SplitScript(mapPubKey, scriptSig, i);
     }
-    LogPrintf(" ===> mapPubKey  size(%ld) \n",  mapPubKey.size());
     for (std::map<std::vector<unsigned char>, vector<unsigned char>>::iterator iter = mapPubKey.begin(); iter!=mapPubKey.end(); iter++) {
         CDiskPubKeyPos pos;
         pos << iter->first;
@@ -1187,11 +1186,90 @@ void CombinePubkey(map<vector<unsigned char>, vector<unsigned char>>&  mapPubKey
         }
         CPubKey pubkey(iter->second);
         CKeyID keyid= pubkey.GetID();
-        LogPrintf(" ===> mapPubKey  [%s] [%s] size(%ld) \n", HexStr(iter->first.begin(), iter->first.end()), CBitcoinAddress(keyid).ToString(), iter->second.size());
     }
 }
 
+bool CacheMemPos(const CBlockIndex* pBlockIndex){
+    FILE* file = OpenBlockFile(pBlockIndex->GetBlockPos(), true);
+    CAutoFile filein = CAutoFile(file, SER_DISK, CLIENT_VERSION);
 
+    if (!filein)
+        return error("%s : open file blk%d.dat at %u error", __PRETTY_FUNCTION__, pBlockIndex->nFile, pBlockIndex->nDataPos);
+
+    CBlock block;
+    try {
+        filein >> block;
+    }
+    catch (const std::exception& e) {
+        return error("%s: Deserialize or I/O error - %s, file blk%d.dat at %u", __func__, e.what(),
+                        pBlockIndex->nFile, pBlockIndex->nDataPos);
+    }
+    filein.fclose();
+
+    unsigned int offset = sizeof(CBlockHeader); //block header
+    unsigned int nTxCount = block.vtx.size();
+    offset += GetSizeOfCompactSize(nTxCount);
+
+    BOOST_FOREACH(const CTransaction& tx, block.vtx)
+    {
+        unsigned int offsetVin = sizeof(tx.nVersion); // the vin offset
+        unsigned int nVinSize = tx.vin.size();
+        offsetVin += GetSizeOfCompactSize(nVinSize);
+        BOOST_FOREACH(const CTxIn& txIn, tx.vin)
+        {
+            unsigned int txvinSize = ::GetSerializeSize(txIn, SER_DISK, CLIENT_VERSION);
+            if(txvinSize>= RAINBOW_PUBLIC_KEY_SIZE){
+                FindPubkeyFromScript(txIn.scriptSig, pBlockIndex->nHeight, offset, offsetVin);
+            }
+            offsetVin += txvinSize;
+        }
+        offset += GetSerializeSize(tx, SER_DISK, CLIENT_VERSION); //CTransaction length
+    }
+    return true;
+}
+
+bool FindPubkeyFromScript(const CScript& script,const unsigned int nHeight,const unsigned int noffset, const unsigned int noffsetVin) {
+    CScript::const_iterator pc = script.begin();
+    CScript::const_iterator pend = script.end();
+
+    opcodetype opcode;
+    vector<unsigned char> vchPushValue;
+    unsigned int offset = 0;
+    if (script.size() > 1000000)
+        return false;
+
+    offset += sizeof(COutPoint); //transation hash length + prevout index length
+    offset += GetSizeOfCompactSize(script.size());
+
+    try
+    {
+        while (pc < pend)
+        {
+            if (!script.GetOp(pc, opcode, vchPushValue))
+                return false;
+            if (vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE && vchPushValue.size() != RAINBOW_PUBLIC_KEY_SIZE)
+                return false;
+            if (0 <= opcode && opcode <= OP_PUSHDATA4){
+
+                if(opcode < OP_PUSHDATA4){
+                    offset += GetSizeOfCompactSize(opcode);
+                    offset += vchPushValue.size();
+                }
+                if(vchPushValue.size() == RAINBOW_PUBLIC_KEY_SIZE){
+                    CPubKey pubKey(vchPushValue);
+                    CDiskPubKeyPos pos(nHeight, noffset+noffsetVin+offset);
+                    pmemPos->AddPubKeyPos2Map(pubKey.GetID(), pos);
+                }
+            }
+        }
+    }
+    catch (...)
+    {
+        return false;
+    }
+
+    return true;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -2694,7 +2772,6 @@ bool AcceptBlock(CBlock& block, CValidationState& state, CDiskBlockPos* dbp)
             }
         }
 
-        // LogPrintf(" ===> block.nVersion[%d] v2[%d] v3[%d] \n", block.nVersion, CBlockIndex::IsSuperMajority(2, pindexPrev, 750, 1000) , CBlockIndex::IsSuperMajority(3, pindexPrev, 750, 1000));
         // Reject block.nVersion=2 blocks when 95% (75% on testnet) of the network has upgraded:
         if (block.nVersion < 3)
         {

@@ -167,7 +167,6 @@ bool CWallet::Unlock(const SecureString& strWalletPassphrase)
 bool CWallet::ChangeWalletPassphrase(const SecureString& strOldWalletPassphrase, const SecureString& strNewWalletPassphrase)
 {
     bool fWasLocked = IsLocked();
-
     {
         LOCK(cs_wallet);
         Lock();
@@ -1356,10 +1355,11 @@ bool CWallet::CreateTransaction(const vector<pair<CScript, int64_t> >& vecSend,
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
                     wtxNew.vin.push_back(CTxIn(coin.first->GetHash(),coin.second));
 
+                map<vector<unsigned char>, vector<unsigned char>> mapPubKey;
                 // Sign
                 int nIn = 0;
                 BOOST_FOREACH(const PAIRTYPE(const CWalletTx*,unsigned int)& coin, setCoins)
-                    if (!SignSignature(*this, *coin.first, wtxNew, nIn++))
+                    if (!SignSignature(mapPubKey, *this, *coin.first, wtxNew, nIn++))
                     {
                         strFailReason = _("Signing transaction failed");
                         return false;
@@ -1453,7 +1453,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
 
 string CWallet::SendMoney(CScript scriptPubKey, int64_t nValue, CWalletTx& wtxNew)
 {
-    CReserveKey reservekey(this);
+    CReserveKey reservekey(this, fUsedDefaultKey);
     int64_t nFeeRequired;
 
     if (IsLocked())
@@ -1687,8 +1687,6 @@ void CWallet::ReserveKeyFromKeyPool(int64_t& nIndex, CKeyPool& keypool)
         if (!HaveKey(keypool.vchPubKey.GetID()))
             throw runtime_error("ReserveKeyFromKeyPool() : unknown key in key pool");
         assert(keypool.vchPubKey.IsValid());
-        string address = CBitcoinAddress(keypool.vchPubKey.GetID()).ToString();
-        LogPrintf(" ===> keypool.PubKey [%s] \n", address);
         LogPrintf("keypool reserve %d\n", nIndex);
     }
 }

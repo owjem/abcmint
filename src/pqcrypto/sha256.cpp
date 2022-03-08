@@ -147,40 +147,40 @@ int sha256Init(Sha256 * md)
    @return PQCRYPT_OK if successful
 */
 int sha256Process(Sha256 * md, const unsigned char *in, unsigned long inlen) {
-	unsigned long  n;																		
-	int 		  err;																		
-	PQC_ARGCHK(md != NULL); 																
-	PQC_ARGCHK(in != NULL); 																
-	if (md->curlen > sizeof(md->buf)) { 							
-	   return PQCRYPT_INVALID_ARG;															  
-	}																					
-	if ((md->length + inlen) < md->length) {					   
-	  return PQCRYPT_HASH_OVERFLOW; 														  
-	}																					
-	while (inlen > 0) { 																	
-		if (md->curlen == 0 && inlen >= 64) {							
-		   if ((err = sha256Compress(md, const_cast<unsigned char *>(in))) != PQCRYPT_OK) { 			
-			  return err;																	
-		   }																				
-		   md->length	  += 64 * 8;										
-		   in			  += 64;													
-		   inlen		  -= 64;													
-		} else {																			
-		   n = MIN(inlen, (64 - md->curlen));							
-		   XMEMCPY(md->buf + md->curlen, in, (size_t)n);			 
-		   md->curlen	  += n; 													
-		   in			  += n; 															
-		   inlen		  -= n; 															
-		   if (md->curlen == 64) {										
-			  if ((err = sha256Compress(md, md->buf)) != PQCRYPT_OK) {			
-				 return err;																
-			  } 																			
-			  md->length += 8*64;										
-			  md->curlen = 0;													
-		   }																				
-	   }																					
-	}																						
-	return PQCRYPT_OK;	
+	unsigned long  n;
+	int 		  err;
+	PQC_ARGCHK(md != NULL);
+	PQC_ARGCHK(in != NULL);
+	if (md->curlen > sizeof(md->buf)) {
+	   return PQCRYPT_INVALID_ARG;
+	}
+	if ((md->length + inlen) < md->length) {
+	  return PQCRYPT_HASH_OVERFLOW;
+	}
+	while (inlen > 0) {
+		if (md->curlen == 0 && inlen >= 64) {
+		   if ((err = sha256Compress(md, const_cast<unsigned char *>(in))) != PQCRYPT_OK) {
+			  return err;
+		   }
+		   md->length	  += 64 * 8;
+		   in			  += 64;
+		   inlen		  -= 64;
+		} else {
+		   n = MIN(inlen, (64 - md->curlen));
+		   XMEMCPY(md->buf + md->curlen, in, (size_t)n);
+		   md->curlen	  += n;
+		   in			  += n;
+		   inlen		  -= n;
+		   if (md->curlen == 64) {
+			  if ((err = sha256Compress(md, md->buf)) != PQCRYPT_OK) {
+				 return err;
+			  }
+			  md->length += 8*64;
+			  md->curlen = 0;
+		   }
+	   }
+	}
+	return PQCRYPT_OK;
 
 }
 
@@ -297,4 +297,3 @@ int  sha256_test(void)
 /* $Source$ */
 /* $Revision$ */
 /* $Date$ */
-

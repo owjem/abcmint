@@ -782,6 +782,9 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet, int nThreads)
 {
     static boost::thread_group* minerThreads = NULL;
 
+    if(!fGenerate)
+        return;
+
 #ifdef USE_GPU
     int deviceCount = GetDeviceCount();
     LogPrintf("The number of devices is %d \n", deviceCount);
@@ -801,7 +804,7 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet, int nThreads)
         minerThreads = NULL;
     }
 
-    if (nThreads == 0 || !fGenerate)
+    if (nThreads == 0)
         return;
 
     minerThreads = new boost::thread_group();

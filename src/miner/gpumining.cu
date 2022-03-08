@@ -507,10 +507,31 @@ void SetDevice(int device)
 
 int GetDeviceCount()
 {
-    int deviceCount, result;
-    cudaGetDeviceCount(&deviceCount);
-    result = deviceCount;
-    return result;
+    // int deviceCount, result;
+    // cudaGetDeviceCount(&deviceCount);
+    // result = deviceCount;
+    // return result;
+    int deviceCount;
+    cudaError_t err = cudaGetDeviceCount(&deviceCount);
+    if (err == cudaSuccess)
+        return deviceCount;
+    if (err == cudaErrorInsufficientDriver)
+    {
+        int driverVersion = 0;
+        cudaDriverGetVersion(&driverVersion);
+        if (driverVersion == 0)
+            LOG(Error, "CUDA Error : No CUDA driver found");
+        else
+            LOG(Error, "CUDA Error : Insufficient CUDA driver %d ", driverVersion);
+            // std::cerr << "CUDA Error : Insufficient CUDA driver " << std::to_string(driverVersion)
+            //           << std::endl;
+    }
+    else
+    {
+        LOG(Error, "CUDA Error : %s",  cudaGetErrorString(err));
+        // std::cerr << "CUDA Error : " << cudaGetErrorString(err) << std::endl;
+    }
+    return 0;
 }
 
 uint64_t GPUSearchSolution(uint32_t* coefficients,

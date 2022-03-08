@@ -6,7 +6,7 @@
   Fortuna PRNG, Tom St Denis
 */
 
-/* 
+/*
 We deviate slightly here for reasons of simplicity [and to fit in the API].  First all "sources"
 in the AddEntropy function are fixed to 0.  Second since no reliable timer is provided
 we reseed automatically when len(pool0) >= 64 or every PQC_FORTUNA_WD calls to the read function */
@@ -411,4 +411,3 @@ int rng_make_prng(int bits, prng_state *prng, void (*callback)(void)) {
 /* $Source$ */
 /* $Revision$ */
 /* $Date$ */
-

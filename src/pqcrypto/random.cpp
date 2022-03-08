@@ -1,15 +1,15 @@
 #include "random.h"
 
 #include "pqcrypto.h"
-#include "uint256.h"
-#include "util.h"
+// #include "uint256.h"
+// #include "util.h"
 
 
 void getRandBytes(unsigned char *buf,int size) {
     int bits = 128;
 	prng_state prng;
 	if (rng_make_prng(bits, &prng, NULL) != PQCRYPT_OK) {
-        LogPrintf("rng_make_prng error \n");
+        printf("rng_make_prng error \n");
 	}
 	if (fortuna_read(buf,size,&prng) != (unsigned long)size) {
 		printf("fortuna_read error \n");
@@ -48,7 +48,7 @@ unsigned long random_uint32_t() {
 	int bits = 128,  size = 4, i = 0;
 	prng_state prng;
     if (rng_make_prng(bits, &prng, NULL) != PQCRYPT_OK) {
-        LogPrintf("rng_make_prng error \n");
+        printf("rng_make_prng error \n");
 	}
 	unsigned char *buf, mask;
 	buf  = (unsigned char *)XMALLOC(size);
@@ -73,7 +73,7 @@ unsigned long long  random_uint64_t() {
 	int bits = 128,  size = 8, i = 0;
 	prng_state prng;
     if (rng_make_prng(bits, &prng, NULL) != PQCRYPT_OK) {
-        LogPrintf("rng_make_prng error \n");
+        printf("rng_make_prng error \n");
 	}
 	unsigned char *buf, mask;
 	buf  = (unsigned char *)XMALLOC(size);

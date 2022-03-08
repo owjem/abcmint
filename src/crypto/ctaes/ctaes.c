@@ -1,5 +1,7 @@
  /*********************************************************************
  * Copyright (c) 2016 Pieter Wuille                                   *
+ * Distributed under the MIT software license, see the accompanying   *
+ * file COPYING or http://www.opensource.org/licenses/mit-license.php.*
  **********************************************************************/
 
 /* Constant time, unoptimized, concise, plain C, AES implementation
@@ -293,6 +295,7 @@ static void MixColumns(AES_state* s, int inv) {
      * In the inverse transform, we multiply by the inverse of a(x),
      * a^-1(x) = {0b}x^3 + {0d}x^2 + {09}x + {0e}. This is equal to
      * a(x) * ({04}x^2 + {05}), so we can reuse the forward transform's code
+     * (found in OpenSSL's bsaes-x86_64.pl, attributed to Jussi Kivilinna)
      *
      * In the bitsliced representation, a multiplication of every column by x
      * mod x^4 + 1 is simply a right rotation.

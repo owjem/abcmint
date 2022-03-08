@@ -140,5 +140,3 @@ int sha2_chain_byte( unsigned char * output_bytes , unsigned output_size , unsig
 	chain_status[0] = counter;
 	return 0;
 }
-
-

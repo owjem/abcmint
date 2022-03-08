@@ -25,18 +25,43 @@ endif
 BITCOIN_CONFIG_INCLUDES=-I$(builddir)/config
 BITCOIN_INCLUDES=-I$(builddir) -I$(builddir)/obj $(BOOST_CPPFLAGS) $(LEVELDB_CPPFLAGS) $(CRYPTO_CFLAGS) $(SSL_CFLAGS) $(CUDA_CFLAGS)
 
+# LIBBITCOIN_CRYPTO=libbitcoin_crypto.a
 LIBBITCOIN_SERVER=libbitcoin_server.a
-LIBBITCOIN_WALLET=libbitcoin_wallet.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
 LIBBITCOIN_CLI=libbitcoin_cli.a
+LIBBITCOIN_CRYPTO_BASE=crypto/libbitcoin_crypto_base.a
 LIBBITCOINQT=qt/libbitcoinqt.a
 LIBPQCRYPTO=pqcrypto/libpqcrypto.a
 LIBMINER=miner/libminer.a
 # LIBGPUMINING=obj/libgpumining.a
 
+if ENABLE_WALLET
+LIBBITCOIN_WALLET=libbitcoin_wallet.a
+# LIBBITCOIN_WALLET_TOOL=libbitcoin_wallet_tool.a
+endif
+
+LIBBITCOIN_CRYPTO= $(LIBBITCOIN_CRYPTO_BASE)
+if ENABLE_SSE41
+LIBBITCOIN_CRYPTO_SSE41 = crypto/libbitcoin_crypto_sse41.a
+LIBBITCOIN_CRYPTO += $(LIBBITCOIN_CRYPTO_SSE41)
+endif
+if ENABLE_AVX2
+LIBBITCOIN_CRYPTO_AVX2 = crypto/libbitcoin_crypto_avx2.a
+LIBBITCOIN_CRYPTO += $(LIBBITCOIN_CRYPTO_AVX2)
+endif
+if ENABLE_X86_SHANI
+LIBBITCOIN_CRYPTO_X86_SHANI = crypto/libbitcoin_crypto_x86_shani.a
+LIBBITCOIN_CRYPTO += $(LIBBITCOIN_CRYPTO_X86_SHANI)
+endif
+if ENABLE_ARM_SHANI
+LIBBITCOIN_CRYPTO_ARM_SHANI = crypto/libbitcoin_crypto_arm_shani.a
+LIBBITCOIN_CRYPTO += $(LIBBITCOIN_CRYPTO_ARM_SHANI)
+endif
+
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
 EXTRA_LIBRARIES = \
+  $(LIBBITCOIN_CRYPTO) \
   libbitcoin_common.a \
   libbitcoin_wallet.a \
   libbitcoin_server.a \
@@ -71,6 +96,8 @@ BITCOIN_CORE_H = \
   coincontrol.h \
   coins.h \
   compat.h \
+  compat/byteswap.h \
+  compat/endian.h \
   core.h \
   crypter.h \
   db.h \
@@ -119,12 +146,9 @@ JSON_H = \
   json/json_spirit_writer_template.h
 
 PQCRYPTO_H = \
-  pqcrypto/aes.h \
-  pqcrypto/api.h \
   pqcrypto/blas_config.h \
   pqcrypto/blas.h \
   pqcrypto/blas_u64.h \
-  pqcrypto/ctaes.h \
   pqcrypto/gf16.h \
   pqcrypto/hash_len_config.h \
   pqcrypto/hash_utils.h \
@@ -193,6 +217,58 @@ libbitcoin_wallet_a_SOURCES = \
   walletdb.cpp \
   $(BITCOIN_CORE_H)
 
+# crypto primitives library
+crypto_libbitcoin_crypto_base_a_CPPFLAGS = $(AM_CPPFLAGS)
+crypto_libbitcoin_crypto_base_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libbitcoin_crypto_base_a_SOURCES = \
+  crypto/aes.cpp \
+  crypto/aes.h \
+  crypto/common.h \
+  crypto/hkdf_sha256_32.cpp \
+  crypto/hkdf_sha256_32.h \
+  crypto/hmac_sha256.cpp \
+  crypto/hmac_sha256.h \
+  crypto/hmac_sha512.cpp \
+  crypto/hmac_sha512.h \
+  crypto/poly1305.h \
+  crypto/poly1305.cpp \
+  crypto/ripemd160.cpp \
+  crypto/ripemd160.h \
+  crypto/sha1.cpp \
+  crypto/sha1.h \
+  crypto/sha256.cpp \
+  crypto/sha256.h \
+  crypto/sha512.cpp \
+  crypto/sha512.h
+
+if USE_ASM
+crypto_libbitcoin_crypto_base_a_SOURCES += crypto/sha256_sse4.cpp
+endif
+
+crypto_libbitcoin_crypto_sse41_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libbitcoin_crypto_sse41_a_CPPFLAGS = $(AM_CPPFLAGS)
+crypto_libbitcoin_crypto_sse41_a_CXXFLAGS += $(SSE41_CXXFLAGS)
+crypto_libbitcoin_crypto_sse41_a_CPPFLAGS += -DENABLE_SSE41
+crypto_libbitcoin_crypto_sse41_a_SOURCES = crypto/sha256_sse41.cpp
+
+crypto_libbitcoin_crypto_avx2_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libbitcoin_crypto_avx2_a_CPPFLAGS = $(AM_CPPFLAGS)
+crypto_libbitcoin_crypto_avx2_a_CXXFLAGS += $(AVX2_CXXFLAGS)
+crypto_libbitcoin_crypto_avx2_a_CPPFLAGS += -DENABLE_AVX2
+crypto_libbitcoin_crypto_avx2_a_SOURCES = crypto/sha256_avx2.cpp
+
+crypto_libbitcoin_crypto_x86_shani_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libbitcoin_crypto_x86_shani_a_CPPFLAGS = $(AM_CPPFLAGS)
+crypto_libbitcoin_crypto_x86_shani_a_CXXFLAGS += $(X86_SHANI_CXXFLAGS)
+crypto_libbitcoin_crypto_x86_shani_a_CPPFLAGS += -DENABLE_X86_SHANI
+crypto_libbitcoin_crypto_x86_shani_a_SOURCES = crypto/sha256_x86_shani.cpp
+
+crypto_libbitcoin_crypto_arm_shani_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libbitcoin_crypto_arm_shani_a_CPPFLAGS = $(AM_CPPFLAGS)
+crypto_libbitcoin_crypto_arm_shani_a_CXXFLAGS += $(ARM_SHANI_CXXFLAGS)
+crypto_libbitcoin_crypto_arm_shani_a_CPPFLAGS += -DENABLE_ARM_SHANI
+crypto_libbitcoin_crypto_arm_shani_a_SOURCES = crypto/sha256_arm_shani.cpp
+
 # common: shared between bitcoind, and bitcoin-qt and non-server tools
 # libbitcoin_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 libbitcoin_common_a_CPPFLAGS = $(BITCOIN_INCLUDES)
@@ -224,8 +300,6 @@ libbitcoin_cli_a_SOURCES = \
 
 
 pqcrypto_libpqcrypto_a_SOURCES = \
-  pqcrypto/aes.cpp \
-  pqcrypto/ctaes.cpp \
   pqcrypto/fortuna.cpp \
   pqcrypto/hash_utils.cpp \
   pqcrypto/pqcrypt_argchk.cpp \
@@ -316,6 +390,7 @@ abcmintd_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBBITCOIN_SERVER) \
   $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_CRYPTO) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
   $(LIBMINER) \
@@ -339,6 +414,7 @@ endif
 abcmint_cli_LDADD = \
   $(LIBBITCOIN_CLI) \
   $(LIBBITCOIN_COMMON) \
+  $(LIBBITCOIN_CRYPTO) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
   $(LIBPQCRYPTO)
@@ -355,7 +431,11 @@ abcmintd_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 # abcmint_cli_LDFLAGS += $(CUDA_CFLAGS) $(CUDA_LDFLAGS)
 endif
 
-
+CTAES_DIST =  crypto/ctaes/bench.c
+CTAES_DIST += crypto/ctaes/ctaes.c
+CTAES_DIST += crypto/ctaes/ctaes.h
+CTAES_DIST += crypto/ctaes/README.md
+CTAES_DIST += crypto/ctaes/test.c
 
 
 
@@ -366,6 +446,7 @@ CLEANFILES = leveldb/libleveldb.a leveldb/libmemenv.a *.gcda *.gcno obj/*.o
 DISTCLEANFILES = obj/build.h
 
 EXTRA_DIST = leveldb
+EXTRA_DIST += $(CTAES_DIST)
 
 clean-local:
 	-$(MAKE) -C leveldb clean

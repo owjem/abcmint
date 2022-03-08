@@ -2550,6 +2550,8 @@ bool AddToBlockIndex(CBlock& block, CValidationState& state, const CDiskBlockPos
     } else
         CheckForkWarningConditionsOnNewFork(pindexNew);
 
+    pindexNew->AddCacheMemPos();
+
     if (!pblocktree->Flush())
         return state.Abort(_("Failed to sync block index"));
 

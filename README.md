@@ -162,4 +162,17 @@ make
 
 about QT GUI
 -------
-There is no time to work on QT GUI, so we can deal with it when necessary. Now we mainly use our spare time to merge part of the code of the new version of bitcoin into abcmint, and then add rainbow BLS signature and isolation witness.
+There is no time to work on QT GUI, so we can deal with it when necessary. Now we mainly use our spare time to merge part of the code of the new version of bitcoin into abcmint
+
+About Mining Using GPU
+-------
+-genproclimit=$GPUNUM, The parameter is the number of GPUs
+
+```
+./abcmintd -rpcuser=abcmintrpc -rpcpassword=yourpassword -gen=1 -genproclimit=$GPUNUM
+```
+or
+```
+./abcmintd -rpcuser=abcmintrpc -rpcpassword=yourpassword -daemon
+./abcmint-cli -rpcuser=abcmintrpc -rpcpassword=yourpassword setgenerate true,$GPUNUM
+```

@@ -39,5 +39,3 @@ crypto_sign_open(unsigned char *m, unsigned long long *mlen,const unsigned char 
 
 	return rainbow_verify( digest , sm + mlen[0] , pk );
 }
-
-

@@ -46,7 +46,6 @@ typedef struct _rainbow_key rainbow_key;
 /// algorithm 6
 void rainbow_genkey( uint8_t * pk , uint8_t * sk );
 
-
 #include "mpkc.h"
 
 #define rainbow_pubmap mpkc_pub_map_gf16

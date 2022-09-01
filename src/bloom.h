@@ -1,16 +1,17 @@
 // Copyright (c) 2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef ABCMINT_BLOOM_H
-#define ABCMINT_BLOOM_H
+#ifndef BITCOIN_BLOOM_H
+#define BITCOIN_BLOOM_H
+
+#include "serialize.h"
 
 #include <vector>
 
-#include "uint256.h"
-#include "serialize.h"
-
 class COutPoint;
 class CTransaction;
+class uint256;
 
 // 20,000 items with fp rate < 0.1% or 10,000 items and <0.0001%
 static const unsigned int MAX_BLOOM_FILTER_SIZE = 36000; // bytes
@@ -30,11 +31,11 @@ enum bloomflags
 /**
  * BloomFilter is a probabilistic filter which SPV clients provide
  * so that we can filter the transactions we sends them.
- *
+ * 
  * This allows for significantly more efficient transaction and block downloads.
- *
+ * 
  * Because bloom filters are probabilistic, an SPV node can increase the false-
- * positive rate, making us send them transactions which aren't actually theirs,
+ * positive rate, making us send them transactions which aren't actually theirs, 
  * allowing clients to trade more bandwidth for more privacy by obfuscating which
  * keys are owned by them.
  */
@@ -88,4 +89,4 @@ public:
     void UpdateEmptyFull();
 };
 
-#endif /* ABCMINT_BLOOM_H */
+#endif /* BITCOIN_BLOOM_H */

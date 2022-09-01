@@ -1,5 +1,5 @@
-#ifndef ABCMINT_PQCRYPT_H
-#define ABCMINT_PQCRYPT_H
+#ifndef BITCOIN_PQCRYPT_H
+#define BITCOIN_PQCRYPT_H
 
 #include <assert.h>
 #include <stdio.h>
@@ -82,7 +82,7 @@ enum {
 //#include "sha384.h"
 //#include "sha1.h"
 #include "rng.h"
-#include "aes.h"
+#include "crypto/aes.h"
 //#include "gf_256.h"
 //#include "rainbow.h"
 
@@ -105,4 +105,3 @@ enum {
 /* $Source$ */
 /* $Revision$ */
 /* $Date$ */
-

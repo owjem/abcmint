@@ -21,8 +21,8 @@ public:
 
     enum ColumnIndex {
         Label = 0,   /**< User specified label */
-        Address = 1,  /**< Abcmint address */
-        Position = 2  /**< Abcmint public key position */
+        Address = 1,  /**< Bitcoin address */
+        Position = 2  /**< Bitcoin public key position */
     };
 
     enum RoleIndex {

@@ -1,31 +1,30 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
+// Copyright (c) 2009-2013 The Bitcoin developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef ABCMINT_DB_H
-#define ABCMINT_DB_H
+#ifndef BITCOIN_DB_H
+#define BITCOIN_DB_H
 
-#include "main.h"
+#include "serialize.h"
+#include "sync.h"
+#include "version.h"
 
 #include <map>
 #include <string>
 #include <vector>
 
+#include <boost/filesystem/path.hpp>
 #include <db_cxx.h>
 
-class CAddress;
 class CAddrMan;
-class CBlockLocator;
+struct CBlockLocator;
 class CDiskBlockIndex;
-class CMasterKey;
 class COutPoint;
-class CWallet;
-class CWalletTx;
 
 extern unsigned int nWalletDBUpdated;
 
 void ThreadFlushWalletDB(const std::string& strWalletFile);
-bool BackupWallet(const CWallet& wallet, const std::string& strDest);
 
 
 class CDBEnv
@@ -114,7 +113,7 @@ protected:
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        ssKey.reserve(512*1024);
+        ssKey.reserve(256*1024);
         ssKey << key;
         Dbt datKey(&ssKey[0], ssKey.size());
 
@@ -151,13 +150,13 @@ protected:
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        ssKey.reserve(512*1024);
+        ssKey.reserve(256*1024);
         ssKey << key;
         Dbt datKey(&ssKey[0], ssKey.size());
 
         // Value
         CDataStream ssValue(SER_DISK, CLIENT_VERSION);
-        ssValue.reserve(512*1024);
+        ssValue.reserve(256*1024);
         ssValue << value;
         Dbt datValue(&ssValue[0], ssValue.size());
 
@@ -180,7 +179,7 @@ protected:
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        ssKey.reserve(512*1024);
+        ssKey.reserve(256*1024);
         ssKey << key;
         Dbt datKey(&ssKey[0], ssKey.size());
 
@@ -200,7 +199,7 @@ protected:
 
         // Key
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        ssKey.reserve(512*1024);
+        ssKey.reserve(256*1024);
         ssKey << key;
         Dbt datKey(&ssKey[0], ssKey.size());
 
@@ -244,7 +243,7 @@ protected:
         if (ret != 0)
             return ret;
         else if (datKey.get_data() == NULL || datValue.get_data() == NULL)
-            return DB_NOTFOUND;
+            return 99999;
 
         // Convert to streams
         ssKey.SetType(SER_DISK);
@@ -306,16 +305,4 @@ public:
     bool static Rewrite(const std::string& strFile, const char* pszSkip = NULL);
 };
 
-
-/** Access to the (IP) address database (peers.dat) */
-class CAddrDB
-{
-private:
-    boost::filesystem::path pathAddr;
-public:
-    CAddrDB();
-    bool Write(const CAddrMan& addr);
-    bool Read(CAddrMan& addr);
-};
-
-#endif // ABCMINT_DB_H
+#endif // BITCOIN_DB_H

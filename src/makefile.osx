@@ -1,9 +1,9 @@
 # -*- mode: Makefile; -*-
-# Copyright (c) 2011 Abcmint Developers
+# Copyright (c) 2011 Bitcoin Developers
 # Distributed under the MIT/X11 software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-# Mac OS X makefile for abcmint
+# Mac OS X makefile for bitcoin
 # Originally by Laszlo Hanyecz (solar@heliacal.net)
 
 CXX=llvm-g++
@@ -15,11 +15,11 @@ INCLUDEPATHS= \
  -I"$(CURDIR)"/obj \
  -I"$(DEPSDIR)/include" \
  -I"$(LIBDIR)/openssl/include" \
- -I"$(LIBDIR)/db/include" 
+ -I"$(LIBDIR)/db/include"
 LIBPATHS= \
  -L"$(DEPSDIR)/lib" \
  -L"$(LIBDIR)/openssl/lib" \
- -L"$(LIBDIR)/db/lib" 
+ -L"$(LIBDIR)/db/lib"
 
 
 USE_UPNP:=1
@@ -30,7 +30,7 @@ STATIC = 1
 
 TESTDEFS = -DTEST_DATA_DIR=$(abspath test/data)
 ifdef STATIC
-# Build STATIC if you are redistributing the abcmint binary
+# Build STATIC if you are redistributing the bitcoin binary
 TESTLIBS += \
  $(DEPSDIR)/lib/libboost_unit_test_framework.a
 LIBS += \
@@ -93,7 +93,7 @@ OBJS= \
     obj/diskpubkeypos.o \
     obj/net.o \
     obj/protocol.o \
-    obj/abcmintrpc.o \
+    obj/bitcoinrpc.o \
     obj/rpcdump.o \
     obj/rpcnet.o \
     obj/rpcmining.o \
@@ -110,7 +110,7 @@ OBJS= \
     obj/noui.o \
     obj/leveldb.o \
     obj/txdb.o \
-    obj/abcmint.o \
+    obj/bitcoin.o \
     obj/miner.o
 
 ifndef USE_UPNP
@@ -129,10 +129,10 @@ ifneq (${USE_IPV6}, -)
 	DEFS += -DUSE_IPV6=$(USE_IPV6)
 endif
 
-all: abcmint
+all: bitcoin
 
-test check: test_abcmint FORCE
-	./test_abcmint
+test check: test_bitcoin FORCE
+	./test_bitcoin
 
 #
 # LevelDB support
@@ -173,7 +173,7 @@ obj/%.o: %.cpp
 	      -e '/^$$/ d' -e 's/$$/ :/' < $(@:%.o=%.d) >> $(@:%.o=%.P); \
 	  rm -f $(@:%.o=%.d)
 
-abcmint: $(OBJS:obj/%=obj/%)
+bitcoin: $(OBJS:obj/%=obj/%)
 	$(CXX) $(CFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
 
 TESTOBJS := obj-test/gtest.a obj-test/gtest_main.a
@@ -215,10 +215,10 @@ obj-test/%.o: test/%.cpp
 	      -e '/^$$/ d' -e 's/$$/ :/' < $(@:%.o=%.d) >> $(@:%.o=%.P); \
 	  rm -f $(@:%.o=%.d)
 
-test_abcmint: $(TESTOBJS) $(filter-out obj/abcmint.o,$(OBJS:obj/%=obj/%))
+test_bitcoin: $(TESTOBJS) $(filter-out obj/bitcoin.o,$(OBJS:obj/%=obj/%))
 	$(CXX) $(CFLAGS) -o $@ $(LIBPATHS) $^ $(TESTLIBS) $(LIBS)
 clean:
-	-rm -f abcmint test_abcmint
+	-rm -f bitcoin test_bitcoin
 	-rm -f obj/*.o
 	-rm -f obj-test/*.o
 	-rm -f pqcrypto/*.o

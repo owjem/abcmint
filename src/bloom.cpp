@@ -1,19 +1,19 @@
 // Copyright (c) 2012 The Bitcoin developers
-// Copyright (c) 2018 The Abcmint developers
+// Distributed under the MIT/X11 software license, see the accompanying
+// file COPYING or http://www.opensource.org/licenses/mit-license.php.
+
+#include "bloom.h"
+
+#include "core.h"
+#include "script.h"
 
 #include <math.h>
 #include <stdlib.h>
-
-#include "bloom.h"
-#include "main.h"
-#include "script.h"
 
 #define LN2SQUARED 0.4804530139182014246671025263266649717305529515945455
 #define LN2 0.6931471805599453094172321214581765680755001343602552
 
 using namespace std;
-
-static const unsigned char bit_mask[8] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};
 
 CBloomFilter::CBloomFilter(unsigned int nElements, double nFPRate, unsigned int nTweakIn, unsigned char nFlagsIn) :
 // The ideal size for a bloom filter with a given number of elements and false positive rate is:
@@ -45,7 +45,7 @@ void CBloomFilter::insert(const vector<unsigned char>& vKey)
     {
         unsigned int nIndex = Hash(i, vKey);
         // Sets bit nIndex of vData
-        vData[nIndex >> 3] |= bit_mask[7 & nIndex];
+        vData[nIndex >> 3] |= (1 << (7 & nIndex));
     }
     isEmpty = false;
 }
@@ -74,7 +74,7 @@ bool CBloomFilter::contains(const vector<unsigned char>& vKey) const
     {
         unsigned int nIndex = Hash(i, vKey);
         // Checks bit nIndex of vData
-        if (!(vData[nIndex >> 3] & bit_mask[7 & nIndex]))
+        if (!(vData[nIndex >> 3] & (1 << (7 & nIndex))))
             return false;
     }
     return true;
@@ -116,7 +116,7 @@ bool CBloomFilter::IsRelevantAndUpdate(const CTransaction& tx, const uint256& ha
         const CTxOut& txout = tx.vout[i];
         // Match if the filter contains any arbitrary script data element in any scriptPubKey in tx
         // If this matches, also add the specific output that was matched.
-        // This means clients don't have to update the filter themselves when a new relevant tx
+        // This means clients don't have to update the filter themselves when a new relevant tx 
         // is discovered in order to find spending transactions, which avoids round-tripping and race conditions.
         CScript::const_iterator pc = txout.scriptPubKey.begin();
         vector<unsigned char> data;

@@ -72,6 +72,8 @@ Threads
 - ThreadMessageHandler : Higher-level message handling (sending and receiving).
  
 - ThreadOpenConnections : Initiates new connections to peers.
+
+- ThreadTopUpKeyPool : replenishes the keystore's keypool.
  
 - ThreadCleanWalletPassphrase : re-locks an encrypted wallet after user has unlocked it for a period of time. 
  
@@ -83,7 +85,7 @@ Threads
  
 - ThreadRPCServer : Remote procedure call handler, listens on port 8332 for connections and services them.
  
-- ThreadAbcmintMiner : Generates abcmints
+- ThreadBitcoinMiner : Generates bitcoins
   
 - ThreadMapPort : Universal plug-and-play startup/shutdown
  

@@ -1,9 +1,5 @@
-Building Abcmint
+Building Bitcoin
 
-See doc/readme-qt.rst for instructions on building Abcmint-Qt,
-the intended-for-end-users, nice-graphical-interface, reference
-implementation of Abcmint.
-
-See doc/build-*.txt for instructions on building abcmint,
+See doc/build-*.md for instructions on building bitcoind,
 the intended-for-services, no-graphical-interface, reference
-implementation of Abcmint.
+implementation of Bitcoin.

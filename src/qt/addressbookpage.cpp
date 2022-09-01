@@ -3,7 +3,7 @@
 
 #include "addresstablemodel.h"
 #include "optionsmodel.h"
-#include "abcmintgui.h"
+#include "bitcoingui.h"
 #include "editaddressdialog.h"
 #include "csvmodelwriter.h"
 #include "guiutil.h"
@@ -55,12 +55,12 @@ AddressBookPage::AddressBookPage(Mode mode, Tabs tab, QWidget *parent) :
     switch(tab)
     {
     case SendingTab:
-        ui->labelExplanation->setText(tr("These are your  Abcmint addresses for sending payments. Always check the amount and the receiving address before sending coins."));
+        ui->labelExplanation->setText(tr("These are your Bitcoin addresses for sending payments. Always check the amount and the receiving address before sending coins."));
         ui->deleteAddress->setVisible(true);
         ui->signMessage->setVisible(false);
         break;
     case ReceivingTab:
-        ui->labelExplanation->setText(tr("These are your  Abcmint addresses for receiving payments. You may want to give a different one to each sender so you can keep track of who is paying you."));
+        ui->labelExplanation->setText(tr("These are your Bitcoin addresses for receiving payments. You may want to give a different one to each sender so you can keep track of who is paying you."));
         ui->deleteAddress->setVisible(false);
         ui->signMessage->setVisible(true);
         break;
@@ -69,7 +69,6 @@ AddressBookPage::AddressBookPage(Mode mode, Tabs tab, QWidget *parent) :
     // Context menu actions
     QAction *copyAddressAction = new QAction(ui->copyAddress->text(), this);
     QAction *copyLabelAction = new QAction(tr("Copy &Label"), this);
-    QAction *copyPositionAction = new QAction(tr("Copy &Position"), this);
     QAction *editAction = new QAction(tr("&Edit"), this);
     QAction *sendCoinsAction = new QAction(tr("Send &Coins"), this);
     QAction *showQRCodeAction = new QAction(ui->showQRCode->text(), this);
@@ -81,8 +80,6 @@ AddressBookPage::AddressBookPage(Mode mode, Tabs tab, QWidget *parent) :
     contextMenu = new QMenu();
     contextMenu->addAction(copyAddressAction);
     contextMenu->addAction(copyLabelAction);
-    /*if(tab == ReceivingTab)
-        contextMenu->addAction(copyPositionAction);*/
     contextMenu->addAction(editAction);
     if(tab == SendingTab)
         contextMenu->addAction(deleteAction);
@@ -100,7 +97,6 @@ AddressBookPage::AddressBookPage(Mode mode, Tabs tab, QWidget *parent) :
     // Connect signals for context menu actions
     connect(copyAddressAction, SIGNAL(triggered()), this, SLOT(on_copyAddress_clicked()));
     connect(copyLabelAction, SIGNAL(triggered()), this, SLOT(onCopyLabelAction()));
-    connect(copyPositionAction, SIGNAL(triggered()), this, SLOT(onCopyPositionAction()));
     connect(editAction, SIGNAL(triggered()), this, SLOT(onEditAction()));
     connect(deleteAction, SIGNAL(triggered()), this, SLOT(on_deleteAddress_clicked()));
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(onSendCoinsAction()));
@@ -146,25 +142,10 @@ void AddressBookPage::setModel(AddressTableModel *model)
     ui->tableView->setModel(proxyModel);
     ui->tableView->sortByColumn(0, Qt::AscendingOrder);
 
-            // Set column widths
-#if QT_VERSION < 0x050000
-            ui->tableView->horizontalHeader()->setResizeMode(AddressTableModel::Label, QHeaderView::Stretch);
-            ui->tableView->horizontalHeader()->setResizeMode(AddressTableModel::Address, QHeaderView::ResizeToContents);
-#else
-            ui->tableView->horizontalHeader()->setSectionResizeMode(AddressTableModel::Label, QHeaderView::Stretch);
-            ui->tableView->horizontalHeader()->setSectionResizeMode(AddressTableModel::Address, QHeaderView::ResizeToContents);
-#endif
-#if 0
-    if (tab == ReceivingTab) {
-            // Set column widths
-#if QT_VERSION < 0x050000
-            ui->tableView->horizontalHeader()->setResizeMode(AddressTableModel::Position, QHeaderView::ResizeToContents);
-#else
-            ui->tableView->horizontalHeader()->setSectionResizeMode(AddressTableModel::Position, QHeaderView::ResizeToContents);
-#endif
-    } else
-        ui->tableView->horizontalHeader()->setSectionHidden(AddressTableModel::Position, true);
-#endif
+    // Set column widths
+    ui->tableView->horizontalHeader()->setResizeMode(AddressTableModel::Label, QHeaderView::Stretch);
+    ui->tableView->horizontalHeader()->setResizeMode(AddressTableModel::Address, QHeaderView::ResizeToContents);
+
     connect(ui->tableView->selectionModel(), SIGNAL(selectionChanged(QItemSelection,QItemSelection)),
             this, SLOT(selectionChanged()));
 
@@ -187,11 +168,6 @@ void AddressBookPage::on_copyAddress_clicked()
 void AddressBookPage::onCopyLabelAction()
 {
     GUIUtil::copyEntryData(ui->tableView, AddressTableModel::Label);
-}
-
-void AddressBookPage::onCopyPositionAction()
-{
-    GUIUtil::copyEntryData(ui->tableView, AddressTableModel::Position);
 }
 
 void AddressBookPage::onEditAction()

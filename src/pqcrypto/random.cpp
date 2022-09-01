@@ -1,6 +1,8 @@
 #include "random.h"
 
 #include "pqcrypto.h"
+// #include "uint256.h"
+// #include "util.h"
 
 
 void getRandBytes(unsigned char *buf,int size) {
@@ -29,7 +31,7 @@ int getRandInt() {
 	for (i = 0; i < size; i++) {
         res |= (((int)buf[i])<<(i*8));
 	}
-	XFREE(buf);	
+	XFREE(buf);
     return res ;
 }
 
@@ -62,7 +64,7 @@ unsigned long random_uint32_t() {
 	for (i = 0; i < size; i++) {
         res |= (((unsigned long)buf[i])<<(i*8));
 	}
-	XFREE(buf);	
+	XFREE(buf);
     return res;
 }
 
@@ -87,7 +89,6 @@ unsigned long long  random_uint64_t() {
 	for (i = 0; i < size; i++) {
         res |= (((unsigned long long )buf[i])<<(i*8));
 	}
-	XFREE(buf);	
+	XFREE(buf);
     return res;
 }
-

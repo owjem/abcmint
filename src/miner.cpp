@@ -607,7 +607,7 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey)
 
     CScript scriptPubKey = CScript() << OP_DUP << OP_HASH256 << pubkey.GetID() << OP_EQUALVERIFY << OP_CHECKSIG;
 
-    LogPrintf(" ===> [%s] So[%s] \n", __func__, scriptPubKey.ToString().c_str());
+    LogPrint("miner", "[MINER] [%s] So[%s] \n", __func__, scriptPubKey.ToString().c_str());
 
     return CreateNewBlock(scriptPubKey);
 }
@@ -686,7 +686,7 @@ void static BitcoinMiner(CWallet* pwallet, int threadNum, int deviceID, int devi
         CBlock *pblock = &pblocktemplate->block;
 
         pblock->print();
-        LogPrintf(" ===> [%s]miner new jop start ===========================================\n", __func__);
+        LogPrint("miner", "[MINER] [%s] new jop start ===========================================\n", __func__);
 
         IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
 

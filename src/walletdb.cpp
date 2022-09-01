@@ -457,7 +457,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 fSkipCheck = true;
             }
 
-            LogPrintf(" ===> PubKey [%s]\n",
+            LogPrint("pk", "[PK] PubKey [%s]\n",
                CBitcoinAddress(vchPubKey.GetID()).ToString());
 
             if (!key.Load(pkey, vchPubKey, fSkipCheck))
@@ -483,10 +483,10 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
 
-            LogPrintf(" ===> MasterKey[%ld] kMasterKey.vchSalt[%s] \n", nID, HexStr(kMasterKey.vchSalt).c_str());
-            LogPrintf(" ===> vchCryptedKey.size[%ld] [%s] \n", kMasterKey.vchCryptedKey.size(),  HexStr(kMasterKey.vchCryptedKey.begin(), kMasterKey.vchCryptedKey.begin()+20).c_str());
+            LogPrint("pk", "[PK] MasterKey[%ld] kMasterKey.vchSalt[%s] \n", nID, HexStr(kMasterKey.vchSalt).c_str());
+            LogPrint("pk", "[PK] vchCryptedKey.size[%ld] [%s] \n", kMasterKey.vchCryptedKey.size(),  HexStr(kMasterKey.vchCryptedKey.begin(), kMasterKey.vchCryptedKey.begin()+20).c_str());
 
-            LogPrintf(" ===> kMasterKey.nDeriveIterations[%i] \n", kMasterKey.nDeriveIterations );
+            LogPrint("pk", "[PK] kMasterKey.nDeriveIterations[%i] \n", kMasterKey.nDeriveIterations );
 
             pwallet->mapMasterKeys[nID] = kMasterKey;
             if (pwallet->nMasterKeyMaxID < nID)
@@ -506,7 +506,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
             CPubKey pubkey(vchPubKey);
-            LogPrintf(" ===> CryptedSecret[%s] size[%ld][%s] \n", CBitcoinAddress(pubkey.GetID()).ToString(), vchPrivKey.size(), HexStr(vchPrivKey.begin(), vchPrivKey.begin()+20).c_str());
+            LogPrint("pk", "[PK] CryptedSecret[%s] size[%ld][%s] \n", CBitcoinAddress(pubkey.GetID()).ToString(), vchPrivKey.size(), HexStr(vchPrivKey.begin(), vchPrivKey.begin()+20).c_str());
 
             wss.fIsEncrypted = true;
         }
@@ -529,7 +529,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         {
             ssValue >> pwallet->vchDefaultKey;
 
-            LogPrintf(" ===> DefaultKey [%s]\n",
+            LogPrint("pk", "[PK] DefaultKey [%s]\n",
                CBitcoinAddress(pwallet->vchDefaultKey.GetID()).ToString());
         }
         else if (strType == "pool")
@@ -547,7 +547,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             if (pwallet->mapKeyMetadata.count(keyid) == 0)
                 pwallet->mapKeyMetadata[keyid] = CKeyMetadata(keypool.nTime);
 
-            LogPrintf(" ===> Pool[%ld][%s]\n", nIndex,
+            LogPrint("pk", "[PK] Pool[%ld][%s]\n", nIndex,
                CBitcoinAddress(keyid).ToString());
         }
         else if (strType == "version")
@@ -823,7 +823,7 @@ void ThreadFlushWalletDB(const string& strFile)
                     map<string, int>::iterator mi = bitdb.mapFileUseCount.find(strFile);
                     if (mi != bitdb.mapFileUseCount.end())
                     {
-                        LogPrint("db", "Flushing wallet.dat\n");
+                        LogPrint("db", "[DB] Flushing wallet.dat\n");
                         nLastFlushed = nWalletDBUpdated;
                         int64_t nStart = GetTimeMillis();
 
@@ -832,7 +832,7 @@ void ThreadFlushWalletDB(const string& strFile)
                         bitdb.CheckpointLSN(strFile);
 
                         bitdb.mapFileUseCount.erase(mi++);
-                        LogPrint("db", "Flushed wallet.dat %dms\n", GetTimeMillis() - nStart);
+                        LogPrint("db", "[DB] Flushed wallet.dat %dms\n", GetTimeMillis() - nStart);
                     }
                 }
             }

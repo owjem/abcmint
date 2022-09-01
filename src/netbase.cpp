@@ -357,7 +357,7 @@ bool static ConnectSocketDirectly(const CService &addrConnect, SOCKET& hSocketRe
             int nRet = select(hSocket + 1, NULL, &fdset, NULL, &timeout);
             if (nRet == 0)
             {
-                LogPrint("net", "connection to %s timeout\n", addrConnect.ToString());
+                LogPrint("net", "[NET] connection to %s timeout\n", addrConnect.ToString());
                 closesocket(hSocket);
                 return false;
             }
@@ -1155,4 +1155,3 @@ std::string NetworkErrorString(int err)
     return strprintf("%s (%d)", s, err);
 }
 #endif
-

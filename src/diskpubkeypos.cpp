@@ -29,13 +29,13 @@ bool CMemPos::GetPubKeyPos(const CKeyID& keyID, CDiskPubKeyPos& posOut) const
         if(!mapPubKeyPos.empty()){
             PubKeyPosMap::const_iterator mi = mapPubKeyPos.find(keyID);
             if (mi != mapPubKeyPos.end()) {
-                LogPrintf(" ===> GetPubKeyPos 1  ");
+                LogPrint("pk", "[PK] GetPubKeyPos 1  ");
                 const CDiskPubKeyPos* pos = &(mi->second);
                 posOut.SetHeight(pos->GetHeight());
                 posOut.SetPubKeyOffset(pos->GetPubKeyOffset());
                 return true;
             }
-                LogPrintf(" ===> GetPubKeyPos 2 ");
+                LogPrint("pk", "[PK] GetPubKeyPos 2 ");
         }
     }
     return false;
@@ -161,7 +161,7 @@ unsigned int CMemPos::GetPosCount() const
 //                 CDiskPubKeyPos pos(nHeight, 0);
 //                 vch = pos.Raw();
 
-//                 // LogPrintf(" ===> [%s][%d] [%s] \n", __func__, i, HexStr(vch));
+//                 // LogPrint("pk", "[PK] [%s][%d] [%s] \n", __func__, i, HexStr(vch));
 //                 // stack.insert(make_pair(vch, vchPushValue));
 
 

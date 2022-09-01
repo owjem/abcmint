@@ -778,7 +778,7 @@ Value sendfrom(const Array& params, bool fHelp)
     // Check funds
     int64_t nBalance = GetAccountBalance(strAccount, nMinDepth);
 
-    LogPrintf(" ===> nBalance[%ld][%ld] \n", nAmount, nBalance);
+    LogPrint("pk", "[PK] nBalance[%ld][%ld] \n", nAmount, nBalance);
     if (nAmount > nBalance)
         throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Account has insufficient funds");
 

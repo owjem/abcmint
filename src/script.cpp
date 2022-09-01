@@ -286,7 +286,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, co
     vector<bool> vfExec;
     vector<valtype> altstack;
 
-    // LogPrintf(" ===> [%s][%d] Op[%s]  size [%ld] \n", __func__, nIn, GetOpName(opcode), script.size());
+    // LogPrint("pk", "[PK] [%s][%d] Op[%s]  size [%ld] \n", __func__, nIn, GetOpName(opcode), script.size());
     if (script.size() > 1000000)
         return false;
     int nOpCount = 0;
@@ -305,7 +305,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, co
             if (vchPushValue.size() != RAINBOW_PUBLIC_KEY_SIZE && vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE)
                 return false;
 
-            // LogPrintf(" ===> [%s][%d] Op[%s]  size [%ld] Size limits[%ld] \n", __func__, nIn, GetOpName(opcode), vchPushValue.size(), stack.size() + altstack.size());
+            // LogPrint("pk", "[PK] [%s][%d] Op[%s]  size [%ld] Size limits[%ld] \n", __func__, nIn, GetOpName(opcode), vchPushValue.size(), stack.size() + altstack.size());
             // Note how OP_RESERVED does not count towards the opcode limit.
             if (opcode > OP_16 && ++nOpCount > 201)
                 return false;
@@ -861,7 +861,7 @@ bool EvalScript(vector<vector<unsigned char> >& stack, const CScript& script, co
                 case OP_CHECKMULTISIGVERIFY:
                 {
                     // ([sig ...] num_of_signatures [pubkey ...] num_of_pubkeys -- bool)
-                    LogPrintf(" ===> [%s][%d] Op[%d][%s] \n", __func__, nIn, opcode, GetOpName(opcode));
+                    LogPrint("pk", "[PK] [%s][%d] Op[%d][%s] \n", __func__, nIn, opcode, GetOpName(opcode));
 
                     int i = 1;
                     if ((int)stack.size() < i)
@@ -979,7 +979,7 @@ bool SplitScript(map<vector<unsigned char>, vector<unsigned char> >& stack, cons
                 return false;
             if (vchPushValue.size() != RAINBOW_PUBLIC_KEY_SIZE && vchPushValue.size() > MAX_SCRIPT_ELEMENT_SIZE)
                 return false;
-            // LogPrintf(" ===> [%s][%d] Op[%d][%s]  size [%ld] \n", __func__, nIn, opcode, GetOpName(opcode), vchPushValue.size());
+            // LogPrint("pk", "[PK] [%s][%d] Op[%d][%s]  size [%ld] \n", __func__, nIn, opcode, GetOpName(opcode), vchPushValue.size());
             if (0 <= opcode && opcode <= OP_PUSHDATA4){
                     unsigned int vchsize = vchPushValue.size();
                     switch(vchsize){
@@ -1001,7 +1001,7 @@ bool SplitScript(map<vector<unsigned char>, vector<unsigned char> >& stack, cons
                             CDiskPubKeyPos pos(0xffffffff, i);
                             vch = pos.Raw();
 
-                            // LogPrintf(" ===> [%s][%d] [%s][%ld][%ld] \n", __func__, i, HexStr(vch), pos.GetHeight(), pos.GetPubKeyOffset());
+                            // LogPrint("pk", "[PK] [%s][%d] [%s][%ld][%ld] \n", __func__, i, HexStr(vch), pos.GetHeight(), pos.GetPubKeyOffset());
                             stack.insert(make_pair(vch, vchPushValue));
                         }
                         break;
@@ -1480,7 +1480,7 @@ bool Solver( map<vector<unsigned char>, vector<unsigned char>>& mapPubKey, const
                         }
                         index++;
                     }
-                    // LogPrintf(" ===> mapPubKey  [%s] [%s] size(%ld) \n", HexStr(iter->first.begin(), iter->first.end()), CBitcoinAddress(pubkey.GetID()).ToString(), iter->second.size());
+                    // LogPrint("pk", "[PK] mapPubKey  [%s] [%s] size(%ld) \n", HexStr(iter->first.begin(), iter->first.end()), CBitcoinAddress(pubkey.GetID()).ToString(), iter->second.size());
                 }
                 if (reused) {
                     scriptSigRet << pos.PubKeyOffsetRaw();
@@ -1488,11 +1488,11 @@ bool Solver( map<vector<unsigned char>, vector<unsigned char>>& mapPubKey, const
                     scriptSigRet << vch.Raw();
                 }
             }
-            // LogPrintf(" ===> mapPubKey [%s] \n", HexStr(pos.Raw()));
+            // LogPrint("pk", "[PK] mapPubKey [%s] \n", HexStr(pos.Raw()));
             std::map<std::vector<unsigned char>, vector<unsigned char>>::const_iterator mi = mapPubKey.find(pos.Raw());
             if (mi == mapPubKey.end())
             {
-                // LogPrintf(" ===> mapPubKey add [%s] [%s] size(%ld) \n", HexStr(pos.Raw()), CBitcoinAddress(keyID).ToString(), vch.size());
+                // LogPrint("pk", "[PK] mapPubKey add [%s] [%s] size(%ld) \n", HexStr(pos.Raw()), CBitcoinAddress(keyID).ToString(), vch.size());
                 mapPubKey.insert(make_pair(pos.Raw(), vch.Raw()));
             }
         }
@@ -1717,19 +1717,19 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
                   unsigned int flags, int nHashType, const map<vector<unsigned char>, vector<unsigned char>>& mapPubKey)
 {
 
-    // LogPrintf(" ===> [%s][%d] ===========================================================\n", __func__, nIn );
+    // LogPrint("pk", "[PK] [%s][%d] ===========================================================\n", __func__, nIn );
     // scriptSig.print();
 
-    // LogPrintf(" ===> [%s][%d] ===========================================================\n", __func__, nIn );
+    // LogPrint("pk", "[PK] [%s][%d] ===========================================================\n", __func__, nIn );
     // scriptPubKey.print();
 
-    // LogPrintf(" ===> [%s][%d] flags[%d] nHashType[%d] scriptSig.size[%ld] scriptPubKey.size[%ld]\n", __func__, nIn, flags, nHashType, scriptSig.size(), scriptPubKey.size() );
+    // LogPrint("pk", "[PK] [%s][%d] flags[%d] nHashType[%d] scriptSig.size[%ld] scriptPubKey.size[%ld]\n", __func__, nIn, flags, nHashType, scriptSig.size(), scriptPubKey.size() );
 
     vector<vector<unsigned char> > stack, stackCopy;
     if (!EvalScript(stack, scriptSig, txTo, nIn, flags, nHashType, mapPubKey))
         return false;
 
-    // LogPrintf(" ===> [%s][%d] ===========================================================\n", __func__, nIn );
+    // LogPrint("pk", "[PK] [%s][%d] ===========================================================\n", __func__, nIn );
     if (flags & SCRIPT_VERIFY_P2SH)
         stackCopy = stack;
     if (!EvalScript(stack, scriptPubKey, txTo, nIn, flags, nHashType, mapPubKey))
@@ -1769,7 +1769,7 @@ bool VerifyScript(const CScript& scriptSig, const CScript& scriptPubKey, const C
 
 bool SignSignature(map<vector<unsigned char>, vector<unsigned char>>& mapPubKey, const CKeyStore &keystore, const CScript& fromPubKey, CTransaction& txTo, unsigned int nIn, int nHashType)
 {
-    // LogPrintf(" ===> [%s]1 nIn[%d] txTo.vin.size(%ld) \n", __func__, nIn, txTo.vin.size() );
+    // LogPrint("pk", "[PK] [%s]1 nIn[%d] txTo.vin.size(%ld) \n", __func__, nIn, txTo.vin.size() );
 
     assert(nIn < txTo.vin.size());
     CTxIn& txin = txTo.vin[nIn];

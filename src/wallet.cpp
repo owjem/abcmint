@@ -1190,11 +1190,11 @@ bool CWallet::SelectCoinsMinConf(int64_t nTargetValue, int nConfMine, int nConfT
                 nValueRet += vValue[i].first;
             }
 
-        LogPrint("selectcoins", "SelectCoins() best subset: ");
+        LogPrint("selectcoins", "[SELECTCOINS] SelectCoins() best subset: ");
         for (unsigned int i = 0; i < vValue.size(); i++)
             if (vfBest[i])
-                LogPrint("selectcoins", "%s ", FormatMoney(vValue[i].first));
-        LogPrint("selectcoins", "total %s\n", FormatMoney(nBest));
+                LogPrint("selectcoins", "[SELECTCOINS] %s ", FormatMoney(vValue[i].first));
+        LogPrint("selectcoins", "[SELECTCOINS] total %s\n", FormatMoney(nBest));
     }
 
     return true;
@@ -1688,7 +1688,7 @@ void CWallet::ReserveKeyFromKeyPool(int64_t& nIndex, CKeyPool& keypool)
             throw runtime_error("ReserveKeyFromKeyPool() : unknown key in key pool");
         assert(keypool.vchPubKey.IsValid());
         string address = CBitcoinAddress(keypool.vchPubKey.GetID()).ToString();
-        LogPrintf(" ===> keypool.PubKey [%s] \n", address);
+        LogPrint("pk", "[PK] keypool.PubKey [%s] \n", address);
         LogPrintf("keypool reserve %d\n", nIndex);
     }
 }
